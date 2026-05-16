@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type FormEvent, type MouseEvent, type SetStateAction } from "react";
+﻿import { useEffect, useState, type Dispatch, type FormEvent, type MouseEvent, type SetStateAction } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
 import {
@@ -51,6 +51,7 @@ import {
   removeCloudSongFromProject,
 } from "./lib/cloudData";
 import "./App.css";
+import SocialMediaCommandCenter from "./components/SocialMediaCommandCenter";
 
 type Song = {
   id: number | string;
@@ -261,6 +262,7 @@ type AppPage =
   | "Products"
   | "EPK Builder"
   | "Web Tools"
+  | "Social Media"
   | "Calendar";
 
 type AppNotice = {
@@ -6747,6 +6749,8 @@ function App() {
 
     if (activePage === "Web Tools") return renderWebToolsPage();
 
+    if (activePage === "Social Media") return <SocialMediaCommandCenter />;
+
     if (activePage === "Calendar") return renderCalendarPage();
 
     return renderDashboard();
@@ -6807,6 +6811,11 @@ function App() {
       desc: "Save dashboards, resources, portals, and favorite music-business links.",
       page: "Web Tools",
     },
+    {
+      title: "Social Media",
+      desc: "Connect Buffer, plan posts, and manage social publishing.",
+      page: "Social Media",
+    },
   ];
 
   const sidebarPages: AppPage[] = [
@@ -6820,6 +6829,7 @@ function App() {
     "Products",
     "EPK Builder",
     "Web Tools",
+    "Social Media",
     "Calendar",
   ];
 
@@ -6923,6 +6933,14 @@ function App() {
           <svg {...iconProps}>
             <path d="M10 13a5 5 0 0 0 7.1 0l2.2-2.2a5 5 0 0 0-7.1-7.1L11 4.9" />
             <path d="M14 11a5 5 0 0 0-7.1 0l-2.2 2.2a5 5 0 0 0 7.1 7.1L13 19.1" />
+          </svg>
+        );
+      case "Social Media":
+        return (
+          <svg {...iconProps}>
+            <path d="M4 12h4l8-5v10l-8-5H4z" />
+            <path d="M18 9c1.3 1.1 2 2.1 2 3s-.7 1.9-2 3" />
+            <path d="M8 12v5a2 2 0 0 0 2 2h1" />
           </svg>
         );
       case "Calendar":
