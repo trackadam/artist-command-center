@@ -1285,6 +1285,156 @@ export async function deleteCloudSong(songId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+
+export type SongFileFormForCloud = {
+  song_id: string;
+  file_type: string;
+  file_label: string;
+  file_name: string;
+  file_size: string;
+  mime_type: string;
+  storage_path: string;
+  public_url: string;
+  external_url: string;
+  notes: string;
+};
+
+export type SongFileForApp = SongFileFormForCloud & {
+  id: string;
+  created_at?: string;
+};
+
+type SongFileRow = {
+  id: string;
+  song_id: string;
+  file_type: string | null;
+  file_label: string | null;
+  file_name: string | null;
+  file_size: string | null;
+  mime_type: string | null;
+  storage_path: string | null;
+  public_url: string | null;
+  external_url: string | null;
+  notes: string | null;
+  created_at: string | null;
+};
+
+function rowToSongFile(row: SongFileRow): SongFileForApp {
+  return {
+    id: row.id,
+    song_id: row.song_id,
+    file_type: row.file_type || "",
+    file_label: row.file_label || "",
+    file_name: row.file_name || "",
+    file_size: row.file_size || "",
+    mime_type: row.mime_type || "",
+    storage_path: row.storage_path || "",
+    public_url: row.public_url || "",
+    external_url: row.external_url || "",
+    notes: row.notes || "",
+    created_at: row.created_at || "",
+  };
+}
+
+function songFileFormToPayload(form: SongFileFormForCloud, userId: string) {
+  return {
+    user_id: userId,
+    song_id: form.song_id,
+    file_type: form.file_type || null,
+    file_label: form.file_label || null,
+    file_name: form.file_name || null,
+    file_size: form.file_size || null,
+    mime_type: form.mime_type || null,
+    storage_path: form.storage_path || null,
+    public_url: form.public_url || null,
+    external_url: form.external_url || null,
+    notes: form.notes || null,
+  };
+}
+
+export async function listCloudSongFiles(songId: string): Promise<SongFileForApp[]> {
+  await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("song_files")
+    .select("*")
+    .eq("song_id", songId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  return ((data || []) as SongFileRow[]).map(rowToSongFile);
+}
+
+export async function createCloudSongFile(
+  form: SongFileFormForCloud,
+): Promise<SongFileForApp> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("song_files")
+    .insert(songFileFormToPayload(form, userId))
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  return rowToSongFile(data as SongFileRow);
+}
+
+export async function deleteCloudSongFile(fileId: string): Promise<void> {
+  await getCurrentUserId();
+
+  const { error } = await supabase.from("song_files").delete().eq("id", fileId);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function uploadCloudSongFile(
+  file: File,
+  songId: string,
+  fileType: string,
+): Promise<{
+  file_name: string;
+  file_size: string;
+  mime_type: string;
+  storage_path: string;
+  public_url: string;
+}> {
+  await getCurrentUserId();
+
+  const safeFileName = file.name
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .toLowerCase();
+
+  const safeFileType = fileType
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .toLowerCase();
+
+  const storagePath = `${songId}/${safeFileType}/${Date.now()}-${safeFileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("song-assets")
+    .upload(storagePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type || "application/octet-stream",
+    });
+
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data } = supabase.storage.from("song-assets").getPublicUrl(storagePath);
+
+  return {
+    file_name: file.name,
+    file_size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+    mime_type: file.type || "",
+    storage_path: storagePath,
+    public_url: data.publicUrl || "",
+  };
+}
+
+
 export type ProjectFormForCloud = {
   title: string;
   project_type: string;

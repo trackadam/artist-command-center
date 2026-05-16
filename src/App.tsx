@@ -32,6 +32,7 @@ import {
   listCloudProjects,
   listCloudReleaseRoadmaps,
   listCloudSongs,
+  listCloudSongFiles,
   listCloudVisualAssets,
   listCloudWebTools,
   updateCloudCalendarTask,
@@ -46,6 +47,9 @@ import {
   updateCloudReleaseRoadmapRolloutPlan,
   updateCloudSong,
   updateCloudSongLyricIdea,
+  createCloudSongFile,
+  deleteCloudSongFile,
+  uploadCloudSongFile,
   updateCloudVisualAsset,
   updateCloudWebTool,
   removeCloudSongFromProject,
@@ -82,6 +86,36 @@ type Song = {
   sample_clearance?: string;
   cover_art_data?: string;
   lyric_idea_id?: number | string;
+};
+
+
+type SongFile = {
+  id: number | string;
+  song_id: number | string;
+  file_type?: string;
+  file_label?: string;
+  file_name?: string;
+  file_size?: string;
+  mime_type?: string;
+  storage_path?: string;
+  public_url?: string;
+  external_url?: string;
+  notes?: string;
+  created_at?: string;
+};
+
+type SongFileForm = {
+  file_type: string;
+  file_label: string;
+  external_url: string;
+  notes: string;
+};
+
+const emptySongFileForm: SongFileForm = {
+  file_type: "Master",
+  file_label: "",
+  external_url: "",
+  notes: "",
 };
 
 type LyricIdea = {
@@ -706,6 +740,11 @@ function App() {
   }
 
   const [songs, setSongs] = useState<Song[]>([]);
+  const [songFiles, setSongFiles] = useState<SongFile[]>([]);
+  const [songFileForm, setSongFileForm] = useState<SongFileForm>(emptySongFileForm);
+  const [songFileUpload, setSongFileUpload] = useState<File | null>(null);
+  const [songFilesLoading, setSongFilesLoading] = useState(false);
+  const [songFileSaving, setSongFileSaving] = useState(false);
   const [lyricIdeas, setLyricIdeas] = useState<LyricIdea[]>([]);
   const [marketingAssets, setMarketingAssets] = useState<MarketingAsset[]>([]);
   const [visualAssets, setVisualAssets] = useState<VisualAsset[]>([]);
@@ -1028,6 +1067,7 @@ function App() {
         setCloudDataLoaded(false);
         setSongs([]);
         setSelectedSong(null);
+        setSongFiles([]);
         setProjects([]);
         setSelectedProject(null);
         setProjectSongLinks([]);
@@ -1476,6 +1516,104 @@ function App() {
       console.error("Cloud songs load error:", error);
       alert(error instanceof Error ? error.message : String(error));
     }
+  }
+
+
+  async function refreshSongFiles(songId?: number | string) {
+    const targetSongId = songId || selectedSong?.id;
+
+    if (!session || !targetSongId) {
+      setSongFiles([]);
+      return;
+    }
+
+    try {
+      setSongFilesLoading(true);
+      const updatedFiles = await listCloudSongFiles(String(targetSongId));
+      setSongFiles(updatedFiles as SongFile[]);
+    } catch (error) {
+      console.error("Cloud song files load error:", error);
+      alert(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSongFilesLoading(false);
+    }
+  }
+
+  async function saveSongFile() {
+    if (!session) {
+      alert("Sign in before saving song files.");
+      return;
+    }
+
+    if (!selectedSong?.id) {
+      alert("Open a song before adding files.");
+      return;
+    }
+
+    if (!songFileUpload && !songFileForm.external_url.trim()) {
+      alert("Upload a file or paste a cloud link first.");
+      return;
+    }
+
+    try {
+      setSongFileSaving(true);
+
+      const uploadedFile = songFileUpload
+        ? await uploadCloudSongFile(songFileUpload, String(selectedSong.id), songFileForm.file_type)
+        : null;
+
+      await createCloudSongFile({
+        song_id: String(selectedSong.id),
+        file_type: songFileForm.file_type,
+        file_label: songFileForm.file_label || uploadedFile?.file_name || "Song file",
+        file_name: uploadedFile?.file_name || "",
+        file_size: uploadedFile?.file_size || "",
+        mime_type: uploadedFile?.mime_type || "",
+        storage_path: uploadedFile?.storage_path || "",
+        public_url: uploadedFile?.public_url || "",
+        external_url: songFileForm.external_url.trim(),
+        notes: songFileForm.notes,
+      });
+
+      setSongFileForm(emptySongFileForm);
+      setSongFileUpload(null);
+      await refreshSongFiles(selectedSong.id);
+      alert("Song file saved.");
+    } catch (error) {
+      console.error("Save song file error:", error);
+      alert(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSongFileSaving(false);
+    }
+  }
+
+  async function removeSongFile(fileId: number | string) {
+    if (!session) {
+      alert("Sign in before deleting song files.");
+      return;
+    }
+
+    const confirmed = confirm("Delete this file/link from the song record?");
+
+    if (!confirmed) return;
+
+    try {
+      await deleteCloudSongFile(String(fileId));
+      await refreshSongFiles(selectedSong?.id);
+      alert("Song file removed.");
+    } catch (error) {
+      console.error("Delete song file error:", error);
+      alert(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  function formatSongFileTypeLabel(file: SongFile) {
+    const parts = [file.file_type, file.file_label].filter(Boolean);
+    return parts.length > 0 ? parts.join(" • ") : "Song File";
+  }
+
+  function getSongFileLink(file: SongFile) {
+    return file.public_url || file.external_url || "";
   }
 
   async function refreshProjects() {
@@ -3516,7 +3654,16 @@ function App() {
   function openSongProfile(song: Song) {
     setSelectedSong(song);
     setActiveDetailTab("Overview");
+    setSongFileForm(emptySongFileForm);
+    setSongFileUpload(null);
+    void refreshSongFiles(song.id);
   }
+
+  useEffect(() => {
+    if (selectedSong?.id && activeDetailTab === "Files") {
+      void refreshSongFiles(selectedSong.id);
+    }
+  }, [selectedSong?.id, activeDetailTab]);
 
   function renderSongCard(song: Song) {
     return (
@@ -4082,28 +4229,189 @@ function App() {
     }
 
     if (activeDetailTab === "Files") {
+      const currentSongFiles = selectedSong
+        ? songFiles.filter((file) => String(file.song_id) === String(selectedSong.id))
+        : [];
+
       return (
         <div className="detail-grid">
-          <div className="detail-section">
-            <h4>Song Files</h4>
+          <div className="detail-section lyric-wide-section">
+            <h4>Files & Cloud Links</h4>
             <p>
-              Masters, stems, instrumentals, clean versions, cover art, and
-              contracts will be organized here later.
+              Upload masters, mixes, stems, cover art, split sheets, or paste links
+              from Google Drive, Dropbox, OneDrive, and other cloud services.
             </p>
+
+            <div
+              className="form-grid"
+              style={{
+                marginTop: "16px",
+                padding: "16px",
+                borderRadius: "18px",
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.04)",
+              }}
+            >
+              <select
+                value={songFileForm.file_type}
+                onChange={(e) =>
+                  setSongFileForm({ ...songFileForm, file_type: e.target.value })
+                }
+              >
+                <option>Master</option>
+                <option>Final WAV</option>
+                <option>Final MP3</option>
+                <option>Clean Version</option>
+                <option>Instrumental</option>
+                <option>Acapella</option>
+                <option>Stems ZIP</option>
+                <option>Cover Art</option>
+                <option>Split Sheet</option>
+                <option>Contract</option>
+                <option>Marketing Asset</option>
+                <option>Other</option>
+              </select>
+
+              <input
+                placeholder="File label, example: Final master v2"
+                value={songFileForm.file_label}
+                onChange={(e) =>
+                  setSongFileForm({ ...songFileForm, file_label: e.target.value })
+                }
+              />
+
+              <label
+                style={{
+                  display: "grid",
+                  gap: "8px",
+                  padding: "14px",
+                  borderRadius: "16px",
+                  border: "1px dashed rgba(255,255,255,0.22)",
+                  background: "rgba(0,0,0,0.18)",
+                  cursor: "pointer",
+                }}
+              >
+                <strong>{songFileUpload ? songFileUpload.name : "Upload file"}</strong>
+                <small style={{ opacity: 0.72 }}>
+                  Audio, ZIP stems, artwork, PDFs, contracts, and other release assets.
+                </small>
+                <input
+                  type="file"
+                  onChange={(e) =>
+                    setSongFileUpload(e.target.files ? e.target.files[0] : null)
+                  }
+                />
+              </label>
+
+              <input
+                placeholder="Or paste Google Drive / Dropbox / OneDrive link"
+                value={songFileForm.external_url}
+                onChange={(e) =>
+                  setSongFileForm({ ...songFileForm, external_url: e.target.value })
+                }
+              />
+
+              <textarea
+                placeholder="File notes, version notes, mix notes, usage notes"
+                value={songFileForm.notes}
+                onChange={(e) =>
+                  setSongFileForm({ ...songFileForm, notes: e.target.value })
+                }
+              />
+
+              <div className="asset-header-actions">
+                <button
+                  className="save-btn"
+                  onClick={saveSongFile}
+                  disabled={songFileSaving}
+                >
+                  {songFileSaving ? "Saving File..." : "Save File / Link"}
+                </button>
+
+                <button
+                  className="secondary-btn"
+                  onClick={() => {
+                    setSongFileForm(emptySongFileForm);
+                    setSongFileUpload(null);
+                  }}
+                  disabled={songFileSaving}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="detail-section">
-            <h4>Planned File Types</h4>
-            <p>
-              <span>Audio:</span> master, instrumental, acapella, clean version.
-            </p>
-            <p>
-              <span>Business:</span> split sheets, contracts, royalty
-              statements.
-            </p>
-            <p>
-              <span>Visuals:</span> cover art, thumbnails, promo assets.
-            </p>
+          <div className="detail-section lyric-wide-section">
+            <h4>Attached Files</h4>
+
+            {songFilesLoading ? (
+              <p>Loading files...</p>
+            ) : currentSongFiles.length === 0 ? (
+              <p>No files or cloud links saved for this song yet.</p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gap: "12px",
+                  marginTop: "14px",
+                }}
+              >
+                {currentSongFiles.map((file) => {
+                  const link = getSongFileLink(file);
+
+                  return (
+                    <div
+                      key={file.id}
+                      style={{
+                        padding: "14px",
+                        borderRadius: "18px",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        background:
+                          "linear-gradient(135deg, rgba(91,140,255,0.12), rgba(255,255,255,0.035))",
+                        display: "grid",
+                        gap: "8px",
+                      }}
+                    >
+                      <div>
+                        <h4 style={{ margin: 0 }}>{formatSongFileTypeLabel(file)}</h4>
+                        <p style={{ margin: "6px 0 0" }}>
+                          {file.file_name || file.external_url || "Saved asset"}
+                        </p>
+                      </div>
+
+                      <p>
+                        <span>Size:</span> {displayValue(file.file_size)}
+                      </p>
+
+                      <p>
+                        <span>Notes:</span> {displayValue(file.notes)}
+                      </p>
+
+                      <div className="asset-header-actions">
+                        {link ? (
+                          <a
+                            className="secondary-btn"
+                            href={link}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open File
+                          </a>
+                        ) : null}
+
+                        <button
+                          className="danger-btn"
+                          onClick={() => removeSongFile(file.id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       );
