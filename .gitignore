@@ -31,3 +31,8 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+*Access Code*.txt
+*.backup-before-buffer
+*.bad-buffer-patch-copy
+add-buffer-social-page.*
+restore-app-before-buffer.*
