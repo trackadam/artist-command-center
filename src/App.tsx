@@ -4280,28 +4280,73 @@ function App() {
                 }
               />
 
-              <label
+              <div
                 style={{
                   display: "grid",
-                  gap: "8px",
-                  padding: "14px",
-                  borderRadius: "16px",
-                  border: "1px dashed rgba(255,255,255,0.22)",
-                  background: "rgba(0,0,0,0.18)",
-                  cursor: "pointer",
+                  gap: "10px",
+                  padding: "16px",
+                  borderRadius: "18px",
+                  border: "1px dashed rgba(255,255,255,0.18)",
+                  background:
+                    "linear-gradient(135deg, rgba(91,140,255,0.10), rgba(255,255,255,0.03))",
                 }}
               >
-                <strong>{songFileUpload ? songFileUpload.name : "Upload file"}</strong>
+                <strong>Upload file</strong>
                 <small style={{ opacity: 0.72 }}>
                   Audio, ZIP stems, artwork, PDFs, contracts, and other release assets.
                 </small>
+
                 <input
+                  id="song-file-upload-input"
                   type="file"
                   onChange={(e) =>
                     setSongFileUpload(e.target.files ? e.target.files[0] : null)
                   }
+                  style={{ display: "none" }}
                 />
-              </label>
+
+                <label
+                  htmlFor="song-file-upload-input"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "14px",
+                    borderRadius: "16px",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,255,255,0.055)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "42px",
+                      height: "42px",
+                      borderRadius: "14px",
+                      display: "grid",
+                      placeItems: "center",
+                      flex: "0 0 auto",
+                      fontWeight: 900,
+                      color: "#fff",
+                      background: "linear-gradient(135deg, #5b8cff, #c9a94f)",
+                      boxShadow: "0 12px 28px rgba(91,140,255,0.24)",
+                    }}
+                  >
+                    {songFileUpload ? "✓" : "↑"}
+                  </span>
+
+                  <span style={{ display: "grid", gap: "3px", minWidth: 0 }}>
+                    <strong>
+                      {songFileUpload ? songFileUpload.name : "Choose file"}
+                    </strong>
+                    <small style={{ opacity: 0.7 }}>
+                      {songFileUpload
+                        ? `${(songFileUpload.size / (1024 * 1024)).toFixed(2)} MB selected`
+                        : "Click to upload audio, artwork, stems, documents, or ZIP files"}
+                    </small>
+                  </span>
+                </label>
+              </div>
 
               <input
                 placeholder="Or paste Google Drive / Dropbox / OneDrive link"
@@ -4319,11 +4364,23 @@ function App() {
                 }
               />
 
-              <div className="asset-header-actions">
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: "12px",
+                  marginTop: "2px",
+                  paddingTop: "16px",
+                  borderTop: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
                 <button
                   className="save-btn"
                   onClick={saveSongFile}
                   disabled={songFileSaving}
+                  style={{ minWidth: "160px" }}
                 >
                   {songFileSaving ? "Saving File..." : "Save File / Link"}
                 </button>
@@ -4335,6 +4392,7 @@ function App() {
                     setSongFileUpload(null);
                   }}
                   disabled={songFileSaving}
+                  style={{ minWidth: "96px" }}
                 >
                   Clear
                 </button>
