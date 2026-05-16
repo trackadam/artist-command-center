@@ -8,13 +8,12 @@ import {
   getBufferChannels,
   getBufferPosts,
   type BufferChannel,
-    type BufferFacebookPostType,
+      type BufferFacebookPostType,
 type BufferInstagramPostType,
   type BufferMediaKind,
   type BufferOrganization,
   type BufferPost,
   type BufferPostMode,
-  type BufferPostStatus,
 } from "../lib/bufferApi";
 
 const SOCIAL_MEDIA_BUCKET = "social-media-assets";
@@ -488,10 +487,6 @@ function toDateTimeLocalValue(value?: string | null) {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
-function getChannelName(channels: BufferChannel[], channelId?: string) {
-  const channel = channels.find((item) => item.id === channelId);
-  return channel?.displayName || channel?.name || "Unknown profile";
-}
 
 function groupPostsByDate(posts: BufferPost[]) {
   return posts.reduce<Record<string, BufferPost[]>>((groups, post) => {

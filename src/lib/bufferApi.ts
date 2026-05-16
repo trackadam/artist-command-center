@@ -324,6 +324,10 @@ export async function editBufferPost(
     mediaUrl?: string;
     mediaKind?: BufferMediaKind;
     instagramPostType?: BufferInstagramPostType;
+    facebookPostType?: BufferFacebookPostType;
+    youtubeTitle?: string;
+    youtubeCategoryId?: string;
+    youtubeCategoryTitle?: string;
   },
 ) {
   const asset =
