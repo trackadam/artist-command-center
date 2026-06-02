@@ -521,6 +521,270 @@ export async function deleteCloudCalendarTask(taskId: string): Promise<void> {
 }
 
 
+export type NotebookFormForCloud = {
+  name: string;
+  description: string;
+  color: string;
+};
+
+export type NotebookForApp = {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type NotebookRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+function rowToNotebook(row: NotebookRow): NotebookForApp {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || "",
+    color: row.color || "#2f7cff",
+    created_at: row.created_at || "",
+    updated_at: row.updated_at || "",
+  };
+}
+
+function notebookFormToPayload(form: NotebookFormForCloud, userId: string) {
+  return {
+    user_id: userId,
+    name: form.name.trim(),
+    description: form.description || null,
+    color: form.color || "#2f7cff",
+  };
+}
+
+export async function listCloudNotebooks(): Promise<NotebookForApp[]> {
+  await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("planner_notebooks")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data || []) as NotebookRow[]).map(rowToNotebook);
+}
+
+export async function createCloudNotebook(
+  form: NotebookFormForCloud,
+): Promise<NotebookForApp> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("planner_notebooks")
+    .insert(notebookFormToPayload(form, userId))
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return rowToNotebook(data as NotebookRow);
+}
+
+export async function updateCloudNotebook(
+  notebookId: string,
+  form: NotebookFormForCloud,
+): Promise<NotebookForApp> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("planner_notebooks")
+    .update(notebookFormToPayload(form, userId))
+    .eq("id", notebookId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return rowToNotebook(data as NotebookRow);
+}
+
+export async function deleteCloudNotebook(notebookId: string): Promise<void> {
+  await getCurrentUserId();
+
+  const { error } = await supabase.from("planner_notebooks").delete().eq("id", notebookId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export type NoteFormForCloud = {
+  notebook_id: string;
+  title: string;
+  body: string;
+  note_type: string;
+  tags: string;
+  links: string;
+  handles: string;
+  phone_numbers: string;
+  emails: string;
+  pinned: string;
+  archived: string;
+};
+
+export type NoteForApp = {
+  id: string;
+  notebook_id?: string;
+  title?: string;
+  body?: string;
+  note_type?: string;
+  tags?: string[];
+  links?: string[];
+  handles?: string[];
+  phone_numbers?: string[];
+  emails?: string[];
+  pinned?: boolean;
+  archived?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type NoteRow = {
+  id: string;
+  notebook_id: string | null;
+  title: string | null;
+  body: string | null;
+  note_type: string | null;
+  tags: string[] | null;
+  links: string[] | null;
+  handles: string[] | null;
+  phone_numbers: string[] | null;
+  emails: string[] | null;
+  pinned: boolean | null;
+  archived: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+function normalizeTextList(value: string): string[] {
+  return value
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item, index, items) => items.indexOf(item) === index);
+}
+
+function rowToNote(row: NoteRow): NoteForApp {
+  return {
+    id: row.id,
+    notebook_id: row.notebook_id || "",
+    title: row.title || "",
+    body: row.body || "",
+    note_type: row.note_type || "Brain Dump",
+    tags: row.tags || [],
+    links: row.links || [],
+    handles: row.handles || [],
+    phone_numbers: row.phone_numbers || [],
+    emails: row.emails || [],
+    pinned: Boolean(row.pinned),
+    archived: Boolean(row.archived),
+    created_at: row.created_at || "",
+    updated_at: row.updated_at || "",
+  };
+}
+
+function noteFormToPayload(form: NoteFormForCloud, userId: string) {
+  return {
+    user_id: userId,
+    notebook_id: form.notebook_id || null,
+    title: form.title.trim() || null,
+    body: form.body || "",
+    note_type: form.note_type || "Brain Dump",
+    tags: normalizeTextList(form.tags || ""),
+    links: normalizeTextList(form.links || ""),
+    handles: normalizeTextList(form.handles || ""),
+    phone_numbers: normalizeTextList(form.phone_numbers || ""),
+    emails: normalizeTextList(form.emails || ""),
+    pinned: form.pinned === "1",
+    archived: form.archived === "1",
+  };
+}
+
+export async function listCloudNotes(): Promise<NoteForApp[]> {
+  await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("planner_notes")
+    .select("*")
+    .order("pinned", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data || []) as NoteRow[]).map(rowToNote);
+}
+
+export async function createCloudNote(
+  form: NoteFormForCloud,
+): Promise<NoteForApp> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("planner_notes")
+    .insert(noteFormToPayload(form, userId))
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return rowToNote(data as NoteRow);
+}
+
+export async function updateCloudNote(
+  noteId: string,
+  form: NoteFormForCloud,
+): Promise<NoteForApp> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("planner_notes")
+    .update(noteFormToPayload(form, userId))
+    .eq("id", noteId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return rowToNote(data as NoteRow);
+}
+
+export async function deleteCloudNote(noteId: string): Promise<void> {
+  await getCurrentUserId();
+
+  const { error } = await supabase.from("planner_notes").delete().eq("id", noteId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+
 export type LyricIdeaFormForCloud = {
   title: string;
   mood: string;
