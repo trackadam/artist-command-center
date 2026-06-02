@@ -16,6 +16,7 @@ import {
   createCloudWebTool,
   addCloudSongToProject,
   deleteCloudCalendarTask,
+  deleteCloudNotebook,
   deleteCloudNote,
   deleteCloudEpkProfile,
   deleteCloudLyricIdea,
@@ -41,6 +42,7 @@ import {
   listCloudVisualAssets,
   listCloudWebTools,
   updateCloudCalendarTask,
+  updateCloudNotebook,
   updateCloudNote,
   updateCloudEpkProfile,
   updateCloudEpkProfileSection,
@@ -872,6 +874,8 @@ function App() {
   const [showNewReleaseRoadmap, setShowNewReleaseRoadmap] = useState(false);
   const [showNewCalendarTask, setShowNewCalendarTask] = useState(false);
   const [showNewNotebook, setShowNewNotebook] = useState(false);
+  const [showEditNotebook, setShowEditNotebook] = useState(false);
+  const [selectedNotebookForEdit, setSelectedNotebookForEdit] = useState<Notebook | null>(null);
   const [showNewPlannerNote, setShowNewPlannerNote] = useState(false);
 
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
@@ -934,6 +938,7 @@ function App() {
     emptyCalendarTaskForm,
   );
   const [newNotebook, setNewNotebook] = useState<NotebookForm>(emptyNotebookForm);
+  const [editNotebook, setEditNotebook] = useState<NotebookForm>(emptyNotebookForm);
   const [newPlannerNote, setNewPlannerNote] = useState<PlannerNoteForm>(
     emptyPlannerNoteForm,
   );
@@ -1352,6 +1357,15 @@ function App() {
       task_type: task.task_type || "",
       status: task.status || "Planned",
       notes: task.notes || "",
+    };
+  }
+
+
+  function notebookToForm(notebook: Notebook): NotebookForm {
+    return {
+      name: notebook.name || "",
+      description: notebook.description || "",
+      color: notebook.color || "#2f7cff",
     };
   }
 
@@ -3125,6 +3139,84 @@ function App() {
       showNotice("Notebook saved.", "success");
     } catch (error) {
       console.error("Save notebook error:", error);
+      showNotice(error instanceof Error ? error.message : String(error), "error");
+    } finally {
+      stopAppBusy();
+    }
+  }
+
+  function startEditingNotebook(notebook: Notebook) {
+    setSelectedNotebookForEdit(notebook);
+    setEditNotebook(notebookToForm(notebook));
+    setShowEditNotebook(true);
+  }
+
+  async function updateNotebook() {
+    if (!session || !selectedNotebookForEdit) {
+      showNotice("Select a notebook first.", "error");
+      return;
+    }
+
+    if (!editNotebook.name.trim()) {
+      showNotice("Notebook name is required.", "error");
+      return;
+    }
+
+    try {
+      startAppBusy("Updating notebook...");
+      const updatedNotebook = await updateCloudNotebook(
+        String(selectedNotebookForEdit.id),
+        editNotebook,
+      );
+      await refreshNotebooks();
+      setSelectedNotebookId(String(updatedNotebook.id));
+      setSelectedNotebookForEdit(null);
+      setEditNotebook(emptyNotebookForm);
+      setShowEditNotebook(false);
+      setPlannerTab("Notebooks");
+      showNotice("Notebook updated.", "success");
+    } catch (error) {
+      console.error("Update notebook error:", error);
+      showNotice(error instanceof Error ? error.message : String(error), "error");
+    } finally {
+      stopAppBusy();
+    }
+  }
+
+  async function removeNotebook(notebook: Notebook) {
+    if (!session) {
+      showNotice("Sign in before deleting notebooks.", "error");
+      return;
+    }
+
+    const noteCount = plannerNotes.filter(
+      (note) => !note.archived && String(note.notebook_id || "") === String(notebook.id),
+    ).length;
+    const confirmed = window.confirm(
+      `Delete "${notebook.name}"? ${noteCount} note${noteCount === 1 ? "" : "s"} will move to Inbox / Brain Dump, not be deleted.`,
+    );
+
+    if (!confirmed) return;
+
+    try {
+      startAppBusy("Deleting notebook...");
+      await deleteCloudNotebook(String(notebook.id));
+      await refreshNotebooks();
+      await refreshPlannerNotes();
+
+      if (selectedNotebookId === String(notebook.id)) {
+        setSelectedNotebookId("all");
+      }
+
+      if (selectedNotebookForEdit && String(selectedNotebookForEdit.id) === String(notebook.id)) {
+        setSelectedNotebookForEdit(null);
+        setEditNotebook(emptyNotebookForm);
+        setShowEditNotebook(false);
+      }
+
+      showNotice("Notebook deleted. Its notes were moved to Inbox / Brain Dump.", "success");
+    } catch (error) {
+      console.error("Delete notebook error:", error);
       showNotice(error instanceof Error ? error.message : String(error), "error");
     } finally {
       stopAppBusy();
@@ -7396,24 +7488,99 @@ function App() {
           ).length;
 
           return (
-            <button
+            <div
               key={notebook.id}
               className={
                 selectedNotebookId === String(notebook.id)
                   ? "notebook-card notebook-card-active"
                   : "notebook-card"
               }
+              role="button"
+              tabIndex={0}
               onClick={() => setSelectedNotebookId(String(notebook.id))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setSelectedNotebookId(String(notebook.id));
+                }
+              }}
             >
-              <span
-                className="notebook-dot"
-                style={{ background: notebook.color || "#2f7cff" }}
-              />
-              <strong>{notebook.name}</strong>
-              <small>{noteCount} notes</small>
-            </button>
+              <div className="notebook-card-main">
+                <span
+                  className="notebook-dot"
+                  style={{ background: notebook.color || "#2f7cff" }}
+                />
+                <strong>{notebook.name}</strong>
+                <small>{noteCount} notes</small>
+                {notebook.description ? <p>{notebook.description}</p> : null}
+              </div>
+              <div className="notebook-card-actions">
+                <button
+                  type="button"
+                  className="mini-action-btn"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    startEditingNotebook(notebook);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="mini-action-btn mini-action-btn-danger"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    removeNotebook(notebook);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
           );
         })}
+      </div>
+    );
+  }
+
+  function renderSelectedNotebookControls() {
+    const selectedNotebook = notebooks.find(
+      (notebook) => String(notebook.id) === String(selectedNotebookId),
+    );
+
+    if (!selectedNotebook) return null;
+
+    const noteCount = plannerNotes.filter(
+      (note) => !note.archived && String(note.notebook_id || "") === String(selectedNotebook.id),
+    ).length;
+
+    return (
+      <div className="calendar-selected-section selected-notebook-toolbar">
+        <div>
+          <p className="eyebrow">Selected Notebook</p>
+          <h3>{selectedNotebook.name}</h3>
+          <p>
+            {noteCount} note{noteCount === 1 ? "" : "s"}
+            {selectedNotebook.description ? ` • ${selectedNotebook.description}` : ""}
+          </p>
+        </div>
+
+        <div className="asset-header-actions">
+          <button
+            className="secondary-btn"
+            type="button"
+            onClick={() => startEditingNotebook(selectedNotebook)}
+          >
+            Edit Notebook
+          </button>
+          <button
+            className="danger-btn"
+            type="button"
+            onClick={() => removeNotebook(selectedNotebook)}
+          >
+            Delete Notebook
+          </button>
+        </div>
       </div>
     );
   }
@@ -7568,6 +7735,7 @@ function App() {
         </div>
 
         {renderNotebookLibrary()}
+        {renderSelectedNotebookControls()}
         {renderPlannerNoteCards()}
         {renderSelectedPlannerNote()}
       </div>
@@ -7831,21 +7999,21 @@ function App() {
             </p>
           </div>
 
-          <div className="asset-header-actions">
+          <div className="asset-header-actions planner-action-buttons">
             <button
-              className="secondary-btn"
+              className="secondary-btn planner-action-btn"
               onClick={() => setPlannerTab("Quick Capture")}
             >
               Quick Capture
             </button>
             <button
-              className="secondary-btn"
+              className="secondary-btn planner-action-btn"
               onClick={() => setShowNewNotebook(true)}
             >
               + New Notebook
             </button>
             <button
-              className="primary-btn"
+              className="primary-btn planner-action-btn"
               onClick={() => setShowNewCalendarTask(true)}
             >
               + New Calendar Task
@@ -9736,6 +9904,57 @@ function App() {
             <div className="ai-action-row">
               <button className="save-btn" onClick={saveNotebook}>Save Notebook</button>
               <button className="secondary-btn" onClick={() => setShowNewNotebook(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditNotebook && selectedNotebookForEdit && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Edit Notebook</p>
+                <h3>Update notebook details</h3>
+              </div>
+              <button className="close-btn" onClick={() => setShowEditNotebook(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="form-section">
+              <h4>Notebook Details</h4>
+              <div className="form-grid">
+                <input
+                  placeholder="Notebook name *"
+                  value={editNotebook.name}
+                  onChange={(e) => setEditNotebook({ ...editNotebook, name: e.target.value })}
+                />
+                <input
+                  placeholder="Accent color, example #2f7cff"
+                  value={editNotebook.color}
+                  onChange={(e) => setEditNotebook({ ...editNotebook, color: e.target.value })}
+                />
+                <textarea
+                  placeholder="Description optional"
+                  value={editNotebook.description}
+                  onChange={(e) => setEditNotebook({ ...editNotebook, description: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="ai-action-row">
+              <button className="save-btn" onClick={updateNotebook}>Update Notebook</button>
+              <button className="secondary-btn" onClick={() => setShowEditNotebook(false)}>Cancel</button>
+              <button
+                className="danger-btn"
+                onClick={() => {
+                  setShowEditNotebook(false);
+                  removeNotebook(selectedNotebookForEdit);
+                }}
+              >
+                Delete Notebook
+              </button>
             </div>
           </div>
         </div>
