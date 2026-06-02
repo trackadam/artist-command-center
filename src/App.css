@@ -2709,3 +2709,231 @@ section .section-heading {
     width: calc(100vw - 28px);
   }
 }
+
+/* =========================
+   PLANNER NOTEBOOKS / QUICK CAPTURE
+   ========================= */
+
+.planner-page-header {
+  align-items: flex-start;
+}
+
+.planner-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.planner-tab {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 900;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.planner-tab:hover,
+.planner-tab-active {
+  background: rgba(47, 124, 255, 0.18);
+  border-color: rgba(47, 124, 255, 0.35);
+  color: #ffffff;
+}
+
+.quick-capture-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: 22px;
+  align-items: start;
+}
+
+.quick-capture-panel {
+  padding: 30px;
+}
+
+.quick-capture-body {
+  min-height: 220px;
+}
+
+.capture-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.notebooks-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.notebook-heading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18px;
+}
+
+.notebook-library {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.notebook-card,
+.planner-note-card {
+  text-align: left;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.045);
+  color: #ffffff;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.notebook-card {
+  min-height: 108px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notebook-card:hover,
+.planner-note-card:hover,
+.notebook-card-active,
+.planner-note-card-active {
+  transform: translateY(-1px);
+  border-color: rgba(47, 124, 255, 0.45);
+  background:
+    radial-gradient(circle at top right, rgba(47, 124, 255, 0.14), transparent 44%),
+    rgba(255, 255, 255, 0.065);
+}
+
+.notebook-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--blue);
+  box-shadow: 0 0 22px rgba(47, 124, 255, 0.45);
+}
+
+.notebook-dot-gold {
+  background: var(--gold);
+}
+
+.notebook-dot-muted {
+  background: #738199;
+}
+
+.notebook-card strong,
+.planner-note-card h4 {
+  font-size: 17px;
+  line-height: 1.15;
+}
+
+.notebook-card small,
+.planner-note-card small,
+.planner-note-card-top span,
+.planner-note-card-top strong {
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.planner-note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 18px;
+}
+
+.planner-note-card {
+  min-height: 190px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.planner-note-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.planner-note-card-top strong {
+  color: #ffe4a3;
+}
+
+.planner-note-card h4,
+.planner-note-card p {
+  margin: 0;
+}
+
+.planner-note-card p {
+  color: var(--muted);
+  font-weight: 700;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.planner-note-detail .lyric-detail-header {
+  align-items: flex-start;
+}
+
+.note-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-link-list a {
+  color: #9ec2ff;
+  font-weight: 800;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.note-link-list a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.notebook-form-grid textarea {
+  min-height: 115px;
+}
+
+@media (max-width: 900px) {
+  .quick-capture-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .notebook-heading-row,
+  .planner-page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .planner-tabs {
+    width: 100%;
+    border-radius: 24px;
+  }
+
+  .planner-tab {
+    flex: 1 1 140px;
+  }
+}
