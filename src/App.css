@@ -2718,6 +2718,42 @@ section .section-heading {
   align-items: flex-start;
 }
 
+.planner-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.planner-action-buttons .planner-action-btn {
+  width: 190px;
+  min-width: 190px;
+  min-height: 46px;
+  height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.planner-action-buttons .primary-btn.planner-action-btn {
+  box-shadow: 0 12px 32px rgba(47, 124, 255, 0.22);
+}
+
+@media (max-width: 900px) {
+  .planner-action-buttons {
+    justify-content: flex-start;
+  }
+
+  .planner-action-buttons .planner-action-btn {
+    flex: 1 1 190px;
+  }
+}
+
 .planner-tabs {
   display: flex;
   flex-wrap: wrap;
