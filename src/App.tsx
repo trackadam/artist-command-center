@@ -1,8 +1,10 @@
-﻿import { useEffect, useState, type Dispatch, type FormEvent, type MouseEvent, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type FormEvent, type MouseEvent, type SetStateAction } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
 import {
   createCloudCalendarTask,
+  createCloudNotebook,
+  createCloudNote,
   createCloudEpkProfile,
   createCloudLyricIdea,
   createCloudMarketingAsset,
@@ -14,6 +16,7 @@ import {
   createCloudWebTool,
   addCloudSongToProject,
   deleteCloudCalendarTask,
+  deleteCloudNote,
   deleteCloudEpkProfile,
   deleteCloudLyricIdea,
   deleteCloudMarketingAsset,
@@ -24,6 +27,8 @@ import {
   deleteCloudVisualAsset,
   deleteCloudWebTool,
   listCloudCalendarTasks,
+  listCloudNotebooks,
+  listCloudNotes,
   listCloudEpkProfiles,
   listCloudLyricIdeas,
   listCloudMarketingAssets,
@@ -36,6 +41,7 @@ import {
   listCloudVisualAssets,
   listCloudWebTools,
   updateCloudCalendarTask,
+  updateCloudNote,
   updateCloudEpkProfile,
   updateCloudEpkProfileSection,
   updateCloudLyricIdea,
@@ -200,6 +206,35 @@ type CalendarTask = {
   created_at?: string;
 };
 
+
+type PlannerTab = "Tasks" | "Quick Capture" | "Notebooks";
+
+type Notebook = {
+  id: number | string;
+  name: string;
+  description?: string;
+  color?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type PlannerNote = {
+  id: number | string;
+  notebook_id?: number | string;
+  title?: string;
+  body?: string;
+  note_type?: string;
+  tags?: string[];
+  links?: string[];
+  handles?: string[];
+  phone_numbers?: string[];
+  emails?: string[];
+  pinned?: boolean;
+  archived?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
 type Project = {
   id: number | string;
   title: string;
@@ -297,7 +332,7 @@ type AppPage =
   | "EPK Builder"
   | "Web Tools"
   | "Social Media"
-  | "Calendar";
+  | "Planner";
 
 type AppNotice = {
   type: "success" | "error" | "info";
@@ -450,6 +485,27 @@ type CalendarTaskForm = {
   task_type: string;
   status: string;
   notes: string;
+};
+
+
+type NotebookForm = {
+  name: string;
+  description: string;
+  color: string;
+};
+
+type PlannerNoteForm = {
+  notebook_id: string;
+  title: string;
+  body: string;
+  note_type: string;
+  tags: string;
+  links: string;
+  handles: string;
+  phone_numbers: string;
+  emails: string;
+  pinned: string;
+  archived: string;
 };
 
 type CalendarAIForm = {
@@ -670,6 +726,27 @@ const emptyCalendarTaskForm: CalendarTaskForm = {
   notes: "",
 };
 
+
+const emptyNotebookForm: NotebookForm = {
+  name: "",
+  description: "",
+  color: "#2f7cff",
+};
+
+const emptyPlannerNoteForm: PlannerNoteForm = {
+  notebook_id: "",
+  title: "",
+  body: "",
+  note_type: "Brain Dump",
+  tags: "",
+  links: "",
+  handles: "",
+  phone_numbers: "",
+  emails: "",
+  pinned: "0",
+  archived: "0",
+};
+
 const emptyCalendarAIForm: CalendarAIForm = {
   focus_type: "All",
   time_available: "2 hours",
@@ -751,6 +828,8 @@ function App() {
   const [productAssets, setProductAssets] = useState<ProductAsset[]>([]);
   const [releaseRoadmaps, setReleaseRoadmaps] = useState<ReleaseRoadmap[]>([]);
   const [calendarTasks, setCalendarTasks] = useState<CalendarTask[]>([]);
+  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [plannerNotes, setPlannerNotes] = useState<PlannerNote[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectSongLinks, setProjectSongLinks] = useState<ProjectSong[]>([]);
   const [epkProfiles, setEpkProfiles] = useState<EpkProfile[]>([]);
@@ -769,6 +848,8 @@ function App() {
     useState<ReleaseRoadmap | null>(null);
   const [selectedCalendarTask, setSelectedCalendarTask] =
     useState<CalendarTask | null>(null);
+  const [selectedPlannerNote, setSelectedPlannerNote] =
+    useState<PlannerNote | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedEpkProfile, setSelectedEpkProfile] =
     useState<EpkProfile | null>(null);
@@ -777,6 +858,8 @@ function App() {
 
   const [activePage, setActivePage] = useState<AppPage>("Dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [plannerTab, setPlannerTab] = useState<PlannerTab>("Tasks");
+  const [selectedNotebookId, setSelectedNotebookId] = useState("all");
 
   const [showNewSong, setShowNewSong] = useState(false);
   const [showNewProject, setShowNewProject] = useState(false);
@@ -788,6 +871,8 @@ function App() {
   const [showNewWebTool, setShowNewWebTool] = useState(false);
   const [showNewReleaseRoadmap, setShowNewReleaseRoadmap] = useState(false);
   const [showNewCalendarTask, setShowNewCalendarTask] = useState(false);
+  const [showNewNotebook, setShowNewNotebook] = useState(false);
+  const [showNewPlannerNote, setShowNewPlannerNote] = useState(false);
 
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>("Overview");
@@ -848,6 +933,13 @@ function App() {
   const [newCalendarTask, setNewCalendarTask] = useState<CalendarTaskForm>(
     emptyCalendarTaskForm,
   );
+  const [newNotebook, setNewNotebook] = useState<NotebookForm>(emptyNotebookForm);
+  const [newPlannerNote, setNewPlannerNote] = useState<PlannerNoteForm>(
+    emptyPlannerNoteForm,
+  );
+  const [quickCaptureNote, setQuickCaptureNote] = useState<PlannerNoteForm>(
+    emptyPlannerNoteForm,
+  );
   const [calendarAIForm, setCalendarAIForm] =
     useState<CalendarAIForm>(emptyCalendarAIForm);
   const [calendarAIOutput, setCalendarAIOutput] = useState("");
@@ -877,6 +969,10 @@ function App() {
   const [showEditCalendarTask, setShowEditCalendarTask] = useState(false);
   const [editCalendarTask, setEditCalendarTask] =
     useState<CalendarTaskForm>(emptyCalendarTaskForm);
+  const [showEditPlannerNote, setShowEditPlannerNote] = useState(false);
+  const [editPlannerNote, setEditPlannerNote] = useState<PlannerNoteForm>(
+    emptyPlannerNoteForm,
+  );
   const [showEditEpkProfile, setShowEditEpkProfile] = useState(false);
   const [editEpkProfile, setEditEpkProfile] =
     useState<EpkProfileForm>(emptyEpkProfileForm);
@@ -1077,6 +1173,9 @@ function App() {
         setSelectedEpkProfile(null);
         setCalendarTasks([]);
         setSelectedCalendarTask(null);
+        setNotebooks([]);
+        setPlannerNotes([]);
+        setSelectedPlannerNote(null);
         setLyricIdeas([]);
         setSelectedLyricIdea(null);
         setMarketingAssets([]);
@@ -1100,6 +1199,8 @@ function App() {
           refreshWebTools(),
           refreshEpkProfiles(),
           refreshCalendarTasks(),
+          refreshNotebooks(),
+          refreshPlannerNotes(),
           refreshLyricIdeas(),
           refreshMarketingAssets(),
           refreshVisualAssets(),
@@ -1251,6 +1352,23 @@ function App() {
       task_type: task.task_type || "",
       status: task.status || "Planned",
       notes: task.notes || "",
+    };
+  }
+
+
+  function plannerNoteToForm(note: PlannerNote): PlannerNoteForm {
+    return {
+      notebook_id: note.notebook_id ? String(note.notebook_id) : "",
+      title: note.title || "",
+      body: note.body || "",
+      note_type: note.note_type || "Brain Dump",
+      tags: (note.tags || []).join(", "),
+      links: (note.links || []).join("\n"),
+      handles: (note.handles || []).join(", "),
+      phone_numbers: (note.phone_numbers || []).join(", "),
+      emails: (note.emails || []).join(", "),
+      pinned: note.pinned ? "1" : "0",
+      archived: note.archived ? "1" : "0",
     };
   }
 
@@ -1752,6 +1870,37 @@ function App() {
     } catch (error) {
       console.error("Cloud calendar tasks load error:", error);
       alert(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+
+  async function refreshNotebooks() {
+    if (!session) {
+      setNotebooks([]);
+      return;
+    }
+
+    try {
+      const updatedNotebooks = await listCloudNotebooks();
+      setNotebooks(updatedNotebooks as Notebook[]);
+    } catch (error) {
+      console.error("Cloud notebooks load error:", error);
+      showNotice(error instanceof Error ? error.message : String(error), "error");
+    }
+  }
+
+  async function refreshPlannerNotes() {
+    if (!session) {
+      setPlannerNotes([]);
+      return;
+    }
+
+    try {
+      const updatedNotes = await listCloudNotes();
+      setPlannerNotes(updatedNotes as PlannerNote[]);
+    } catch (error) {
+      console.error("Cloud planner notes load error:", error);
+      showNotice(error instanceof Error ? error.message : String(error), "error");
     }
   }
 
@@ -2916,6 +3065,226 @@ function App() {
     }
   }
 
+
+  function extractUrlsFromText(value: string) {
+    return value.match(/https?:\/\/[^\s]+/gi) || [];
+  }
+
+  function extractHandlesFromText(value: string) {
+    return value.match(/@[a-z0-9._]{2,}/gi) || [];
+  }
+
+  function extractEmailsFromText(value: string) {
+    return value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+  }
+
+  function extractPhonesFromText(value: string) {
+    return value.match(/(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g) || [];
+  }
+
+  function mergeManualAndDetected(manual: string, detected: string[]) {
+    const manualItems = manual
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    return Array.from(new Set([...manualItems, ...detected])).join("\n");
+  }
+
+  function preparePlannerNoteForSave(form: PlannerNoteForm): PlannerNoteForm {
+    const textToScan = `${form.title}\n${form.body}`;
+
+    return {
+      ...form,
+      links: mergeManualAndDetected(form.links, extractUrlsFromText(textToScan)),
+      handles: mergeManualAndDetected(form.handles, extractHandlesFromText(textToScan)),
+      emails: mergeManualAndDetected(form.emails, extractEmailsFromText(textToScan)),
+      phone_numbers: mergeManualAndDetected(form.phone_numbers, extractPhonesFromText(textToScan)),
+    };
+  }
+
+  async function saveNotebook() {
+    if (!session) {
+      showNotice("Sign in before saving notebooks.", "error");
+      return;
+    }
+
+    if (!newNotebook.name.trim()) {
+      showNotice("Notebook name is required.", "error");
+      return;
+    }
+
+    try {
+      startAppBusy("Saving notebook...");
+      const savedNotebook = await createCloudNotebook(newNotebook);
+      setNewNotebook(emptyNotebookForm);
+      setShowNewNotebook(false);
+      await refreshNotebooks();
+      setSelectedNotebookId(String(savedNotebook.id));
+      setPlannerTab("Notebooks");
+      showNotice("Notebook saved.", "success");
+    } catch (error) {
+      console.error("Save notebook error:", error);
+      showNotice(error instanceof Error ? error.message : String(error), "error");
+    } finally {
+      stopAppBusy();
+    }
+  }
+
+  async function savePlannerNote(form = newPlannerNote, closeModal = true) {
+    if (!session) {
+      showNotice("Sign in before saving notes.", "error");
+      return;
+    }
+
+    if (!form.title.trim() && !form.body.trim()) {
+      showNotice("Add a title or note before saving.", "error");
+      return;
+    }
+
+    try {
+      startAppBusy("Saving note...");
+      const savedNote = await createCloudNote(preparePlannerNoteForSave(form));
+      await refreshPlannerNotes();
+      setSelectedPlannerNote(savedNote as PlannerNote);
+      setPlannerTab("Notebooks");
+      setSelectedNotebookId(form.notebook_id || "all");
+
+      if (closeModal) {
+        setNewPlannerNote(emptyPlannerNoteForm);
+        setShowNewPlannerNote(false);
+      }
+
+      showNotice("Note saved.", "success");
+    } catch (error) {
+      console.error("Save planner note error:", error);
+      showNotice(error instanceof Error ? error.message : String(error), "error");
+    } finally {
+      stopAppBusy();
+    }
+  }
+
+  async function saveQuickCaptureNote() {
+    await savePlannerNote(quickCaptureNote, false);
+    setQuickCaptureNote(emptyPlannerNoteForm);
+  }
+
+  function startEditingPlannerNote(note: PlannerNote) {
+    setEditPlannerNote(plannerNoteToForm(note));
+    setSelectedPlannerNote(note);
+    setShowEditPlannerNote(true);
+  }
+
+  async function updatePlannerNote() {
+    if (!session || !selectedPlannerNote) {
+      showNotice("Select a note first.", "error");
+      return;
+    }
+
+    if (!editPlannerNote.title.trim() && !editPlannerNote.body.trim()) {
+      showNotice("Add a title or note before saving.", "error");
+      return;
+    }
+
+    try {
+      startAppBusy("Updating note...");
+      const updatedNote = await updateCloudNote(
+        String(selectedPlannerNote.id),
+        preparePlannerNoteForSave(editPlannerNote),
+      );
+      await refreshPlannerNotes();
+      setSelectedPlannerNote(updatedNote as PlannerNote);
+      setShowEditPlannerNote(false);
+      showNotice("Note updated.", "success");
+    } catch (error) {
+      console.error("Update planner note error:", error);
+      showNotice(error instanceof Error ? error.message : String(error), "error");
+    } finally {
+      stopAppBusy();
+    }
+  }
+
+  async function togglePlannerNotePin(note: PlannerNote) {
+    try {
+      const form = plannerNoteToForm(note);
+      const updatedNote = await updateCloudNote(String(note.id), {
+        ...form,
+        pinned: note.pinned ? "0" : "1",
+      });
+      await refreshPlannerNotes();
+      setSelectedPlannerNote(updatedNote as PlannerNote);
+    } catch (error) {
+      console.error("Toggle planner note pin error:", error);
+      showNotice(error instanceof Error ? error.message : String(error), "error");
+    }
+  }
+
+  async function archivePlannerNote(note: PlannerNote) {
+    try {
+      const updatedNote = await updateCloudNote(String(note.id), {
+        ...plannerNoteToForm(note),
+        archived: "1",
+      });
+      await refreshPlannerNotes();
+
+      if (String(selectedPlannerNote?.id) === String(note.id)) {
+        setSelectedPlannerNote(updatedNote as PlannerNote);
+      }
+
+      showNotice("Note archived.", "success");
+    } catch (error) {
+      console.error("Archive planner note error:", error);
+      showNotice(error instanceof Error ? error.message : String(error), "error");
+    }
+  }
+
+  async function deletePlannerNote(noteId: number | string) {
+    if (!session) {
+      showNotice("Sign in before deleting notes.", "error");
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      "Are you sure you want to delete this note? This cannot be undone.",
+    );
+
+    if (!shouldDelete) return;
+
+    try {
+      await deleteCloudNote(String(noteId));
+      await refreshPlannerNotes();
+
+      if (String(selectedPlannerNote?.id) === String(noteId)) {
+        setSelectedPlannerNote(null);
+      }
+
+      showNotice("Note deleted.", "success");
+    } catch (error) {
+      console.error("Delete planner note error:", error);
+      showNotice(error instanceof Error ? error.message : String(error), "error");
+    }
+  }
+
+  function convertPlannerNoteToTask(note: PlannerNote, withTodayDate = false) {
+    setNewCalendarTask({
+      ...emptyCalendarTaskForm,
+      title: note.title || note.note_type || "Captured Note",
+      task_date: withTodayDate ? new Date().toISOString().slice(0, 10) : "",
+      task_type: note.note_type || "Captured Note",
+      status: "Planned",
+      notes: [
+        note.body || "",
+        note.links?.length ? `Links:\n${note.links.join("\n")}` : "",
+        note.handles?.length ? `Handles: ${note.handles.join(", ")}` : "",
+        note.phone_numbers?.length ? `Phone: ${note.phone_numbers.join(", ")}` : "",
+        note.emails?.length ? `Email: ${note.emails.join(", ")}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+    });
+    setShowNewCalendarTask(true);
+  }
+
   async function generateCalendarMissionWithAI() {
     setCalendarAIError("");
     setCalendarAIOutput("");
@@ -3491,6 +3860,33 @@ function App() {
 
   function displayValue(value?: string) {
     return value && value.trim() ? value : "Not added";
+  }
+
+
+  function displayListValue(values?: string[]) {
+    return values && values.length ? values.join(", ") : "Not added";
+  }
+
+  function getNotebookName(notebookId?: number | string) {
+    if (!notebookId) return "Inbox / Brain Dump";
+
+    const linkedNotebook = notebooks.find(
+      (notebook) => String(notebook.id) === String(notebookId),
+    );
+
+    return linkedNotebook ? linkedNotebook.name : "Notebook not found";
+  }
+
+  function getFilteredPlannerNotes() {
+    const activeNotes = plannerNotes.filter((note) => !note.archived);
+
+    if (selectedNotebookId === "all") return activeNotes;
+    if (selectedNotebookId === "pinned") return activeNotes.filter((note) => note.pinned);
+    if (selectedNotebookId === "inbox") return activeNotes.filter((note) => !note.notebook_id);
+
+    return activeNotes.filter(
+      (note) => String(note.notebook_id || "") === String(selectedNotebookId),
+    );
   }
 
 
@@ -6832,27 +7228,355 @@ function App() {
     );
   }
 
-  function renderCalendarPage() {
+  function renderPlannerNoteForm(
+    form: PlannerNoteForm,
+    setForm: Dispatch<SetStateAction<PlannerNoteForm>>,
+  ) {
     return (
-      <section className="page-panel calendar-page">
-        <div className="page-header">
-          <div>
-            <p className="eyebrow">Planning</p>
-            <h2>Daily Mission Planner</h2>
-            <p>
-              Turn your songs, products, releases, and marketing goals into a focused
-              daily plan you can actually execute.
-            </p>
-          </div>
+      <div className="form-grid notebook-form-grid">
+        <select
+          value={form.notebook_id}
+          onChange={(e) => setForm({ ...form, notebook_id: e.target.value })}
+        >
+          <option value="">Inbox / Brain Dump</option>
+          {notebooks.map((notebook) => (
+            <option key={notebook.id} value={notebook.id}>
+              {notebook.name}
+            </option>
+          ))}
+        </select>
 
-          <button
-            className="primary-btn"
-            onClick={() => setShowNewCalendarTask(true)}
-          >
-            + New Calendar Task
-          </button>
+        <select
+          value={form.note_type}
+          onChange={(e) => setForm({ ...form, note_type: e.target.value })}
+        >
+          <option>Brain Dump</option>
+          <option>Playlist Lead</option>
+          <option>Contact</option>
+          <option>Content Idea</option>
+          <option>Song Idea</option>
+          <option>Business Idea</option>
+          <option>Product Idea</option>
+          <option>Link</option>
+          <option>Venting</option>
+          <option>Random</option>
+        </select>
+
+        <input
+          placeholder="Title optional"
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+        />
+
+        <select
+          value={form.pinned}
+          onChange={(e) => setForm({ ...form, pinned: e.target.value })}
+        >
+          <option value="0">Not pinned</option>
+          <option value="1">Pinned</option>
+        </select>
+
+        <textarea
+          className="quick-capture-body"
+          placeholder="Drop anything here: playlist links, IG handles, numbers, emails, lyrics, rough thoughts, plans, or something you just need to vent about."
+          value={form.body}
+          onChange={(e) => setForm({ ...form, body: e.target.value })}
+        />
+
+        <input
+          placeholder="Tags: R&B, playlists, Natasha Storm"
+          value={form.tags}
+          onChange={(e) => setForm({ ...form, tags: e.target.value })}
+        />
+
+        <textarea
+          placeholder="Links, one per line. Links in the note body are auto-detected too."
+          value={form.links}
+          onChange={(e) => setForm({ ...form, links: e.target.value })}
+        />
+
+        <textarea
+          placeholder="Handles, one per line or comma-separated. Handles in the note body are auto-detected too."
+          value={form.handles}
+          onChange={(e) => setForm({ ...form, handles: e.target.value })}
+        />
+
+        <input
+          placeholder="Phone numbers"
+          value={form.phone_numbers}
+          onChange={(e) => setForm({ ...form, phone_numbers: e.target.value })}
+        />
+
+        <input
+          placeholder="Emails"
+          value={form.emails}
+          onChange={(e) => setForm({ ...form, emails: e.target.value })}
+        />
+      </div>
+    );
+  }
+
+  function renderQuickCapturePanel() {
+    return (
+      <div className="quick-capture-shell">
+        <div className="assistant-placeholder quick-capture-panel">
+          <p className="eyebrow">Quick Capture</p>
+          <h4>Save anything without making it a task</h4>
+          <p>
+            This is your Notion-style dump zone for links, playlist leads, IG handles,
+            phone numbers, ideas, lyrics, business thoughts, or anything that does not
+            need a date or completion checkbox yet.
+          </p>
+
+          {renderPlannerNoteForm(quickCaptureNote, setQuickCaptureNote)}
+
+          <div className="ai-action-row">
+            <button className="save-btn" onClick={saveQuickCaptureNote}>
+              Save Quick Note
+            </button>
+            <button
+              className="secondary-btn"
+              onClick={() => setQuickCaptureNote(emptyPlannerNoteForm)}
+            >
+              Clear
+            </button>
+          </div>
         </div>
 
+        <div className="capture-side-panel">
+          <div className="detail-section">
+            <h4>Good for</h4>
+            <p>Playlist URLs, curator handles, phone numbers, emails, brain dumps, hook ideas, promo angles, and random thoughts.</p>
+          </div>
+          <div className="detail-section">
+            <h4>Later you can</h4>
+            <p>Pin it, move it to a notebook, convert it to a task, or add it to today’s calendar mission.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderNotebookLibrary() {
+    const inboxCount = plannerNotes.filter((note) => !note.archived && !note.notebook_id).length;
+    const pinnedCount = plannerNotes.filter((note) => !note.archived && note.pinned).length;
+
+    return (
+      <div className="notebook-library">
+        <button
+          className={selectedNotebookId === "all" ? "notebook-card notebook-card-active" : "notebook-card"}
+          onClick={() => setSelectedNotebookId("all")}
+        >
+          <span className="notebook-dot" />
+          <strong>All Notes</strong>
+          <small>{plannerNotes.filter((note) => !note.archived).length} saved</small>
+        </button>
+
+        <button
+          className={selectedNotebookId === "pinned" ? "notebook-card notebook-card-active" : "notebook-card"}
+          onClick={() => setSelectedNotebookId("pinned")}
+        >
+          <span className="notebook-dot notebook-dot-gold" />
+          <strong>Pinned</strong>
+          <small>{pinnedCount} priority</small>
+        </button>
+
+        <button
+          className={selectedNotebookId === "inbox" ? "notebook-card notebook-card-active" : "notebook-card"}
+          onClick={() => setSelectedNotebookId("inbox")}
+        >
+          <span className="notebook-dot notebook-dot-muted" />
+          <strong>Inbox / Brain Dump</strong>
+          <small>{inboxCount} uncategorized</small>
+        </button>
+
+        {notebooks.map((notebook) => {
+          const noteCount = plannerNotes.filter(
+            (note) => !note.archived && String(note.notebook_id || "") === String(notebook.id),
+          ).length;
+
+          return (
+            <button
+              key={notebook.id}
+              className={
+                selectedNotebookId === String(notebook.id)
+                  ? "notebook-card notebook-card-active"
+                  : "notebook-card"
+              }
+              onClick={() => setSelectedNotebookId(String(notebook.id))}
+            >
+              <span
+                className="notebook-dot"
+                style={{ background: notebook.color || "#2f7cff" }}
+              />
+              <strong>{notebook.name}</strong>
+              <small>{noteCount} notes</small>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderPlannerNoteCards() {
+    const notesToShow = getFilteredPlannerNotes();
+
+    return (
+      <div className="planner-note-grid">
+        {notesToShow.length === 0 ? (
+          <div className="empty-card">
+            No notes here yet. Use Quick Capture or create a notebook note.
+          </div>
+        ) : (
+          notesToShow.map((note) => (
+            <button
+              key={note.id}
+              className={
+                selectedPlannerNote?.id === note.id
+                  ? "planner-note-card planner-note-card-active"
+                  : "planner-note-card"
+              }
+              onClick={() => setSelectedPlannerNote(note)}
+            >
+              <div className="planner-note-card-top">
+                <span>{note.note_type || "Note"}</span>
+                {note.pinned ? <strong>PINNED</strong> : null}
+              </div>
+              <h4>{note.title || "Untitled Note"}</h4>
+              <p>{note.body || "No note body added."}</p>
+              <small>{getNotebookName(note.notebook_id)}</small>
+            </button>
+          ))
+        )}
+      </div>
+    );
+  }
+
+  function renderSelectedPlannerNote() {
+    if (!selectedPlannerNote) return null;
+
+    return (
+      <div className="calendar-selected-section planner-note-detail">
+        <div className="lyric-detail-header">
+          <div>
+            <p className="eyebrow">Selected Note</p>
+            <h3>{selectedPlannerNote.title || "Untitled Note"}</h3>
+            <p>{getNotebookName(selectedPlannerNote.notebook_id)} • {selectedPlannerNote.note_type || "Brain Dump"}</p>
+          </div>
+
+          <div className="asset-header-actions">
+            <button
+              className="secondary-btn"
+              onClick={() => togglePlannerNotePin(selectedPlannerNote)}
+            >
+              {selectedPlannerNote.pinned ? "Unpin" : "Pin"}
+            </button>
+            <button
+              className="secondary-btn"
+              onClick={() => startEditingPlannerNote(selectedPlannerNote)}
+            >
+              Edit Note
+            </button>
+            <button
+              className="secondary-btn"
+              onClick={() => convertPlannerNoteToTask(selectedPlannerNote, false)}
+            >
+              Convert to Task
+            </button>
+            <button
+              className="secondary-btn"
+              onClick={() => convertPlannerNoteToTask(selectedPlannerNote, true)}
+            >
+              Add to Today
+            </button>
+            <button
+              className="secondary-btn"
+              onClick={() => archivePlannerNote(selectedPlannerNote)}
+            >
+              Archive
+            </button>
+            <button
+              className="danger-btn"
+              onClick={() => deletePlannerNote(selectedPlannerNote.id)}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+
+        <div className="lyric-detail-grid">
+          <div className="detail-section lyric-wide-section">
+            <h4>Note</h4>
+            <pre>{displayValue(selectedPlannerNote.body)}</pre>
+          </div>
+
+          <div className="detail-section">
+            <h4>Tags</h4>
+            <p>{displayListValue(selectedPlannerNote.tags)}</p>
+          </div>
+
+          <div className="detail-section">
+            <h4>Handles</h4>
+            <p>{displayListValue(selectedPlannerNote.handles)}</p>
+          </div>
+
+          <div className="detail-section">
+            <h4>Phone Numbers</h4>
+            <p>{displayListValue(selectedPlannerNote.phone_numbers)}</p>
+          </div>
+
+          <div className="detail-section">
+            <h4>Emails</h4>
+            <p>{displayListValue(selectedPlannerNote.emails)}</p>
+          </div>
+
+          <div className="detail-section lyric-wide-section">
+            <h4>Links</h4>
+            {selectedPlannerNote.links && selectedPlannerNote.links.length ? (
+              <div className="note-link-list">
+                {selectedPlannerNote.links.map((link) => (
+                  <a key={link} href={link} target="_blank" rel="noreferrer">
+                    {link}
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p>Not added</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderNotebooksPanel() {
+    return (
+      <div className="notebooks-shell">
+        <div className="section-heading notebook-heading-row">
+          <div>
+            <h3>Notebooks</h3>
+            <p>Store the things that do not belong on the calendar yet.</p>
+          </div>
+          <div className="asset-header-actions">
+            <button className="secondary-btn" onClick={() => setShowNewNotebook(true)}>
+              + New Notebook
+            </button>
+            <button className="save-btn" onClick={() => setShowNewPlannerNote(true)}>
+              + New Note
+            </button>
+          </div>
+        </div>
+
+        {renderNotebookLibrary()}
+        {renderPlannerNoteCards()}
+        {renderSelectedPlannerNote()}
+      </div>
+    );
+  }
+
+  function renderCalendarTasksPanel() {
+    return (
+      <>
         <div className="assistant-placeholder calendar-ai-panel">
           <p className="eyebrow">OpenAI Daily Mission Planner</p>
           <h4>Generate today’s execution plan</h4>
@@ -7090,6 +7814,61 @@ function App() {
             </div>
           </div>
         ) : null}
+      </>
+    );
+  }
+
+  function renderCalendarPage() {
+    return (
+      <section className="page-panel calendar-page">
+        <div className="page-header planner-page-header">
+          <div>
+            <p className="eyebrow">Planning</p>
+            <h2>Planner Command Center</h2>
+            <p>
+              Calendar tasks handle execution. Notebooks handle links, handles,
+              numbers, ideas, and brain dumps that do not need dates yet.
+            </p>
+          </div>
+
+          <div className="asset-header-actions">
+            <button
+              className="secondary-btn"
+              onClick={() => setPlannerTab("Quick Capture")}
+            >
+              Quick Capture
+            </button>
+            <button
+              className="secondary-btn"
+              onClick={() => setShowNewNotebook(true)}
+            >
+              + New Notebook
+            </button>
+            <button
+              className="primary-btn"
+              onClick={() => setShowNewCalendarTask(true)}
+            >
+              + New Calendar Task
+            </button>
+          </div>
+        </div>
+
+        <div className="planner-tabs" role="tablist" aria-label="Planner sections">
+          {(["Tasks", "Quick Capture", "Notebooks"] as PlannerTab[]).map((tab) => (
+            <button
+              key={tab}
+              className={plannerTab === tab ? "planner-tab planner-tab-active" : "planner-tab"}
+              onClick={() => setPlannerTab(tab)}
+              type="button"
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {plannerTab === "Tasks" ? renderCalendarTasksPanel() : null}
+        {plannerTab === "Quick Capture" ? renderQuickCapturePanel() : null}
+        {plannerTab === "Notebooks" ? renderNotebooksPanel() : null}
       </section>
     );
   }
@@ -7117,7 +7896,7 @@ function App() {
 
     if (activePage === "Social Media") return <SocialMediaCommandCenter />;
 
-    if (activePage === "Calendar") return renderCalendarPage();
+    if (activePage === "Planner") return renderCalendarPage();
 
     return renderDashboard();
   }
@@ -7196,8 +7975,12 @@ function App() {
     "EPK Builder",
     "Web Tools",
     "Social Media",
-    "Calendar",
+    "Planner",
   ];
+
+  function getSidebarPageLabel(page: AppPage) {
+    return page;
+  }
 
   function renderSidebarIcon(page: AppPage) {
     const iconProps = {
@@ -7309,7 +8092,7 @@ function App() {
             <path d="M8 12v5a2 2 0 0 0 2 2h1" />
           </svg>
         );
-      case "Calendar":
+      case "Planner":
         return (
           <svg {...iconProps}>
             <rect x="3" y="4" width="18" height="17" rx="2" />
@@ -7448,10 +8231,10 @@ function App() {
               key={page}
               className={activePage === page ? "nav-active" : ""}
               onClick={() => setActivePage(page)}
-              title={page}
+              title={getSidebarPageLabel(page)}
             >
               <span className="nav-icon">{renderSidebarIcon(page)}</span>
-              <span className="nav-label">{page}</span>
+              <span className="nav-label">{getSidebarPageLabel(page)}</span>
             </button>
           ))}
         </nav>
@@ -8912,6 +9695,98 @@ function App() {
             <button className="save-btn" onClick={saveWebTool}>
               Save Web Tool
             </button>
+          </div>
+        </div>
+      )}
+
+      {showNewNotebook && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">New Notebook</p>
+                <h3>Create a place for loose ideas</h3>
+              </div>
+              <button className="close-btn" onClick={() => setShowNewNotebook(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="form-section">
+              <h4>Notebook Details</h4>
+              <div className="form-grid">
+                <input
+                  placeholder="Notebook name *"
+                  value={newNotebook.name}
+                  onChange={(e) => setNewNotebook({ ...newNotebook, name: e.target.value })}
+                />
+                <input
+                  placeholder="Accent color, example #2f7cff"
+                  value={newNotebook.color}
+                  onChange={(e) => setNewNotebook({ ...newNotebook, color: e.target.value })}
+                />
+                <textarea
+                  placeholder="Description optional"
+                  value={newNotebook.description}
+                  onChange={(e) => setNewNotebook({ ...newNotebook, description: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="ai-action-row">
+              <button className="save-btn" onClick={saveNotebook}>Save Notebook</button>
+              <button className="secondary-btn" onClick={() => setShowNewNotebook(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewPlannerNote && (
+        <div className="modal-backdrop">
+          <div className="modal large-modal">
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">New Notebook Note</p>
+                <h3>Save a thought, lead, link, or contact</h3>
+              </div>
+              <button className="close-btn" onClick={() => setShowNewPlannerNote(false)}>
+                ×
+              </button>
+            </div>
+
+            {renderPlannerNoteForm(newPlannerNote, setNewPlannerNote)}
+
+            <div className="ai-action-row">
+              <button className="save-btn" onClick={() => savePlannerNote(newPlannerNote, true)}>
+                Save Note
+              </button>
+              <button className="secondary-btn" onClick={() => setShowNewPlannerNote(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditPlannerNote && selectedPlannerNote && (
+        <div className="modal-backdrop edit-modal-backdrop">
+          <div className="modal large-modal">
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Edit Notebook Note</p>
+                <h3>Update captured info</h3>
+              </div>
+              <button className="close-btn" onClick={() => setShowEditPlannerNote(false)}>
+                ×
+              </button>
+            </div>
+
+            {renderPlannerNoteForm(editPlannerNote, setEditPlannerNote)}
+
+            <div className="ai-action-row">
+              <button className="save-btn" onClick={updatePlannerNote}>Save Changes</button>
+              <button className="secondary-btn" onClick={() => setShowEditPlannerNote(false)}>Cancel</button>
+            </div>
           </div>
         </div>
       )}
