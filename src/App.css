@@ -3027,3 +3027,22 @@ section .section-heading {
   border-color: rgba(255, 107, 107, 0.55);
   background: rgba(255, 107, 107, 0.13);
 }
+
+.selected-notebook-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px;
+}
+
+.selected-notebook-toolbar h3 {
+  margin-bottom: 6px;
+}
+
+@media (max-width: 760px) {
+  .selected-notebook-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
