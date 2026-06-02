@@ -7831,21 +7831,21 @@ function App() {
             </p>
           </div>
 
-          <div className="asset-header-actions">
+          <div className="asset-header-actions planner-action-buttons">
             <button
-              className="secondary-btn"
+              className="secondary-btn planner-action-btn"
               onClick={() => setPlannerTab("Quick Capture")}
             >
               Quick Capture
             </button>
             <button
-              className="secondary-btn"
+              className="secondary-btn planner-action-btn"
               onClick={() => setShowNewNotebook(true)}
             >
               + New Notebook
             </button>
             <button
-              className="primary-btn"
+              className="primary-btn planner-action-btn"
               onClick={() => setShowNewCalendarTask(true)}
             >
               + New Calendar Task
