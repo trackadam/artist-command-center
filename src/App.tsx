@@ -64,6 +64,8 @@ import {
 } from "./lib/cloudData";
 import "./App.css";
 import SocialMediaCommandCenter from "./components/SocialMediaCommandCenter";
+import DistributionPage from "./components/DistributionPage";
+import { exchangeTooLostCode, saveTooLostConnection } from "./lib/tooLostApi";
 
 type Song = {
   id: number | string;
@@ -334,6 +336,7 @@ type AppPage =
   | "EPK Builder"
   | "Web Tools"
   | "Social Media"
+  | "Distribution"
   | "Planner";
 
 type AppNotice = {
@@ -859,6 +862,9 @@ function App() {
     useState<WebTool | null>(null);
 
   const [activePage, setActivePage] = useState<AppPage>("Dashboard");
+  const [tooLostOauthStatus, setTooLostOauthStatus] = useState<"success" | "error" | null>(null);
+  const [tooLostOauthMessage, setTooLostOauthMessage] = useState("");
+  const [tooLostOauthProcessed, setTooLostOauthProcessed] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [plannerTab, setPlannerTab] = useState<PlannerTab>("Tasks");
   const [selectedNotebookId, setSelectedNotebookId] = useState("all");
@@ -1112,6 +1118,48 @@ function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (authLoading || !session || tooLostOauthProcessed) return;
+
+    const url = new URL(window.location.href);
+    const isTooLostCallback =
+      window.location.pathname === "/api/auth/callback/toolost" ||
+      url.searchParams.get("toolost_callback") === "1";
+
+    if (!isTooLostCallback) return;
+
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    const error = url.searchParams.get("error");
+    const errorDescription = url.searchParams.get("error_description");
+
+    setTooLostOauthProcessed(true);
+    setActivePage("Distribution");
+
+    async function finishTooLostOAuth() {
+      if (error) {
+        setTooLostOauthStatus("error");
+        setTooLostOauthMessage(errorDescription || error);
+        window.history.replaceState({}, document.title, "/?toolost=error");
+        return;
+      }
+
+      try {
+        const tokenResponse = await exchangeTooLostCode(code || "", state);
+        await saveTooLostConnection(tokenResponse);
+        setTooLostOauthStatus("success");
+        setTooLostOauthMessage("Too Lost Sandbox connected successfully. Run the /me test next.");
+        window.history.replaceState({}, document.title, "/?toolost=success");
+      } catch (oauthError) {
+        setTooLostOauthStatus("error");
+        setTooLostOauthMessage(oauthError instanceof Error ? oauthError.message : "Too Lost connection failed.");
+        window.history.replaceState({}, document.title, "/?toolost=error");
+      }
+    }
+
+    void finishTooLostOAuth();
+  }, [authLoading, session, tooLostOauthProcessed]);
 
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -8064,6 +8112,15 @@ function App() {
 
     if (activePage === "Social Media") return <SocialMediaCommandCenter />;
 
+    if (activePage === "Distribution") {
+      return (
+        <DistributionPage
+          oauthStatus={tooLostOauthStatus}
+          oauthMessage={tooLostOauthMessage}
+        />
+      );
+    }
+
     if (activePage === "Planner") return renderCalendarPage();
 
     return renderDashboard();
@@ -8129,6 +8186,11 @@ function App() {
       desc: "Connect Buffer, plan posts, and manage social publishing.",
       page: "Social Media",
     },
+    {
+      title: "Distribution",
+      desc: "Connect Too Lost, then pull catalog, analytics, earnings, and release data.",
+      page: "Distribution",
+    },
   ];
 
   const sidebarPages: AppPage[] = [
@@ -8143,6 +8205,7 @@ function App() {
     "EPK Builder",
     "Web Tools",
     "Social Media",
+    "Distribution",
     "Planner",
   ];
 
@@ -8258,6 +8321,15 @@ function App() {
             <path d="M4 12h4l8-5v10l-8-5H4z" />
             <path d="M18 9c1.3 1.1 2 2.1 2 3s-.7 1.9-2 3" />
             <path d="M8 12v5a2 2 0 0 0 2 2h1" />
+          </svg>
+        );
+      case "Distribution":
+        return (
+          <svg {...iconProps}>
+            <path d="M4 7h16" />
+            <path d="M4 12h16" />
+            <path d="M4 17h10" />
+            <circle cx="18" cy="17" r="2" />
           </svg>
         );
       case "Planner":

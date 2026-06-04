@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Track Adam OS</title>
+    <script>
+      (function () {
+        var path = window.location.pathname;
+        var search = window.location.search || "";
+
+        if (path === "/api/auth/callback/toolost") {
+          var params = new URLSearchParams(search);
+          params.set("toolost_callback", "1");
+          window.location.replace("/" + "?" + params.toString());
+          return;
+        }
+
+        window.location.replace("/");
+      })();
+    </script>
+  </head>
+  <body>
+    Redirecting...
+  </body>
+</html>
