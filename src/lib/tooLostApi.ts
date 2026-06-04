@@ -9,7 +9,7 @@ export const TOOLOST_SCOPES = [
   "read:profile",
   "read:catalog",
   "read:analytics",
-  "read:earnings",
+  "read:sales",
 ].join(" ");
 
 export type TooLostTokenResponse = {
@@ -35,6 +35,167 @@ export type TooLostPrivateConnection = TooLostConnection & {
   access_token: string;
   refresh_token: string | null;
 };
+
+export type TooLostEndpointKey =
+  | "profile"
+  | "releases"
+  | "analyticsOverview"
+  | "analyticsTracks"
+  | "analyticsPlatforms"
+  | "analyticsTotalStreams"
+  | "salesOverview"
+  | "salesTracks"
+  | "salesReleases"
+  | "salesChannels"
+  | "salesTerritories"
+  | "lookupPlatforms"
+  | "lookupGenres"
+  | "lookupLanguages"
+  | "lookupCountries"
+  | "preferencesLabel"
+  | "preferencesArtists";
+
+export type TooLostEndpointDefinition = {
+  key: TooLostEndpointKey;
+  label: string;
+  path: string;
+  section: "Connection" | "Catalog" | "Analytics" | "Sales" | "Lookup" | "Preferences";
+  description: string;
+  scope?: string;
+};
+
+export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
+  {
+    key: "profile",
+    label: "Profile",
+    path: "/me",
+    section: "Connection",
+    description: "Authenticated Too Lost user and label profile.",
+    scope: "read:profile",
+  },
+  {
+    key: "releases",
+    label: "Releases",
+    path: "/releases",
+    section: "Catalog",
+    description: "Too Lost release catalog list.",
+    scope: "read:catalog",
+  },
+  {
+    key: "analyticsOverview",
+    label: "Analytics Overview",
+    path: "/analytics/overview",
+    section: "Analytics",
+    description: "Top-level streaming analytics summary.",
+    scope: "read:analytics",
+  },
+  {
+    key: "analyticsTracks",
+    label: "Analytics Tracks",
+    path: "/analytics/tracks",
+    section: "Analytics",
+    description: "Track-level analytics data.",
+    scope: "read:analytics",
+  },
+  {
+    key: "analyticsPlatforms",
+    label: "Analytics Platforms",
+    path: "/analytics/platforms",
+    section: "Analytics",
+    description: "Streaming analytics by music platform.",
+    scope: "read:analytics",
+  },
+  {
+    key: "analyticsTotalStreams",
+    label: "Total Streams",
+    path: "/analytics/platforms/total-streams",
+    section: "Analytics",
+    description: "Total stream counts from platform analytics.",
+    scope: "read:analytics",
+  },
+  {
+    key: "salesOverview",
+    label: "Sales Overview",
+    path: "/sales/overview",
+    section: "Sales",
+    description: "Monthly earnings overview.",
+    scope: "read:sales",
+  },
+  {
+    key: "salesTracks",
+    label: "Sales by Track",
+    path: "/sales/tracks",
+    section: "Sales",
+    description: "Track-level royalty and earnings data.",
+    scope: "read:sales",
+  },
+  {
+    key: "salesReleases",
+    label: "Sales by Release",
+    path: "/sales/releases",
+    section: "Sales",
+    description: "Release-level royalty and earnings data.",
+    scope: "read:sales",
+  },
+  {
+    key: "salesChannels",
+    label: "Sales by Platform",
+    path: "/sales/channels",
+    section: "Sales",
+    description: "Earnings by DSP/store/platform.",
+    scope: "read:sales",
+  },
+  {
+    key: "salesTerritories",
+    label: "Sales by Territory",
+    path: "/sales/territories",
+    section: "Sales",
+    description: "Aggregated earnings by country/territory.",
+    scope: "read:sales",
+  },
+  {
+    key: "lookupPlatforms",
+    label: "Platforms",
+    path: "/lookup/platforms",
+    section: "Lookup",
+    description: "Available stores and music platforms.",
+  },
+  {
+    key: "lookupGenres",
+    label: "Genres",
+    path: "/lookup/genres",
+    section: "Lookup",
+    description: "Supported release genres.",
+  },
+  {
+    key: "lookupLanguages",
+    label: "Languages",
+    path: "/lookup/languages",
+    section: "Lookup",
+    description: "Supported lyrics/release languages.",
+  },
+  {
+    key: "lookupCountries",
+    label: "Countries",
+    path: "/lookup/countries",
+    section: "Lookup",
+    description: "Supported territory/country data.",
+  },
+  {
+    key: "preferencesLabel",
+    label: "Label Preferences",
+    path: "/preferences/label",
+    section: "Preferences",
+    description: "Label preference profile data.",
+  },
+  {
+    key: "preferencesArtists",
+    label: "Artist Preferences",
+    path: "/preferences/artists",
+    section: "Preferences",
+    description: "Artist preference profiles connected to the label.",
+  },
+];
 
 function getEnvValue(key: string) {
   const value = import.meta.env[key];
@@ -252,7 +413,11 @@ export function isTooLostTokenExpired(connection: TooLostConnection | null) {
   return new Date(connection.expires_at).getTime() <= Date.now();
 }
 
-export async function testTooLostProfile() {
+export function connectionHasScope(connection: TooLostConnection | null, scope: string) {
+  return Boolean(connection?.scope?.split(/\s+/).includes(scope));
+}
+
+export async function callTooLostEndpoint(path: string) {
   const connection = await getTooLostPrivateConnection();
 
   if (!connection?.access_token) {
@@ -264,18 +429,30 @@ export async function testTooLostProfile() {
   }
 
   const config = getTooLostConfig();
-  const response = await fetch(`${config.apiBaseUrl}/me`, {
+  const response = await fetch(`${config.apiBaseUrl}${path}`, {
     headers: {
       Authorization: `${connection.token_type || "Bearer"} ${connection.access_token}`,
+      Accept: "application/json",
     },
   });
 
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const message = typeof payload?.message === "string" ? payload.message : "Too Lost /me test failed.";
+    const message =
+      typeof payload?.message === "string"
+        ? payload.message
+        : `Too Lost request failed for ${path}.`;
     throw new Error(message);
   }
 
   return payload;
+}
+
+export async function testTooLostProfile() {
+  return callTooLostEndpoint("/me");
+}
+
+export async function fetchTooLostEndpoint(endpoint: TooLostEndpointDefinition) {
+  return callTooLostEndpoint(endpoint.path);
 }
