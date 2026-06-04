@@ -247,7 +247,7 @@ function EndpointCard({
   connection: TooLostConnection | null;
   onLoad: (endpoint: TooLostEndpointDefinition) => void;
 }) {
-  const missingScope = endpoint.scope ? !connectionHasScope(connection, endpoint.scope) : false;
+  const missingScope = Boolean(connection && endpoint.scope && !connectionHasScope(connection, endpoint.scope));
 
   return (
     <article className="distribution-panel-card">
@@ -428,7 +428,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     Preferences: TOOLOST_ENDPOINTS.filter((endpoint) => endpoint.section === "Preferences"),
   };
 
-  const needsReconnectForSales = connected && !connectionHasScope(connection, "read:sales");
+  const needsReconnectForSales = connected && !connectionHasScope(connection, "read:earnings");
 
   return (
     <section className="page-section distribution-page distribution-dashboard-page">
@@ -472,7 +472,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
 
       {needsReconnectForSales ? (
         <div className="detail-section distribution-warning-box distribution-wide-warning">
-          <strong>Reconnect recommended:</strong> The first OAuth token may have been created before we added <code>read:sales</code>. If Sales endpoints show a scope error, disconnect and reconnect Too Lost Sandbox once.
+          <strong>Reconnect recommended:</strong> This token does not show <code>read:earnings</code>. Reconnect Too Lost Sandbox once so the approved earnings permission is included.
         </div>
       ) : null}
 

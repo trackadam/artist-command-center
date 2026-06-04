@@ -5,7 +5,12 @@ const TOOLOST_CODE_VERIFIER_KEY = "toolost_oauth_code_verifier";
 
 export const TOOLOST_ENVIRONMENT = "sandbox";
 
-export const TOOLOST_SCOPES = "read:profile read:catalog read:analytics read:earnings";
+export const TOOLOST_SCOPES = [
+  "read:profile",
+  "read:catalog",
+  "read:analytics",
+  "read:earnings",
+].join(" ");
 
 export type TooLostTokenResponse = {
   token_type: string;
@@ -114,7 +119,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/sales/overview",
     section: "Sales",
     description: "Monthly earnings overview.",
-    scope: "read:sales",
+    scope: "read:earnings",
   },
   {
     key: "salesTracks",
@@ -122,7 +127,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/sales/tracks",
     section: "Sales",
     description: "Track-level royalty and earnings data.",
-    scope: "read:sales",
+    scope: "read:earnings",
   },
   {
     key: "salesReleases",
@@ -130,7 +135,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/sales/releases",
     section: "Sales",
     description: "Release-level royalty and earnings data.",
-    scope: "read:sales",
+    scope: "read:earnings",
   },
   {
     key: "salesChannels",
@@ -138,7 +143,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/sales/channels",
     section: "Sales",
     description: "Earnings by DSP/store/platform.",
-    scope: "read:sales",
+    scope: "read:earnings",
   },
   {
     key: "salesTerritories",
@@ -146,7 +151,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/sales/territories",
     section: "Sales",
     description: "Aggregated earnings by country/territory.",
-    scope: "read:sales",
+    scope: "read:earnings",
   },
   {
     key: "lookupPlatforms",
@@ -193,13 +198,13 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
 ];
 
 function getEnvValue(key: string) {
-  const value = import.meta.env[key];
+  const value = String(import.meta.env[key] || "").trim();
 
   if (!value) {
     throw new Error(`Missing ${key} in your environment variables.`);
   }
 
-  return value as string;
+  return value;
 }
 
 export function getTooLostConfig() {
@@ -246,6 +251,11 @@ export async function generateCodeChallenge(codeVerifier: string) {
 
 export async function startTooLostOAuth() {
   const config = getTooLostConfig();
+
+  // Clear stale PKCE values before starting a new OAuth attempt.
+  sessionStorage.removeItem(TOOLOST_STATE_KEY);
+  sessionStorage.removeItem(TOOLOST_CODE_VERIFIER_KEY);
+
   const state = generateRandomState();
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
@@ -263,7 +273,7 @@ export async function startTooLostOAuth() {
     code_challenge_method: "S256",
   });
 
-  window.location.assign(`${config.authorizeUrl}?${params.toString()}`);
+  window.location.href = `${config.authorizeUrl}?${params.toString()}`;
 }
 
 export async function exchangeTooLostCode(code: string, returnedState: string | null) {
@@ -302,7 +312,14 @@ export async function exchangeTooLostCode(code: string, returnedState: string | 
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const message = typeof payload?.message === "string" ? payload.message : "Too Lost token exchange failed.";
+    const message =
+      typeof payload?.error_description === "string"
+        ? payload.error_description
+        : typeof payload?.message === "string"
+          ? payload.message
+          : typeof payload?.error === "string"
+            ? payload.error
+            : "Too Lost token exchange failed.";
     throw new Error(message);
   }
 
@@ -359,11 +376,12 @@ export async function saveTooLostConnection(tokenResponse: TooLostTokenResponse)
 }
 
 export async function getTooLostConnection() {
-  await getCurrentUserId();
+  const userId = await getCurrentUserId();
 
   const { data, error } = await supabase
     .from("toolost_connections")
     .select("id,user_id,token_type,expires_at,scope,environment,created_at,updated_at")
+    .eq("user_id", userId)
     .eq("environment", TOOLOST_ENVIRONMENT)
     .maybeSingle();
 
@@ -375,11 +393,12 @@ export async function getTooLostConnection() {
 }
 
 async function getTooLostPrivateConnection() {
-  await getCurrentUserId();
+  const userId = await getCurrentUserId();
 
   const { data, error } = await supabase
     .from("toolost_connections")
     .select("id,user_id,access_token,refresh_token,token_type,expires_at,scope,environment,created_at,updated_at")
+    .eq("user_id", userId)
     .eq("environment", TOOLOST_ENVIRONMENT)
     .maybeSingle();
 
@@ -391,11 +410,12 @@ async function getTooLostPrivateConnection() {
 }
 
 export async function disconnectTooLost() {
-  await getCurrentUserId();
+  const userId = await getCurrentUserId();
 
   const { error } = await supabase
     .from("toolost_connections")
     .delete()
+    .eq("user_id", userId)
     .eq("environment", TOOLOST_ENVIRONMENT);
 
   if (error) {
@@ -409,7 +429,13 @@ export function isTooLostTokenExpired(connection: TooLostConnection | null) {
 }
 
 export function connectionHasScope(connection: TooLostConnection | null, scope: string) {
-  return Boolean(connection?.scope?.split(/\s+/).includes(scope));
+  const scopes = connection?.scope?.split(/\s+/).filter(Boolean) || [];
+
+  // Too Lost docs have shown both read:earnings and read:sales.
+  // The sandbox app has been granting read:earnings, so treat it as covering sales/royalty panels for the UI.
+  if (scope === "read:sales" && scopes.includes("read:earnings")) return true;
+
+  return scopes.includes(scope);
 }
 
 export async function callTooLostEndpoint(path: string) {
