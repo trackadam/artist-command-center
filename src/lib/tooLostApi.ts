@@ -5,12 +5,7 @@ const TOOLOST_CODE_VERIFIER_KEY = "toolost_oauth_code_verifier";
 
 export const TOOLOST_ENVIRONMENT = "sandbox";
 
-export const TOOLOST_SCOPES = [
-  "read:profile",
-  "read:catalog",
-  "read:analytics",
-  "read:sales",
-].join(" ");
+export const TOOLOST_SCOPES = "read:profile read:catalog read:analytics read:earnings";
 
 export type TooLostTokenResponse = {
   token_type: string;
