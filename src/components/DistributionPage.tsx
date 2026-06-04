@@ -49,6 +49,12 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     loadConnection();
   }, []);
 
+  useEffect(() => {
+    if (oauthStatus === "success") {
+      void loadConnection();
+    }
+  }, [oauthStatus, oauthMessage]);
+
   async function handleConnect() {
     setActionLoading(true);
     setError("");
