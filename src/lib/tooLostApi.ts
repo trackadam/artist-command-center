@@ -603,6 +603,10 @@ export async function testTooLostProfile() {
   return callTooLostEndpoint("/me");
 }
 
+export async function deleteTooLostRelease(releaseId: string | number) {
+  return callTooLostEndpoint(`/releases/${releaseId}`, { method: "DELETE" });
+}
+
 // ── Track upload pipeline ─────────────────────────────────
 
 export type TrackUploadUrlPayload = {

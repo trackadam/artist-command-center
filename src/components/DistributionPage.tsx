@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   callTooLostEndpoint,
   createTooLostReleaseDraft,
+  deleteTooLostRelease,
   getTooLostRelease,
   getTooLostReleaseTracks,
   listTooLostReleases,
@@ -612,6 +613,11 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [trackUploadError, setTrackUploadError] = useState("");
   const [putTracksState, setPutTracksState] = useState<EndpointState>(defaultEndpointState);
 
+  // Artwork
+  const [artworkPreviewUrl, setArtworkPreviewUrl] = useState("");
+  const [artworkUploading, setArtworkUploading] = useState(false);
+  const [artworkUploadError, setArtworkUploadError] = useState("");
+
   async function loadConnection() {
     setConnectionLoading(true);
     setError("");
@@ -678,6 +684,9 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     setTrackUploadPhase("idle");
     setTrackUploadError("");
     setPutTracksState(defaultEndpointState);
+    setArtworkPreviewUrl("");
+    setArtworkUploading(false);
+    setArtworkUploadError("");
 
     try {
       await disconnectTooLost();
@@ -769,7 +778,9 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       ]);
 
       setReleaseDetailState({ loading: false, error: "", data: release, loadedAt: new Date().toISOString() });
-      setReleaseMetadataForm(extractReleaseMetadataForm(release));
+      const metaForm = extractReleaseMetadataForm(release);
+      setReleaseMetadataForm(metaForm);
+      if (metaForm.coverUrl) setArtworkPreviewUrl(metaForm.coverUrl);
       setReleaseTracksState({ loading: false, error: "", data: tracks, loadedAt: new Date().toISOString() });
     } catch (detailError) {
       const message = detailError instanceof Error ? detailError.message : "Could not load release details.";
@@ -892,6 +903,61 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
         data: current.data,
         loadedAt: current.loadedAt,
       }));
+    }
+  }
+
+  async function uploadArtworkToCloudinary(file: File): Promise<string> {
+    const cloudName = (import.meta as { env: Record<string, string> }).env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = (import.meta as { env: Record<string, string> }).env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      throw new Error("Cloudinary is not configured. Add VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET to your .env file.");
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", uploadPreset);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(`Cloudinary upload failed: ${response.statusText}`);
+    const data = await response.json() as { secure_url: string };
+    return data.secure_url;
+  }
+
+  async function handleArtworkFileSelect(file: File | null) {
+    if (!file) return;
+    setArtworkUploadError("");
+
+    // Show local preview immediately
+    const localUrl = URL.createObjectURL(file);
+    setArtworkPreviewUrl(localUrl);
+
+    // Upload to Cloudinary
+    setArtworkUploading(true);
+    try {
+      const cloudUrl = await uploadArtworkToCloudinary(file);
+      setArtworkPreviewUrl(cloudUrl);
+      setReleaseMetadataForm((prev) => ({ ...prev, coverUrl: cloudUrl }));
+    } catch (err) {
+      setArtworkUploadError(err instanceof Error ? err.message : "Artwork upload failed.");
+    } finally {
+      setArtworkUploading(false);
+    }
+  }
+
+  async function deleteReleaseDraft(releaseId: string | number) {
+    if (!window.confirm("Delete this draft release? This cannot be undone.")) return;
+    try {
+      await deleteTooLostRelease(releaseId);
+      setSelectedReleaseId(null);
+      setReleasesResult(null);
+      setEndpointResults((prev) => prev.filter((r) => r.key !== "releases"));
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Could not delete release.");
     }
   }
 
@@ -1374,25 +1440,41 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <article id="release-start-section" className="asset-card distribution-v5-panel distribution-roadmap-form-card release-builder-workflow-card">
                 <div className="distribution-v11-panel-heading">
                   <div>
-                    <span className="asset-type-pill">Start Release</span>
-                    <h3>Create Draft Shell</h3>
-                    <p>This first step only creates the Too Lost release shell using the fields required by POST /releases: type, title, participants, and optional label.</p>
+                    <span className="asset-type-pill">Step 1</span>
+                    <h3>Create Draft Release</h3>
+                    <p>Select a release type, name it, and set the primary artist to create the Too Lost draft shell.</p>
                   </div>
                 </div>
+
+                {/* Release type cards */}
+                <div className="release-type-grid">
+                  {[
+                    { type: "Single", desc: "1–3 tracks", icon: "♪" },
+                    { type: "EP", desc: "4–6 tracks", icon: "◈" },
+                    { type: "Album", desc: "7+ tracks", icon: "◉" },
+                    { type: "Compilation", desc: "Various artists", icon: "◫" },
+                  ].map(({ type, desc, icon }) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={`release-type-card${releaseDraftForm.type === type ? " release-type-card-active" : ""}`}
+                      onClick={() => setReleaseDraftForm((prev) => ({ ...prev, type }))}
+                    >
+                      <span className="release-type-icon">{icon}</span>
+                      <strong>{type}</strong>
+                      <small>{desc}</small>
+                    </button>
+                  ))}
+                </div>
+
                 <div className="distribution-form-grid">
-                  <label>
+                  <label className="distribution-form-wide">
                     <span>Release Title</span>
                     <input value={releaseDraftForm.title} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, title: event.target.value }))} placeholder="Better Late" />
                   </label>
                   <label>
-                    <span>Release Type</span>
-                    <select value={releaseDraftForm.type} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, type: event.target.value }))}>
-                      {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                  </label>
-                  <label>
                     <span>Primary Artist</span>
-                    <input value={releaseDraftForm.artistName} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Artist name" />
+                    <input value={releaseDraftForm.artistName} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Natasha Storm" />
                   </label>
                   <label>
                     <span>Too Lost Artist ID optional</span>
@@ -1403,6 +1485,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                     <input value={releaseDraftForm.label} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, label: event.target.value }))} placeholder="Track Adam / SWU" />
                   </label>
                 </div>
+
                 <InlineError message={createReleaseState.error} />
                 {createReleaseState.data ? <DataTable data={createReleaseState.data} emptyLabel="Draft created." /> : null}
                 <button className="primary-btn distribution-full-width-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
@@ -1413,7 +1496,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <article className="asset-card distribution-v5-panel release-builder-side-card">
                 <span className="asset-type-pill">Clean Flow</span>
                 <h3>Why This Step Is Short</h3>
-                <p>Start Release creates the release shell only. Full release details now live in Release Info using Too Lost's metadata field names.</p>
+                <p>Start Release creates the release shell only. Full release details live in Release Info using Too Lost's metadata field names.</p>
                 <div className="release-builder-mini-checklist">
                   <label><input type="checkbox" checked={Boolean(createReleaseState.data)} readOnly /> Draft response received</label>
                   <label><input type="checkbox" checked={releasesReady} readOnly /> Release records loaded</label>
@@ -1466,9 +1549,16 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <h3>Release Record List</h3>
                 <p className="distribution-empty">Select the release record you want to build, then continue to Release Info.</p>
                 <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
-                <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("info")}>
-                  Continue to Release Info
-                </button>
+                <div className="release-builder-choose-actions">
+                  <button className="secondary-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("info")}>
+                    Continue to Release Info
+                  </button>
+                  {selectedReleaseId ? (
+                    <button className="danger-btn" type="button" onClick={() => void deleteReleaseDraft(selectedReleaseId)}>
+                      Delete Draft
+                    </button>
+                  ) : null}
+                </div>
               </article>
             </div>
           ) : null}
@@ -1584,14 +1674,58 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                       <option value="true">Yes</option>
                     </select>
                   </label>
-                  <label>
-                    <span>Cover URL</span>
-                    <input value={releaseMetadataForm.coverUrl} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, coverUrl: event.target.value }))} placeholder="https://bucket.s3.amazonaws.com/artworks/a.jpg" />
-                  </label>
-                  <label>
-                    <span>Compressed Artwork URL</span>
-                    <input value={releaseMetadataForm.compressedArtwork} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, compressedArtwork: event.target.value }))} placeholder="https://bucket.s3.amazonaws.com/artworks/a_small.jpg" />
-                  </label>
+                </div>
+
+                {/* Artwork upload section */}
+                <div className="artwork-upload-section">
+                  <h4>Cover Artwork</h4>
+                  <p className="distribution-empty">3000×3000px minimum, square format, JPG/PNG/TIFF. Uploaded to Cloudinary, URL saved to Too Lost.</p>
+
+                  <div className="artwork-upload-layout">
+                    <label className={`artwork-drop-zone${artworkUploading ? " artwork-uploading" : ""}${artworkPreviewUrl ? " artwork-has-preview" : ""}`}>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/tiff,image/webp"
+                        onChange={(e) => void handleArtworkFileSelect(e.target.files?.[0] ?? null)}
+                      />
+                      {artworkPreviewUrl ? (
+                        <img src={artworkPreviewUrl} alt="Cover artwork preview" className="artwork-preview-img" />
+                      ) : (
+                        <div className="artwork-drop-placeholder">
+                          <span className="artwork-drop-icon">🖼</span>
+                          <strong>{artworkUploading ? "Uploading..." : "Drop artwork or click to browse"}</strong>
+                          <small>JPG · PNG · TIFF</small>
+                        </div>
+                      )}
+                      {artworkUploading ? <div className="artwork-uploading-overlay"><span>Uploading...</span></div> : null}
+                    </label>
+
+                    <div className="artwork-url-fields">
+                      <label>
+                        <span>Cover URL</span>
+                        <input
+                          value={releaseMetadataForm.coverUrl}
+                          onChange={(e) => {
+                            setReleaseMetadataForm((prev) => ({ ...prev, coverUrl: e.target.value }));
+                            if (e.target.value) setArtworkPreviewUrl(e.target.value);
+                          }}
+                          placeholder="Auto-filled after upload, or paste URL"
+                        />
+                      </label>
+                      <label>
+                        <span>Compressed Artwork URL</span>
+                        <input
+                          value={releaseMetadataForm.compressedArtwork}
+                          onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, compressedArtwork: e.target.value }))}
+                          placeholder="Optional smaller version URL"
+                        />
+                      </label>
+                      {artworkUploadError ? <p className="distribution-v5-error">{artworkUploadError}</p> : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="distribution-form-grid release-metadata-grid">
                   <label>
                     <span>Release Time</span>
                     <input value={releaseMetadataForm.releaseTime} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, releaseTime: event.target.value }))} placeholder="05:55" />

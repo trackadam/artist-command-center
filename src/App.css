@@ -4744,3 +4744,220 @@ section .section-heading {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Release type cards ─────────────────────────────────── */
+.release-type-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.release-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  text-align: center;
+}
+
+.release-type-card:hover {
+  border-color: rgba(124, 167, 255, 0.4);
+  background: rgba(47, 124, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.release-type-card-active {
+  border-color: rgba(47, 124, 255, 0.7) !important;
+  background: rgba(47, 124, 255, 0.16) !important;
+  box-shadow: 0 0 0 1px rgba(47, 124, 255, 0.25);
+}
+
+.release-type-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  display: block;
+}
+
+.release-type-card strong {
+  font-size: 0.92rem;
+  font-weight: 950;
+  display: block;
+}
+
+.release-type-card small {
+  font-size: 0.72rem;
+  color: var(--muted);
+  display: block;
+}
+
+
+/* ── Artwork upload ──────────────────────────────────────── */
+.artwork-upload-section {
+  margin: 4px 0 18px;
+}
+
+.artwork-upload-section h4 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.artwork-upload-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  margin-top: 12px;
+}
+
+.artwork-drop-zone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 200px;
+  border-radius: 18px;
+  border: 2px dashed rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 160ms ease, background 160ms ease;
+  flex-shrink: 0;
+}
+
+.artwork-drop-zone:hover {
+  border-color: rgba(47, 124, 255, 0.55);
+  background: rgba(47, 124, 255, 0.07);
+}
+
+.artwork-has-preview {
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.artwork-drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.artwork-drop-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.artwork-drop-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.artwork-drop-placeholder strong {
+  font-size: 0.82rem;
+  color: rgba(219, 231, 255, 0.85);
+  font-weight: 800;
+}
+
+.artwork-drop-placeholder small {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.artwork-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.artwork-uploading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-weight: 900;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.artwork-url-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.artwork-url-fields label {
+  display: grid;
+  gap: 7px;
+}
+
+.artwork-url-fields span {
+  color: rgba(219, 231, 255, 0.76);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.artwork-url-fields input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.065);
+  color: var(--text);
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 700;
+  outline: none;
+}
+
+.artwork-url-fields input:focus {
+  border-color: rgba(47, 124, 255, 0.7);
+  box-shadow: 0 0 0 3px rgba(47, 124, 255, 0.18);
+}
+
+
+/* ── Choose release actions ─────────────────────────────── */
+.release-builder-choose-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.release-builder-choose-actions .secondary-btn {
+  flex: 1;
+}
+
+
+@media (max-width: 900px) {
+  .release-type-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .artwork-upload-layout {
+    grid-template-columns: 1fr;
+  }
+  .artwork-drop-zone {
+    width: 100%;
+    height: 180px;
+  }
+}
