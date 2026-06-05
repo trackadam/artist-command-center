@@ -337,6 +337,42 @@ function getAnalyticsRowTitle(row: Record<string, unknown>, fallback: string) {
   return stringifyCell(getRecordValue(row, ["title", "trackTitle", "track_title", "name", "platform", "channel", "service", "release_title"]) || fallback);
 }
 
+function formatSalesMoney(value: unknown) {
+  if (value === null || value === undefined || value === "") return "—";
+  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value.replace(/[$,]/g, "")) : NaN;
+  if (Number.isFinite(numeric)) {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(numeric);
+  }
+  return formatAnalyticsValue(value);
+}
+
+function getSalesPayloadRecord(value: unknown) {
+  const payload = getPayloadData(value);
+  return isRecord(payload) ? payload : null;
+}
+
+function getSalesMetricCards(overview: unknown, tracks: unknown, releases: unknown, channels: unknown): MetricCard[] {
+  const record = getSalesPayloadRecord(overview);
+  const totalEarnings = record ? getRecordValue(record, ["totalEarnings", "total_earnings", "totalAmount", "total_amount", "earnings", "amount", "net", "gross"]) : null;
+  const royalties = record ? getRecordValue(record, ["royalties", "totalRoyalties", "total_royalties", "sales", "totalSales"]) : null;
+  const period = record ? getRecordValue(record, ["period", "dateRange", "range", "month"]) : null;
+
+  return [
+    createMetric("Estimated Earnings", formatSalesMoney(totalEarnings), period ? stringifyCell(period) : "Latest synced report"),
+    createMetric("Royalty Activity", formatAnalyticsValue(royalties ?? getCount(overview)), "Overview response"),
+    createMetric("Track Reports", formatAnalyticsValue(getRows(tracks).length), "Track-level rows"),
+    createMetric("Release Reports", formatAnalyticsValue(getRows(releases).length || getRows(channels).length), "Release / channel rows"),
+  ];
+}
+
+function getSalesRowName(row: Record<string, unknown>, fallback: string) {
+  return stringifyCell(getRecordValue(row, ["title", "trackTitle", "releaseTitle", "release_title", "name", "artist", "platform", "channel", "territory", "country", "code"]) || fallback);
+}
+
+function getSalesRowValue(row: Record<string, unknown>) {
+  return formatSalesMoney(getRecordValue(row, ["earnings", "amount", "total", "totalAmount", "total_amount", "royalties", "net", "gross"]) ?? getRecordValue(row, ["streams", "units", "count", "quantity"]));
+}
+
 function getRows(value: unknown) {
   return asArray(value).filter(isRecord) as Record<string, unknown>[];
 }
@@ -815,6 +851,50 @@ function RawJson({ data }: { data: unknown }) {
   );
 }
 
+function SalesInsightList({ data, emptyLabel, label }: { data: unknown; emptyLabel: string; label: string }) {
+  const rows = getRows(data);
+
+  if (!rows.length) {
+    const record = getSalesPayloadRecord(data);
+    const entries = record ? Object.entries(record).filter(([, value]) => value !== null && value !== undefined && value !== "").slice(0, 5) : [];
+
+    if (entries.length) {
+      return (
+        <div className="sales-kv-grid">
+          {entries.map(([key, value]) => (
+            <div key={key} className="sales-kv-card">
+              <span>{key.replace(/_/g, " ")}</span>
+              <strong>{key.toLowerCase().includes("amount") || key.toLowerCase().includes("earning") ? formatSalesMoney(value) : formatAnalyticsValue(value)}</strong>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="analytics-empty-state analytics-empty-state-compact sales-empty-state">
+        <span>◇</span>
+        <strong>{emptyLabel}</strong>
+        <p>Sales and royalty data usually appears after stores report earnings into the connected distributor account.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="sales-insight-list">
+      {rows.slice(0, 8).map((row, index) => (
+        <div className="sales-insight-row" key={`${label}-${index}`}>
+          <div>
+            <strong>{getSalesRowName(row, `${label} ${index + 1}`)}</strong>
+            <small>{stringifyCell(getRecordValue(row, ["isrc", "upc", "catalogNumber", "catalog_number", "date", "period"]))}</small>
+          </div>
+          <span>{getSalesRowValue(row)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function findEndpoint(key: TooLostEndpointKey) {
   const endpoint = TOOLOST_ENDPOINTS.find((item) => item.key === key);
   if (!endpoint) throw new Error(`Missing distributor endpoint config for ${key}.`);
@@ -894,6 +974,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [artworkUploading, setArtworkUploading] = useState(false);
   const [artworkUploadError, setArtworkUploadError] = useState("");
   const releaseSetupAutoLoadedRef = useRef(false);
+  const analyticsPlatformsAutoLoadedRef = useRef(false);
 
   function setActiveReleaseSession(releaseId: string) {
     setSelectedReleaseId(releaseId);
@@ -1500,7 +1581,12 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const lookupCountries = getEndpointState(endpointResults, "lookupCountries");
   const salesOverview = getEndpointState(endpointResults, "salesOverview").data;
   const profileRecord = getProfileRecord(profileResult);
-  const platformOptions = useMemo(() => getPlatformOptions(analyticsPlatforms.data), [analyticsPlatforms.data]);
+  const platformOptions = useMemo(() => {
+    const lookupOptions = getPlatformOptions(lookupPlatforms.data);
+    const analyticsOptions = getPlatformOptions(analyticsPlatforms.data);
+    const fallbackOptions = fallbackDeliveryPlatformOptions.map((option) => option.value);
+    return Array.from(new Set([...lookupOptions, ...analyticsOptions, ...fallbackOptions])).slice(0, 100);
+  }, [lookupPlatforms.data, analyticsPlatforms.data]);
   const genreOptions = useMemo(
     () => withFallbackOptions(getLookupOptions(lookupGenres.data, ["name", "genre", "value", "label", "id"], ["name", "label", "genre", "value"]), fallbackGenreOptions),
     [lookupGenres.data],
@@ -1539,6 +1625,15 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     releaseSetupAutoLoadedRef.current = true;
     void loadMany(releaseSetupLookupKeys);
   }, [activeTab, canLoad, actionLoading, setupDataNeedsLoad]);
+
+  useEffect(() => {
+    if (activeTab !== "Analytics") return;
+    if (!canLoad || actionLoading || analyticsPlatformsAutoLoadedRef.current) return;
+    if (lookupPlatforms.loading || hasLookupData(lookupPlatforms)) return;
+
+    analyticsPlatformsAutoLoadedRef.current = true;
+    void loadEndpoint(findEndpoint("lookupPlatforms"));
+  }, [activeTab, canLoad, actionLoading, lookupPlatforms.loading, lookupPlatforms.data, lookupPlatforms.error]);
 
   useEffect(() => {
     if (activeTab !== "Release Builder") return;
@@ -2989,29 +3084,116 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       ) : null}
 
       {activeTab === "Sales" ? (
-        <div className="distribution-v5-section">
-          <div className="distribution-v5-section-head">
+        <div className="distribution-v5-section distribution-sales-page">
+          <div className="sales-command-hero">
             <div>
-              <h3>Sales / Royalties</h3>
-              <p>If the distributor returns Invalid scope(s), confirm read:earnings vs read:sales for sandbox sales endpoints.</p>
+              <span className="analytics-kicker">Royalty Command</span>
+              <h3>Sales & Royalties</h3>
+              <p>Production-ready view for earnings, releases, tracks, platforms, and territories reported by the distributor.</p>
             </div>
-            <button className="primary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["salesOverview", "salesTracks", "salesReleases", "salesChannels", "salesTerritories"])}>
-              {actionLoading ? "Loading..." : "Load Sales"}
-            </button>
+            <div className="analytics-hero-actions">
+              <span className={salesOverview ? "analytics-sync-pill analytics-sync-pill-ready" : "analytics-sync-pill"}>
+                {salesOverview ? "Synced" : "Waiting for sync"}
+              </span>
+              <button className="primary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["salesOverview", "salesTracks", "salesReleases", "salesChannels", "salesTerritories"])}>
+                {actionLoading ? "Syncing..." : "Sync Sales"}
+              </button>
+            </div>
           </div>
 
-          <div className="distribution-v5-two-col">
-            {(["salesOverview", "salesTracks", "salesReleases", "salesChannels", "salesTerritories"] as TooLostEndpointKey[]).map((key) => {
-              const endpoint = findEndpoint(key);
-              const state = getEndpointState(endpointResults, key);
-              return (
-                <article className="asset-card distribution-v5-panel" key={key}>
-                  <h3>{endpoint.label}</h3>
-                  <InlineError message={state.error} />
-                  <DataTable data={state.data} emptyLabel={`No ${endpoint.label.toLowerCase()} loaded yet.`} />
-                </article>
-              );
-            })}
+          <div className="analytics-metric-grid sales-metric-grid">
+            {getSalesMetricCards(salesOverview, getEndpointState(endpointResults, "salesTracks").data, getEndpointState(endpointResults, "salesReleases").data, getEndpointState(endpointResults, "salesChannels").data).map((metric) => (
+              <article className="analytics-metric-card sales-metric-card" key={metric.label}>
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+                {metric.helper ? <p>{metric.helper}</p> : null}
+              </article>
+            ))}
+          </div>
+
+          <div className="sales-main-grid">
+            <article className="asset-card analytics-panel sales-panel sales-panel-large">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Overview</span>
+                  <h3>Royalty Overview</h3>
+                  <p>High-level earnings summary from the connected sales endpoint.</p>
+                </div>
+                <span className="analytics-count-pill">{salesOverview ? "Loaded" : "No report"}</span>
+              </div>
+              <InlineError message={getEndpointState(endpointResults, "salesOverview").error} />
+              <SalesInsightList data={salesOverview} emptyLabel="No sales overview yet" label="Overview" />
+            </article>
+
+            <article className="asset-card analytics-panel sales-panel">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Platforms</span>
+                  <h3>Channel Earnings</h3>
+                  <p>DSP and store-level sales performance.</p>
+                </div>
+              </div>
+              <InlineError message={getEndpointState(endpointResults, "salesChannels").error} />
+              <SalesInsightList data={getEndpointState(endpointResults, "salesChannels").data} emptyLabel="No channel sales yet" label="Channel" />
+            </article>
+          </div>
+
+          <div className="sales-secondary-grid">
+            <article className="asset-card analytics-panel sales-panel">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Tracks</span>
+                  <h3>Track Royalty Reports</h3>
+                  <p>Track-level revenue and activity once stores report earnings.</p>
+                </div>
+                <span className="analytics-count-pill">{getRows(getEndpointState(endpointResults, "salesTracks").data).length} tracks</span>
+              </div>
+              <InlineError message={getEndpointState(endpointResults, "salesTracks").error} />
+              <SalesInsightList data={getEndpointState(endpointResults, "salesTracks").data} emptyLabel="No track sales yet" label="Track" />
+            </article>
+
+            <article className="asset-card analytics-panel sales-panel">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Releases</span>
+                  <h3>Release Royalty Reports</h3>
+                  <p>Release-level totals grouped by product when available.</p>
+                </div>
+                <span className="analytics-count-pill">{getRows(getEndpointState(endpointResults, "salesReleases").data).length} releases</span>
+              </div>
+              <InlineError message={getEndpointState(endpointResults, "salesReleases").error} />
+              <SalesInsightList data={getEndpointState(endpointResults, "salesReleases").data} emptyLabel="No release sales yet" label="Release" />
+            </article>
+
+            <article className="asset-card analytics-panel sales-panel">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Territories</span>
+                  <h3>Territory Earnings</h3>
+                  <p>Country and territory royalty breakdowns.</p>
+                </div>
+                <span className="analytics-count-pill">{getRows(getEndpointState(endpointResults, "salesTerritories").data).length} territories</span>
+              </div>
+              <InlineError message={getEndpointState(endpointResults, "salesTerritories").error} />
+              <SalesInsightList data={getEndpointState(endpointResults, "salesTerritories").data} emptyLabel="No territory sales yet" label="Territory" />
+            </article>
+
+            <article className="asset-card analytics-panel sales-panel sales-health-panel">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Readiness</span>
+                  <h3>Sales Health</h3>
+                  <p>Quick view of which sales endpoints returned data this session.</p>
+                </div>
+              </div>
+              <div className="analytics-health-list">
+                <div><span className={salesOverview ? "analytics-health-dot analytics-health-dot-on" : "analytics-health-dot"} /> Overview synced</div>
+                <div><span className={getEndpointState(endpointResults, "salesTracks").data ? "analytics-health-dot analytics-health-dot-on" : "analytics-health-dot"} /> Track sales synced</div>
+                <div><span className={getEndpointState(endpointResults, "salesReleases").data ? "analytics-health-dot analytics-health-dot-on" : "analytics-health-dot"} /> Release sales synced</div>
+                <div><span className={getEndpointState(endpointResults, "salesChannels").data ? "analytics-health-dot analytics-health-dot-on" : "analytics-health-dot"} /> Channel sales synced</div>
+                <div><span className={getEndpointState(endpointResults, "salesTerritories").data ? "analytics-health-dot analytics-health-dot-on" : "analytics-health-dot"} /> Territory sales synced</div>
+              </div>
+            </article>
           </div>
         </div>
       ) : null}
