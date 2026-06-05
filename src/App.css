@@ -3659,3 +3659,268 @@ section .section-heading {
     width: 100%;
   }
 }
+
+
+/* Too Lost Distribution v6 polish pass */
+.distribution-v5-page {
+  width: min(100%, 1380px);
+  margin: 0 auto;
+  padding-bottom: 56px;
+}
+
+.distribution-v5-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.distribution-v5-hero h2 {
+  max-width: 760px;
+}
+
+.distribution-v5-hero > div:first-child p:not(.eyebrow) {
+  max-width: 820px;
+}
+
+.distribution-v5-hero .distribution-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 78px;
+  min-width: 300px;
+}
+
+.distribution-v5-hero .primary-btn,
+.distribution-v5-hero .secondary-btn,
+.distribution-v5-section-head .primary-btn {
+  min-height: 44px;
+  padding-inline: 20px;
+  white-space: nowrap;
+}
+
+.distribution-v5-status-row {
+  grid-template-columns: minmax(280px, 1.15fr) minmax(260px, 1fr) minmax(260px, 1fr);
+  gap: 16px;
+  margin: 22px 0 22px;
+  align-items: stretch;
+}
+
+.distribution-v5-status-card {
+  min-height: 146px;
+  justify-content: flex-start;
+  padding: 20px 22px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(47, 124, 255, 0.13), transparent 38%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.distribution-v5-status-card .status-pill {
+  width: fit-content;
+  min-width: 0;
+  max-width: 100%;
+  padding: 7px 12px;
+  margin-bottom: 8px;
+  display: inline-flex;
+}
+
+.distribution-v5-status-card h3,
+.distribution-v5-status-card strong {
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.distribution-v5-status-card p {
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.distribution-v5-tabs {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  margin: 22px 0 24px;
+  border-radius: 22px;
+}
+
+.distribution-v5-tabs .distribution-tab {
+  min-height: 40px;
+  padding: 0 18px;
+  flex: 0 0 auto;
+}
+
+.distribution-v5-section {
+  gap: 20px;
+}
+
+.distribution-v5-section-head {
+  align-items: center;
+  min-height: 86px;
+  padding: 18px 20px;
+}
+
+.distribution-v5-section-head > div {
+  min-width: 0;
+}
+
+.distribution-v5-section-head h3,
+.distribution-v5-panel h3,
+.distribution-v5-command-card h3 {
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+
+.distribution-v5-metrics {
+  gap: 14px;
+}
+
+.distribution-v5-metrics .distribution-metric-card {
+  min-height: 132px;
+  padding: 18px;
+}
+
+.distribution-v5-command-grid {
+  gap: 16px;
+}
+
+.distribution-v5-command-card {
+  min-height: 176px;
+  padding: 20px;
+}
+
+.distribution-v5-command-card .secondary-btn {
+  width: 100%;
+  min-height: 44px;
+}
+
+.distribution-v5-two-col {
+  align-items: start;
+  gap: 16px;
+}
+
+.distribution-v5-panel {
+  min-height: 0;
+  padding: 20px;
+  border-radius: 22px;
+}
+
+.distribution-v5-panel > h3 {
+  margin-bottom: 2px;
+}
+
+.distribution-v5-panel .distribution-empty {
+  margin: 0;
+}
+
+.distribution-v5-panel .distribution-v5-kv-list {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.distribution-v5-panel .distribution-v5-kv-list div {
+  min-height: 82px;
+  padding: 13px 14px;
+}
+
+.distribution-v5-panel .distribution-v5-kv-list span {
+  font-size: 11px;
+}
+
+.distribution-v5-panel .distribution-v5-kv-list strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.distribution-v5-panel .distribution-table-wrap,
+.distribution-v5-table-wrap {
+  max-height: 340px;
+  border-radius: 16px;
+}
+
+.distribution-v5-table th,
+.distribution-v5-table td {
+  padding: 11px 12px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.distribution-v5-inline-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 10px;
+}
+
+.distribution-v5-inline-form select {
+  min-width: 0;
+  height: 46px;
+}
+
+.distribution-v5-inline-form .secondary-btn {
+  width: auto;
+  min-width: 84px;
+  height: 46px;
+  padding-inline: 18px;
+}
+
+.distribution-v5-error {
+  margin: 0;
+}
+
+.distribution-v5-json summary {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 1200px) {
+  .distribution-v5-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .distribution-v5-hero .distribution-hero-actions {
+    padding-top: 0;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .distribution-v5-status-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .distribution-v5-command-grid,
+  .distribution-v5-two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .distribution-v5-tabs .distribution-tab {
+    flex: 1 1 140px;
+  }
+}
+
+@media (max-width: 720px) {
+  .distribution-v5-page {
+    width: 100%;
+  }
+
+  .distribution-v5-section-head {
+    align-items: flex-start;
+  }
+
+  .distribution-v5-inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .distribution-v5-inline-form .secondary-btn,
+  .distribution-v5-section-head .primary-btn {
+    width: 100%;
+  }
+}
+
