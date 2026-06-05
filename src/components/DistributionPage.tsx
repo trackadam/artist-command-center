@@ -296,6 +296,48 @@ function getOverviewMetrics(
   ];
 }
 
+function formatAnalyticsValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "number") return new Intl.NumberFormat().format(value);
+  if (typeof value === "string") {
+    const numeric = Number(value.replace(/,/g, ""));
+    if (value.trim() && Number.isFinite(numeric) && /^-?\d+(\.\d+)?$/.test(value.trim().replace(/,/g, ""))) {
+      return new Intl.NumberFormat(undefined, { maximumFractionDigits: numeric % 1 === 0 ? 0 : 2 }).format(numeric);
+    }
+    return value;
+  }
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return stringifyCell(value);
+}
+
+function getAnalyticsPayloadRecord(value: unknown) {
+  const payload = getPayloadData(value);
+  return isRecord(payload) ? payload : null;
+}
+
+function getAnalyticsMetricCards(analytics: unknown): MetricCard[] {
+  const record = getAnalyticsPayloadRecord(analytics);
+  const dateRange = isRecord(record?.dateRange) ? record?.dateRange : null;
+  const rangeLabel = dateRange
+    ? `${stringifyCell(getRecordValue(dateRange, ["from", "start", "startDate"]))} → ${stringifyCell(getRecordValue(dateRange, ["to", "end", "endDate"]))}`
+    : "Latest synced period";
+
+  return [
+    createMetric("Total Streams", formatAnalyticsValue(record ? getRecordValue(record, ["totalStreams", "total_streams", "streams", "streamCount"]) || 0 : "—"), rangeLabel),
+    createMetric("Saves", formatAnalyticsValue(record ? getRecordValue(record, ["totalSaves", "saves", "saveCount"]) || 0 : "—"), "Listener saves"),
+    createMetric("Skips", formatAnalyticsValue(record ? getRecordValue(record, ["totalSkips", "skips", "skipCount"]) || 0 : "—"), "Skip count"),
+    createMetric("Engagement", formatAnalyticsValue(record ? getRecordValue(record, ["engagement", "engagementRate", "saveRate"]) || 0 : "—"), "Engagement score"),
+  ];
+}
+
+function getAnalyticsTableValue(row: Record<string, unknown>, keys: string[]) {
+  return formatAnalyticsValue(getRecordValue(row, keys));
+}
+
+function getAnalyticsRowTitle(row: Record<string, unknown>, fallback: string) {
+  return stringifyCell(getRecordValue(row, ["title", "trackTitle", "track_title", "name", "platform", "channel", "service", "release_title"]) || fallback);
+}
+
 function getRows(value: unknown) {
   return asArray(value).filter(isRecord) as Record<string, unknown>[];
 }
@@ -2795,27 +2837,122 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       ) : null}
 
       {activeTab === "Analytics" ? (
-        <div className="distribution-v5-section">
-          <div className="distribution-v5-section-head">
+        <div className="distribution-v5-section distribution-analytics-page">
+          <div className="analytics-command-hero">
             <div>
-              <h3>Analytics</h3>
-              <p>Streaming overview, tracks, and platform data in one clean page.</p>
+              <span className="analytics-kicker">Streaming Intelligence</span>
+              <h3>Analytics Dashboard</h3>
+              <p>Production-ready view for streams, saves, skips, platform reach, and track performance.</p>
             </div>
-            <button className="primary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["analyticsOverview", "analyticsTracks", "analyticsPlatforms"])}>
-              {actionLoading ? "Loading..." : "Load Analytics"}
-            </button>
+            <div className="analytics-hero-actions">
+              <span className={analyticsOverview ? "analytics-sync-pill analytics-sync-pill-ready" : "analytics-sync-pill"}>
+                {analyticsOverview ? "Synced" : "Waiting for sync"}
+              </span>
+              <button className="primary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["analyticsOverview", "analyticsTracks", "analyticsPlatforms"])}>
+                {actionLoading ? "Syncing..." : "Sync Analytics"}
+              </button>
+            </div>
           </div>
 
-          <div className="distribution-v5-two-col">
-            <article className="asset-card distribution-v5-panel">
-              <h3>Overview</h3>
-              <InlineError message={getEndpointState(endpointResults, "analyticsOverview").error} />
-              <DataTable data={analyticsOverview} emptyLabel="No analytics overview loaded yet." />
+          <div className="analytics-metric-grid">
+            {getAnalyticsMetricCards(analyticsOverview).map((metric) => (
+              <article className="analytics-metric-card" key={metric.label}>
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+                {metric.helper ? <p>{metric.helper}</p> : null}
+              </article>
+            ))}
+          </div>
+
+          <div className="analytics-main-grid">
+            <article className="asset-card analytics-panel analytics-panel-large">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Tracks</span>
+                  <h3>Track Performance</h3>
+                  <p>Track-level streaming data from the connected analytics endpoint.</p>
+                </div>
+                <span className="analytics-count-pill">{getRows(analyticsTracks.data).length} tracks</span>
+              </div>
+              <InlineError message={analyticsTracks.error} />
+              {getRows(analyticsTracks.data).length ? (
+                <div className="analytics-table-wrap">
+                  <table className="analytics-table">
+                    <thead>
+                      <tr>
+                        <th>Track</th>
+                        <th>Streams</th>
+                        <th>Saves</th>
+                        <th>Skips</th>
+                        <th>Engagement</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getRows(analyticsTracks.data).slice(0, 12).map((row, index) => (
+                        <tr key={`analytics-track-${index}`}>
+                          <td>
+                            <strong>{getAnalyticsRowTitle(row, `Track ${index + 1}`)}</strong>
+                            <small>{stringifyCell(getRecordValue(row, ["isrc", "trackIsrc", "track_isrc"]))}</small>
+                          </td>
+                          <td>{getAnalyticsTableValue(row, ["streams", "totalStreams", "total_streams", "streamCount"])}</td>
+                          <td>{getAnalyticsTableValue(row, ["saves", "totalSaves", "saveCount"])}</td>
+                          <td>{getAnalyticsTableValue(row, ["skips", "totalSkips", "skipCount"])}</td>
+                          <td>{getAnalyticsTableValue(row, ["engagement", "engagementRate", "saveRate"])}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="analytics-empty-state">
+                  <span>♪</span>
+                  <strong>No track analytics yet</strong>
+                  <p>Sync analytics after releases are live and stores begin reporting stream data.</p>
+                </div>
+              )}
             </article>
-            <article className="asset-card distribution-v5-panel">
-              <h3>Platform Total Streams</h3>
-              <p className="distribution-empty">Choose a platform before loading this endpoint.</p>
-              <div className="distribution-v5-inline-form">
+
+            <article className="asset-card analytics-panel">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Platforms</span>
+                  <h3>Platform Pulse</h3>
+                  <p>Where your audience is listening.</p>
+                </div>
+              </div>
+              <InlineError message={analyticsPlatforms.error} />
+              {getRows(analyticsPlatforms.data).length ? (
+                <div className="analytics-platform-list">
+                  {getRows(analyticsPlatforms.data).slice(0, 8).map((row, index) => (
+                    <div className="analytics-platform-card" key={`analytics-platform-${index}`}>
+                      <div>
+                        <strong>{getAnalyticsRowTitle(row, `Platform ${index + 1}`)}</strong>
+                        <small>{stringifyCell(getRecordValue(row, ["code", "slug", "id"]))}</small>
+                      </div>
+                      <span>{getAnalyticsTableValue(row, ["streams", "totalStreams", "total_streams", "amount", "count"])}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="analytics-empty-state analytics-empty-state-compact">
+                  <span>◌</span>
+                  <strong>No platform analytics loaded</strong>
+                  <p>Use Sync Analytics to pull platform data.</p>
+                </div>
+              )}
+            </article>
+          </div>
+
+          <div className="analytics-secondary-grid">
+            <article className="asset-card analytics-panel">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Platform Lookup</span>
+                  <h3>Total Streams by Platform</h3>
+                  <p>Check one platform at a time when deeper store totals are available.</p>
+                </div>
+              </div>
+              <div className="analytics-platform-loader">
                 <select value={selectedPlatform} onChange={(event) => setSelectedPlatform(event.target.value)}>
                   <option value="">Choose platform</option>
                   {platformOptions.map((platform) => (
@@ -2823,24 +2960,35 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   ))}
                 </select>
                 <button className="secondary-btn" type="button" disabled={!canLoad || totalStreamsState.loading || !selectedPlatform} onClick={loadTotalStreams}>
-                  {totalStreamsState.loading ? "Loading..." : "Load"}
+                  {totalStreamsState.loading ? "Loading..." : "Load Total"}
                 </button>
               </div>
               <InlineError message={totalStreamsState.error} />
-              <DataTable data={totalStreamsState.data} emptyLabel="No platform total stream data loaded yet." />
+              {totalStreamsState.data ? (
+                <div className="analytics-result-card">
+                  <span>{selectedPlatform || "Platform"}</span>
+                  <strong>{formatAnalyticsValue(getCount(totalStreamsState.data))}</strong>
+                  <p>Total stream response loaded from the distributor.</p>
+                </div>
+              ) : (
+                <p className="analytics-muted-copy">Choose a platform to check its total stream response.</p>
+              )}
             </article>
-          </div>
 
-          <div className="distribution-v5-two-col">
-            <article className="asset-card distribution-v5-panel">
-              <h3>Tracks</h3>
-              <InlineError message={analyticsTracks.error} />
-              <DataTable data={analyticsTracks.data} emptyLabel="No track analytics returned yet." />
-            </article>
-            <article className="asset-card distribution-v5-panel">
-              <h3>Platforms</h3>
-              <InlineError message={analyticsPlatforms.error} />
-              <DataTable data={analyticsPlatforms.data} emptyLabel="No platform analytics returned yet." />
+            <article className="asset-card analytics-panel">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Readiness</span>
+                  <h3>Analytics Health</h3>
+                  <p>Quick view of which analytics endpoints have data in this session.</p>
+                </div>
+              </div>
+              <div className="analytics-health-list">
+                <div><span className={analyticsOverview ? "analytics-health-dot analytics-health-dot-on" : "analytics-health-dot"} /> Overview synced</div>
+                <div><span className={analyticsTracks.data ? "analytics-health-dot analytics-health-dot-on" : "analytics-health-dot"} /> Track analytics synced</div>
+                <div><span className={analyticsPlatforms.data ? "analytics-health-dot analytics-health-dot-on" : "analytics-health-dot"} /> Platform analytics synced</div>
+                <div><span className={selectedPlatform && totalStreamsState.data ? "analytics-health-dot analytics-health-dot-on" : "analytics-health-dot"} /> Platform total checked</div>
+              </div>
             </article>
           </div>
         </div>
