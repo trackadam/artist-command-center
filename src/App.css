@@ -3119,24 +3119,24 @@ section .section-heading {
 /* ── Status row ─────────────────────────────────────────── */
 .distribution-v5-status-row {
   display: grid;
-  grid-template-columns: minmax(280px, 1.1fr) minmax(320px, 1fr) minmax(280px, 0.95fr);
-  gap: 16px;
-  margin: 0 0 24px;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: 18px;
+  margin: 0 0 26px;
   align-items: stretch;
 }
 
 .distribution-v5-status-card {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
   padding: 22px 24px;
   border-radius: 24px;
   background:
     radial-gradient(circle at 95% 15%, rgba(47, 124, 255, 0.16), transparent 38%),
     linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025));
   border-color: rgba(255, 255, 255, 0.105);
-  min-height: 140px;
+  min-height: 124px;
 }
 
 .distribution-v5-status-card .status-pill {
@@ -7273,21 +7273,16 @@ body {
   font-size: 0.78rem;
 }
 
-.analytics-main-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
-  gap: 18px;
-  align-items: start;
-}
-
+.analytics-main-grid,
 .analytics-secondary-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.7fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.75fr);
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .analytics-panel {
+  height: 100%;
   border-radius: 24px;
   padding: 20px;
 }
@@ -7410,7 +7405,7 @@ body {
 }
 
 .analytics-empty-state-compact {
-  min-height: 210px;
+  min-height: 250px;
 }
 
 .analytics-empty-state span {
@@ -7512,6 +7507,78 @@ body {
   .analytics-main-grid,
   .analytics-secondary-grid,
   .analytics-platform-loader {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* v22.6.1 Analytics balance + cleaner connection cards */
+.distribution-analytics-page {
+  max-width: 1460px;
+}
+
+.distribution-v5-status-row + .distribution-v5-section.distribution-analytics-page {
+  margin-top: 2px;
+}
+
+.distribution-v5-status-card:first-child {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(42, 225, 151, 0.13), transparent 34%),
+    radial-gradient(circle at 95% 15%, rgba(47, 124, 255, 0.13), transparent 38%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.022));
+}
+
+.distribution-v5-status-card strong {
+  max-width: 100%;
+}
+
+.analytics-command-hero {
+  min-height: 142px;
+}
+
+.analytics-metric-grid {
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+}
+
+.analytics-metric-card {
+  display: flex;
+  min-height: 124px;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.analytics-metric-card strong {
+  margin-top: 12px;
+}
+
+.analytics-panel-head {
+  min-height: 84px;
+}
+
+.analytics-main-grid .analytics-panel,
+.analytics-secondary-grid .analytics-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.analytics-main-grid .analytics-empty-state,
+.analytics-main-grid .analytics-platform-list,
+.analytics-secondary-grid .analytics-health-list,
+.analytics-secondary-grid .analytics-result-card,
+.analytics-secondary-grid .analytics-muted-copy {
+  flex: 1;
+}
+
+.analytics-health-list {
+  align-content: stretch;
+}
+
+.analytics-health-list div {
+  min-height: 48px;
+}
+
+@media (max-width: 1180px) {
+  .distribution-v5-status-row {
     grid-template-columns: 1fr;
   }
 }

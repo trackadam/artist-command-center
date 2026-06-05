@@ -14,7 +14,6 @@ import {
   putTooLostReleaseTracks,
   validateTooLostUpc,
   validateTooLostIsrc,
-  connectionHasScope,
   disconnectTooLost,
   fetchTooLostEndpoint,
   getTooLostConfig,
@@ -1686,12 +1685,6 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
           </span>
           <h3>{profileRecord ? `${stringifyCell(profileRecord.first_name)} ${stringifyCell(profileRecord.last_name)}` : "Distribution Sandbox"}</h3>
           <p>{profileRecord?.email ? stringifyCell(profileRecord.email) : "Connect, then sync profile to show account details."}</p>
-        </article>
-
-        <article className="asset-card distribution-v5-status-card">
-          <span>Current Scope</span>
-          <strong>{connection?.scope || "Not connected"}</strong>
-          {connection && !connectionHasScope(connection, "read:catalog") ? <p className="distribution-v5-muted-warning">Catalog is not granted on this token.</p> : null}
         </article>
 
         <article className="asset-card distribution-v5-status-card">
