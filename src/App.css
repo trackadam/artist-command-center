@@ -4892,3 +4892,53 @@ section .section-heading {
   }
 }
 
+
+
+/* Too Lost Distribution v19 metadata editor */
+.release-builder-stepper-compact {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.release-builder-metadata-panel {
+  grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.8fr);
+}
+
+.release-builder-metadata-card {
+  min-height: 520px;
+}
+
+.release-metadata-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.release-metadata-grid label:nth-last-child(-n + 2) {
+  grid-column: span 1;
+}
+
+.release-builder-metadata-card .distribution-v5-kv-list,
+.release-builder-side-card .distribution-v5-kv-list {
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.release-builder-metadata-card .primary-btn {
+  margin-top: 12px;
+}
+
+@media (max-width: 1280px) {
+  .release-builder-stepper-compact {
+    grid-template-columns: repeat(3, minmax(170px, 1fr));
+  }
+
+  .release-builder-metadata-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .release-metadata-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

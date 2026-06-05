@@ -537,6 +537,13 @@ export async function getTooLostReleaseTracks(releaseId: string | number) {
   return callTooLostEndpoint(`/releases/${releaseId}/tracks`);
 }
 
+export async function updateTooLostReleaseMetadata(releaseId: string | number, metadata: Record<string, unknown>) {
+  return callTooLostEndpoint(`/releases/${releaseId}/metadata`, {
+    method: "PATCH",
+    body: metadata,
+  });
+}
+
 export async function createTooLostReleaseDraft(payload: TooLostCreateReleaseDraftPayload) {
   return callTooLostEndpoint("/releases", { method: "POST", body: payload });
 }

@@ -5,6 +5,7 @@ import {
   getTooLostRelease,
   getTooLostReleaseTracks,
   listTooLostReleases,
+  updateTooLostReleaseMetadata,
   validateTooLostUpc,
   validateTooLostIsrc,
   connectionHasScope,
@@ -27,7 +28,7 @@ type DistributionPageProps = {
 };
 
 type DashboardTab = "Overview" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
-type ReleaseBuilderStepKey = "draft" | "catalog" | "details" | "validation" | "review";
+type ReleaseBuilderStepKey = "draft" | "catalog" | "metadata" | "tracks" | "validation" | "review";
 
 type EndpointState = {
   loading: boolean;
@@ -56,6 +57,19 @@ type ReleaseFilterForm = {
   search: string;
 };
 
+type ReleaseMetadataForm = {
+  title: string;
+  type: string;
+  label: string;
+  releaseDate: string;
+  upc: string;
+  genre: string;
+  language: string;
+  explicit: string;
+  copyright: string;
+  phonographicCopyright: string;
+};
+
 const defaultEndpointState: EndpointState = {
   loading: false,
   error: "",
@@ -74,6 +88,19 @@ const emptyReleaseFilterForm: ReleaseFilterForm = {
   status: "",
   type: "",
   search: "",
+};
+
+const emptyReleaseMetadataForm: ReleaseMetadataForm = {
+  title: "",
+  type: "",
+  label: "",
+  releaseDate: "",
+  upc: "",
+  genre: "",
+  language: "",
+  explicit: "",
+  copyright: "",
+  phonographicCopyright: "",
 };
 
 const releaseStatusOptions = ["draft", "in_review", "live", "takedown_pending", "takedown_complete"];
@@ -197,6 +224,70 @@ function getPlatformOptions(platforms: unknown) {
     .map(String);
 
   return Array.from(new Set(options)).slice(0, 50);
+}
+
+function getStringValueFromPayload(value: unknown, keys: string[]) {
+  const payload = getPayloadData(value);
+  if (!isRecord(payload)) return "";
+
+  const found = getRecordValue(payload, keys);
+  if (found === null || found === undefined) return "";
+
+  if (typeof found === "string" || typeof found === "number" || typeof found === "boolean") {
+    return String(found);
+  }
+
+  return "";
+}
+
+function getExplicitMetadataValue(value: unknown) {
+  const raw = getStringValueFromPayload(value, ["explicit", "is_explicit", "explicit_content", "parental_advisory"]);
+  if (!raw) return "";
+
+  const normalized = raw.toLowerCase();
+  if (["true", "1", "yes", "explicit"].includes(normalized)) return "explicit";
+  if (["false", "0", "no", "clean"].includes(normalized)) return "clean";
+
+  return raw;
+}
+
+function extractReleaseMetadataForm(release: unknown): ReleaseMetadataForm {
+  return {
+    title: getStringValueFromPayload(release, ["title", "release_title", "name"]),
+    type: getStringValueFromPayload(release, ["type", "release_type"]),
+    label: getStringValueFromPayload(release, ["label", "label_name"]),
+    releaseDate: getStringValueFromPayload(release, ["releaseDate", "release_date", "date"]),
+    upc: getStringValueFromPayload(release, ["upc", "barcode"]),
+    genre: getStringValueFromPayload(release, ["genre", "primary_genre", "genre_id"]),
+    language: getStringValueFromPayload(release, ["language", "language_code"]),
+    explicit: getExplicitMetadataValue(release),
+    copyright: getStringValueFromPayload(release, ["copyright", "c_line", "copyright_text"]),
+    phonographicCopyright: getStringValueFromPayload(release, ["phonographicCopyright", "p_line", "phonographic_copyright"]),
+  };
+}
+
+function buildReleaseMetadataPayload(form: ReleaseMetadataForm) {
+  const payload: Record<string, unknown> = {};
+
+  const add = (key: string, value: string) => {
+    const trimmed = value.trim();
+    if (trimmed) payload[key] = trimmed;
+  };
+
+  add("title", form.title);
+  add("type", form.type);
+  add("label", form.label);
+  add("releaseDate", form.releaseDate);
+  add("upc", form.upc);
+  add("genre", form.genre);
+  add("language", form.language);
+  add("copyright", form.copyright);
+  add("phonographicCopyright", form.phonographicCopyright);
+
+  if (form.explicit === "explicit") payload.explicit = true;
+  if (form.explicit === "clean") payload.explicit = false;
+
+  return payload;
 }
 
 function DataTable({ data, emptyLabel = "No data returned yet." }: { data: unknown; emptyLabel?: string }) {
@@ -373,6 +464,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const [releaseDetailState, setReleaseDetailState] = useState<EndpointState>(defaultEndpointState);
   const [releaseTracksState, setReleaseTracksState] = useState<EndpointState>(defaultEndpointState);
   const [releaseDraftForm, setReleaseDraftForm] = useState<ReleaseDraftForm>(emptyReleaseDraftForm);
+  const [releaseMetadataForm, setReleaseMetadataForm] = useState<ReleaseMetadataForm>(emptyReleaseMetadataForm);
+  const [metadataUpdateState, setMetadataUpdateState] = useState<EndpointState>(defaultEndpointState);
   const [createReleaseState, setCreateReleaseState] = useState<EndpointState>(defaultEndpointState);
   const [upcToValidate, setUpcToValidate] = useState("");
   const [upcValidationState, setUpcValidationState] = useState<EndpointState>(defaultEndpointState);
@@ -426,6 +519,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     setSelectedReleaseId("");
     setReleaseDetailState(defaultEndpointState);
     setReleaseTracksState(defaultEndpointState);
+    setReleaseMetadataForm(emptyReleaseMetadataForm);
+    setMetadataUpdateState(defaultEndpointState);
     setCreateReleaseState(defaultEndpointState);
     setUpcValidationState(defaultEndpointState);
     setIsrcValidationState(defaultEndpointState);
@@ -520,6 +615,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
       ]);
 
       setReleaseDetailState({ loading: false, error: "", data: release, loadedAt: new Date().toISOString() });
+      setReleaseMetadataForm(extractReleaseMetadataForm(release));
       setReleaseTracksState({ loading: false, error: "", data: tracks, loadedAt: new Date().toISOString() });
     } catch (detailError) {
       const message = detailError instanceof Error ? detailError.message : "Could not load release details.";
@@ -559,6 +655,27 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
       setCreateReleaseState((current) => ({
         loading: false,
         error: draftError instanceof Error ? draftError.message : "Could not create release draft.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
+  async function saveReleaseMetadata() {
+    setMetadataUpdateState({ loading: true, error: "", data: metadataUpdateState.data, loadedAt: metadataUpdateState.loadedAt });
+
+    try {
+      if (!selectedReleaseId) throw new Error("Select a release before saving metadata.");
+      const payload = buildReleaseMetadataPayload(releaseMetadataForm);
+      if (!Object.keys(payload).length) throw new Error("Enter at least one metadata value to save.");
+
+      const data = await updateTooLostReleaseMetadata(selectedReleaseId, payload);
+      setMetadataUpdateState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      await loadReleaseDetails(selectedReleaseId);
+    } catch (metadataError) {
+      setMetadataUpdateState((current) => ({
+        loading: false,
+        error: metadataError instanceof Error ? metadataError.message : "Could not update release metadata.",
         data: current.data,
         loadedAt: current.loadedAt,
       }));
@@ -662,6 +779,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const releaseDraftReady = Boolean(createReleaseState.data);
   const releasesReady = Boolean(releasesResult);
   const selectedReleaseReady = Boolean(selectedReleaseId && releaseDetailState.data);
+  const metadataSaved = Boolean(metadataUpdateState.data);
+  const tracksReady = Boolean(releaseTracksState.data);
   const upcValidated = Boolean(upcValidationState.data);
 
   const releaseWorkflowSteps: Array<{
@@ -687,22 +806,29 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
       complete: releasesReady,
     },
     {
-      key: "details",
+      key: "metadata",
       number: "03",
-      label: "Details & Tracks",
-      helper: "Inspect metadata, track list, and ISRC tools.",
-      complete: selectedReleaseReady,
+      label: "Metadata",
+      helper: "Edit selected release metadata.",
+      complete: selectedReleaseReady && metadataSaved,
+    },
+    {
+      key: "tracks",
+      number: "04",
+      label: "Tracks",
+      helper: "Inspect track list and locked track tools.",
+      complete: tracksReady,
     },
     {
       key: "validation",
-      number: "04",
+      number: "05",
       label: "Validation",
       helper: "Run UPC and ISRC checks before submission.",
       complete: upcValidated || Boolean(isrcValidationState.data),
     },
     {
       key: "review",
-      number: "05",
+      number: "06",
       label: "Review",
       helper: "Final review and submit tools stay locked for now.",
       complete: false,
@@ -821,7 +947,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
           <div className="distribution-v5-section-head">
             <div>
               <h3>Release Builder</h3>
-              <p>Guided sandbox workflow for creating drafts, finding releases, inspecting tracks, validating identifiers, and preparing a final review.</p>
+              <p>Guided sandbox workflow for creating drafts, finding releases, editing metadata, inspecting tracks, validating identifiers, and preparing a final review.</p>
             </div>
             <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
               {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
@@ -850,7 +976,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
                   <div>
                     <span className="asset-type-pill">Sandbox Draft</span>
                     <h3>Create Release Draft</h3>
-                    <p>Start with the minimum required Too Lost draft data. Once the draft exists, use the catalog/detail steps to continue building safely.</p>
+                    <p>Start with the minimum required Too Lost draft data. Once the draft exists, use the catalog step to pull the release and continue safely.</p>
                   </div>
                 </div>
                 <div className="distribution-form-grid">
@@ -887,7 +1013,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
               <article className="asset-card distribution-v5-panel release-builder-side-card">
                 <span className="asset-type-pill">Next Steps</span>
                 <h3>Draft Workflow</h3>
-                <p>Create the draft first, then move to Catalog to pull the Too Lost release list and select the release you want to inspect.</p>
+                <p>Create the draft first, then move to Catalog to pull the Too Lost release list and select the release you want to edit.</p>
                 <div className="release-builder-mini-checklist">
                   <label><input type="checkbox" checked={Boolean(createReleaseState.data)} readOnly /> Draft response received</label>
                   <label><input type="checkbox" checked={releasesReady} readOnly /> Release catalog loaded</label>
@@ -907,7 +1033,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
                   <div>
                     <span className="asset-type-pill">Catalog Filter</span>
                     <h3>Find Releases</h3>
-                    <p>Search and filter Too Lost release records so you can select the exact draft or catalog item you want to inspect.</p>
+                    <p>Search and filter Too Lost release records so you can select the exact draft or catalog item you want to edit.</p>
                   </div>
                 </div>
                 <div className="distribution-form-grid">
@@ -938,35 +1064,107 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
 
               <article className="asset-card distribution-v5-panel distribution-roadmap-list-card release-builder-workflow-card">
                 <h3>Release List</h3>
-                <p className="distribution-empty">Select a release to load its details and track list.</p>
+                <p className="distribution-empty">Select a release to load its details and prep the metadata editor.</p>
                 <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
-                <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("details")}>
-                  Continue to Details & Tracks
+                <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("metadata")}>
+                  Continue to Metadata
                 </button>
               </article>
             </div>
           ) : null}
 
-          {activeReleaseStep === "details" ? (
+          {activeReleaseStep === "metadata" ? (
+            <div className="release-builder-step-panel release-builder-metadata-panel">
+              <article id="release-metadata-section" className="asset-card distribution-v5-panel release-builder-metadata-card release-builder-workflow-card">
+                <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
+                  <div>
+                    <span className="asset-type-pill">Metadata Editor</span>
+                    <h3>Release Metadata</h3>
+                    <p>Edit selected release metadata in the Too Lost sandbox. This does not submit the release.</p>
+                  </div>
+                  {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
+                </div>
+
+                <InlineError message={releaseDetailState.error} />
+                <div className="distribution-form-grid release-metadata-grid">
+                  <label>
+                    <span>Title</span>
+                    <input value={releaseMetadataForm.title} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, title: event.target.value }))} placeholder="Release title" />
+                  </label>
+                  <label>
+                    <span>Type</span>
+                    <select value={releaseMetadataForm.type} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, type: event.target.value }))}>
+                      <option value="">Keep current / not set</option>
+                      {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Label</span>
+                    <input value={releaseMetadataForm.label} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, label: event.target.value }))} placeholder="Label" />
+                  </label>
+                  <label>
+                    <span>Release Date</span>
+                    <input type="date" value={releaseMetadataForm.releaseDate} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, releaseDate: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>UPC</span>
+                    <input value={releaseMetadataForm.upc} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, upc: event.target.value }))} placeholder="UPC" inputMode="numeric" />
+                  </label>
+                  <label>
+                    <span>Explicit</span>
+                    <select value={releaseMetadataForm.explicit} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, explicit: event.target.value }))}>
+                      <option value="">Keep current / not set</option>
+                      <option value="clean">Clean</option>
+                      <option value="explicit">Explicit</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Genre</span>
+                    <input value={releaseMetadataForm.genre} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, genre: event.target.value }))} placeholder="Genre or genre ID" />
+                  </label>
+                  <label>
+                    <span>Language</span>
+                    <input value={releaseMetadataForm.language} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, language: event.target.value }))} placeholder="Language code" />
+                  </label>
+                  <label>
+                    <span>Copyright</span>
+                    <input value={releaseMetadataForm.copyright} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, copyright: event.target.value }))} placeholder="© 2026 Track Adam" />
+                  </label>
+                  <label>
+                    <span>Phonographic Copyright</span>
+                    <input value={releaseMetadataForm.phonographicCopyright} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, phonographicCopyright: event.target.value }))} placeholder="℗ 2026 Track Adam" />
+                  </label>
+                </div>
+
+                <InlineError message={metadataUpdateState.error} />
+                {metadataUpdateState.data ? <DataTable data={metadataUpdateState.data} emptyLabel="No metadata response yet." /> : null}
+
+                <button className="primary-btn distribution-full-width-btn" type="button" disabled={!canLoad || metadataUpdateState.loading || !selectedReleaseId} onClick={saveReleaseMetadata}>
+                  {metadataUpdateState.loading ? "Saving Metadata..." : "Save Metadata to Sandbox"}
+                </button>
+              </article>
+
+              <article className="asset-card distribution-v5-panel release-builder-side-card">
+                <span className="asset-type-pill">Current Release</span>
+                <h3>Loaded Details</h3>
+                <p>Use this as a reference while editing. If the form is blank, go back to Catalog, select a release, and load its details first.</p>
+                <DataTable data={releaseDetailState.data} emptyLabel="No release details loaded yet." />
+                <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("tracks")}>
+                  Continue to Tracks
+                </button>
+              </article>
+            </div>
+          ) : null}
+
+          {activeReleaseStep === "tracks" ? (
             <div className="release-builder-step-panel release-builder-details-panel">
               <article id="release-detail-section" className="asset-card distribution-v5-panel distribution-roadmap-detail-card release-builder-workflow-card">
                 <div className="distribution-v11-panel-heading">
                   <div>
-                    <span className="asset-type-pill">Details & Tracks</span>
-                    <h3>Selected Release</h3>
-                    <p>Inspect the selected Too Lost release, review track data, and prep track-level actions.</p>
+                    <span className="asset-type-pill">Track Tools</span>
+                    <h3>Tracks</h3>
+                    <p>Review the selected release track list and prep locked track-level actions.</p>
                   </div>
-                </div>
-
-                <InlineError message={releaseDetailState.error} />
-                <DataTable data={releaseDetailState.data} emptyLabel="No release selected yet." />
-
-                <div className="release-track-tools-header">
-                  <div>
-                    <h3 className="distribution-v11-subhead">Tracks</h3>
-                    <p className="distribution-empty">Track upload and edit tools stay locked until we confirm Too Lost's exact track payload schema.</p>
-                  </div>
-                  <span className="status-pill">Track tools v1</span>
                 </div>
 
                 <InlineError message={releaseTracksState.error} />
@@ -996,7 +1194,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
                 <div>
                   <span className="asset-type-pill">Identifier Validation</span>
                   <h3>UPC & ISRC Checks</h3>
-                  <p>Validate release and track identifiers against Too Lost sandbox before moving toward metadata, delivery, and submit tools.</p>
+                  <p>Validate release and track identifiers against Too Lost sandbox before moving toward delivery and submit tools.</p>
                 </div>
                 {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
               </div>
@@ -1041,7 +1239,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
                 <div>
                   <span className="asset-type-pill">Locked Safety Step</span>
                   <h3>Review & Submit</h3>
-                  <p>Submission stays locked until draft creation, release details, tracks, validation, metadata, and delivery are all proven in sandbox.</p>
+                  <p>Submission stays locked until draft creation, release details, metadata, tracks, validation, and delivery are all proven in sandbox.</p>
                 </div>
                 <span className="status-pill status-warning">Submit Locked</span>
               </div>
@@ -1049,10 +1247,10 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
               <div className="release-builder-review-grid">
                 <label><input type="checkbox" checked={releaseDraftReady || releasesReady} readOnly /> Draft or release list loaded</label>
                 <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release details selected</label>
-                <label><input type="checkbox" checked={Boolean(releaseTracksState.data)} readOnly /> Tracks inspected</label>
+                <label><input type="checkbox" checked={metadataSaved} readOnly /> Metadata edit workflow confirmed</label>
+                <label><input type="checkbox" checked={tracksReady} readOnly /> Tracks inspected</label>
                 <label><input type="checkbox" checked={upcValidated} readOnly /> UPC validation checked</label>
                 <label><input type="checkbox" checked={Boolean(isrcValidationState.data)} readOnly /> ISRC validation checked</label>
-                <label><input type="checkbox" checked={false} readOnly /> Metadata edit workflow confirmed</label>
                 <label><input type="checkbox" checked={false} readOnly /> Delivery settings confirmed</label>
               </div>
 
