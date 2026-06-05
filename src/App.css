@@ -6388,3 +6388,102 @@ body {
     padding: 16px 14px 26px;
   }
 }
+
+/* =========================
+   v22.3.2 — smoother sidebar title reveal
+   Prevents nav labels from wrapping into vertical scrambled text while the shell opens.
+   ========================= */
+@media (min-width: 901px) {
+  .nav button,
+  .nav-sub-item,
+  .brand-copy,
+  .sidebar-account,
+  .sidebar-signout-btn {
+    white-space: nowrap;
+  }
+
+  .nav-label {
+    display: inline-flex !important;
+    align-items: center;
+    min-width: 0;
+    max-width: 190px;
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 1;
+    transform: translateX(0);
+    transition:
+      max-width 180ms ease 260ms,
+      opacity 160ms ease 320ms,
+      transform 160ms ease 320ms;
+  }
+
+  .brand-copy,
+  .sidebar-account-email,
+  .sidebar-signout-btn,
+  .nav-sub {
+    opacity: 1;
+    transform: translateX(0);
+    transition:
+      opacity 160ms ease 320ms,
+      transform 160ms ease 320ms;
+  }
+
+  .nav-sub {
+    overflow: hidden;
+    max-height: 280px;
+    transition:
+      max-height 220ms ease 260ms,
+      opacity 160ms ease 320ms,
+      transform 160ms ease 320ms;
+  }
+
+  .app-shell.sidebar-collapsed .nav-label {
+    display: inline-flex !important;
+    max-width: 0 !important;
+    opacity: 0 !important;
+    visibility: hidden;
+    transform: translateX(-8px);
+    transition:
+      max-width 120ms ease,
+      opacity 90ms ease,
+      transform 90ms ease,
+      visibility 0s linear 120ms;
+  }
+
+  .app-shell.sidebar-collapsed .brand-copy,
+  .app-shell.sidebar-collapsed .sidebar-account-email,
+  .app-shell.sidebar-collapsed .sidebar-signout-btn {
+    display: block !important;
+    max-width: 0 !important;
+    opacity: 0 !important;
+    visibility: hidden;
+    overflow: hidden;
+    transform: translateX(-8px);
+    pointer-events: none;
+    transition:
+      max-width 120ms ease,
+      opacity 90ms ease,
+      transform 90ms ease,
+      visibility 0s linear 120ms;
+  }
+
+  .app-shell.sidebar-collapsed .nav-sub {
+    display: flex !important;
+    max-height: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-left-color: transparent !important;
+    opacity: 0 !important;
+    visibility: hidden;
+    overflow: hidden;
+    transform: translateX(-8px);
+    pointer-events: none;
+    transition:
+      max-height 120ms ease,
+      opacity 90ms ease,
+      transform 90ms ease,
+      visibility 0s linear 120ms;
+  }
+}

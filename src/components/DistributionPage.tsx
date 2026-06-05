@@ -866,7 +866,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
         await loadReleaseDetails(createdReleaseId);
       }
 
-      setActiveReleaseStep("info");
+      // The four-tier flow should move Basic Information → Artwork → Release Information.
+      setActiveReleaseStep("artwork");
     } catch (draftError) {
       setCreateReleaseState((current) => ({
         loading: false,
@@ -1271,7 +1272,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     start: {
       title: "Basic Information",
       step: "Tier 1 of 4",
-      body: "Create the release shell, choose the release type, and attach the primary artist. After the shell is created, Track Adam OS moves straight into Release Information.",
+      body: "Create the release shell, choose the release type, and attach the primary artist. After the shell is created, Track Adam OS moves into Artwork next, then Release Information.",
       tips: ["Keep title capitalization exactly how it should appear", "Use the same artist spelling across stores", "Create the shell once, then continue forward through the four tiers"],
       articles: ["Release shell checklist", "Artist and label setup"],
     },
@@ -1614,14 +1615,14 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <InlineError message={createReleaseState.error} />
                 {createReleaseState.data ? (
                   <div className="ta-release-flow-note">
-                    Release shell created. Track Adam OS is carrying this draft forward into Release Information.
+                    Release shell created. Track Adam OS is carrying this draft forward into Artwork.
                   </div>
                 ) : null}
                 <div className="ta-wizard-bottom-actions">
                   <button className="primary-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
                     {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
                   </button>
-                  <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("info")}>Continue to Release Info →</button>
+                  <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("artwork")}>Continue to Artwork →</button>
                 </div>
               </article>
 
