@@ -31,8 +31,8 @@ import {
 type DistributionPageProps = {
   oauthStatus?: "success" | "error" | null;
   oauthMessage?: string;
-  activeTab?: "overview" | "catalog" | "releases" | "analytics" | "sales" | "setup" | "developer";
-  onTabChange?: (tab: "overview" | "catalog" | "releases" | "analytics" | "sales" | "setup" | "developer") => void;
+  activeTab?: "releases" | "catalog" | "analytics" | "sales" | "setup" | "developer" | "overview";
+  onTabChange?: (tab: "releases" | "catalog" | "analytics" | "sales" | "setup" | "developer") => void;
 };
 
 type DashboardTab = "Overview" | "Catalog" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
@@ -824,7 +824,7 @@ function findEndpoint(key: TooLostEndpointKey) {
 export default function DistributionPage({ oauthStatus, oauthMessage, activeTab: externalTab, onTabChange }: DistributionPageProps) {
 
   const subPageToTab: Record<string, DashboardTab> = {
-    overview: "Overview",
+    overview: "Release Builder",
     catalog: "Catalog",
     releases: "Release Builder",
     analytics: "Analytics",
@@ -843,12 +843,13 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     "Developer": "developer",
   };
 
-  const [internalTab, setInternalTabState] = useState<DashboardTab>("Overview");
-  const activeTab: DashboardTab = externalTab ? (subPageToTab[externalTab] ?? "Overview") : internalTab;
+  const [internalTab, setInternalTabState] = useState<DashboardTab>("Release Builder");
+  const activeTab: DashboardTab = externalTab ? (subPageToTab[externalTab] ?? "Release Builder") : internalTab;
 
   function setActiveTab(tab: DashboardTab) {
     setInternalTabState(tab);
-    onTabChange?.(tabToSubPage[tab] as "overview" | "catalog" | "releases" | "analytics" | "sales" | "setup" | "developer");
+    const subPage = tabToSubPage[tab];
+    if (subPage !== "overview") onTabChange?.(subPage as "releases" | "catalog" | "analytics" | "sales" | "setup" | "developer");
   }
   const [connection, setConnection] = useState<TooLostConnection | null>(null);
   const [connectionLoading, setConnectionLoading] = useState(true);
@@ -1553,7 +1554,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const upcValidated = Boolean(upcValidationState.data);
   const deliveryConfirmed = Boolean(deliveryUpdateState.data);
 
-  const tabs: DashboardTab[] = ["Overview", "Catalog", "Release Builder", "Analytics", "Sales", "Setup", "Developer"];
+  const tabs: DashboardTab[] = ["Release Builder", "Catalog", "Analytics", "Sales", "Setup", "Developer"];
   const releaseWizardSteps: Array<{
     key: ReleaseTierStepKey;
     number: string;

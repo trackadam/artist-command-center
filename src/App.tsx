@@ -339,7 +339,7 @@ type AppPage =
   | "Distribution"
   | "Planner";
 
-type DistributionSubPage = "overview" | "catalog" | "releases" | "analytics" | "sales" | "setup" | "developer";
+type DistributionSubPage = "releases" | "catalog" | "analytics" | "sales" | "setup" | "developer";
 
 type AppNotice = {
   type: "success" | "error" | "info";
@@ -868,9 +868,37 @@ function App() {
   const [tooLostOauthMessage, setTooLostOauthMessage] = useState("");
   const [tooLostOauthProcessed, setTooLostOauthProcessed] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [distributionSubPage, setDistributionSubPage] = useState<DistributionSubPage>("overview");
+  const [distributionSubPage, setDistributionSubPage] = useState<DistributionSubPage>("releases");
   const [plannerTab, setPlannerTab] = useState<PlannerTab>("Tasks");
   const [selectedNotebookId, setSelectedNotebookId] = useState("all");
+
+  function scrollActiveWorkspaceToTop(behavior: ScrollBehavior = "smooth") {
+    window.requestAnimationFrame(() => {
+      const main = document.querySelector<HTMLElement>(".main");
+      main?.scrollTo({ top: 0, left: 0, behavior });
+      document.documentElement.scrollTo({ top: 0, left: 0, behavior });
+      document.body.scrollTo({ top: 0, left: 0, behavior });
+      window.scrollTo({ top: 0, left: 0, behavior });
+    });
+  }
+
+  function openPage(page: AppPage) {
+    setActivePage(page);
+    if (page === "Distribution") {
+      setDistributionSubPage("releases");
+    }
+    scrollActiveWorkspaceToTop();
+  }
+
+  function openDistributionSubPage(page: DistributionSubPage) {
+    setActivePage("Distribution");
+    setDistributionSubPage(page);
+    scrollActiveWorkspaceToTop();
+  }
+
+  useEffect(() => {
+    scrollActiveWorkspaceToTop("auto");
+  }, [activePage, distributionSubPage]);
 
   const [showNewSong, setShowNewSong] = useState(false);
   const [showNewProject, setShowNewProject] = useState(false);
@@ -8476,7 +8504,6 @@ function App() {
           {sidebarPages.map((page) => {
             if (page === "Distribution") {
               const distSubPages: { key: DistributionSubPage; label: string }[] = [
-                { key: "overview", label: "Overview" },
                 { key: "releases", label: "Release Creator" },
                 { key: "catalog", label: "Catalog" },
                 { key: "analytics", label: "Analytics" },
@@ -8488,7 +8515,7 @@ function App() {
                 <div key="Distribution" className="nav-group">
                   <button
                     className={activePage === "Distribution" ? "nav-active" : ""}
-                    onClick={() => setActivePage("Distribution")}
+                    onClick={() => openDistributionSubPage("releases")}
                     title="Distribution"
                   >
                     <span className="nav-icon">{renderSidebarIcon("Distribution")}</span>
@@ -8500,7 +8527,7 @@ function App() {
                         <button
                           key={key}
                           className={`nav-sub-item${distributionSubPage === key ? " nav-sub-active" : ""}`}
-                          onClick={() => setDistributionSubPage(key)}
+                          onClick={() => openDistributionSubPage(key)}
                         >
                           {label}
                         </button>
@@ -8514,7 +8541,7 @@ function App() {
               <button
                 key={page}
                 className={activePage === page ? "nav-active" : ""}
-                onClick={() => setActivePage(page)}
+                onClick={() => openPage(page)}
                 title={getSidebarPageLabel(page)}
               >
                 <span className="nav-icon">{renderSidebarIcon(page)}</span>
