@@ -141,6 +141,7 @@ const releaseStatusOptions = ["draft", "in_review", "live", "takedown_pending", 
 const releaseTypeOptions = ["Single", "EP", "Album", "Compilation", "MusicVideo", "Music Video"];
 const licenseTypeOptions = ["Copyright", "Public Domain", "Creative Commons"];
 const releaseSetupLookupKeys: TooLostEndpointKey[] = ["lookupGenres", "lookupLanguages", "lookupPlatforms", "lookupCountries"];
+const activeReleaseStorageKey = "track-adam-os-active-release-id";
 
 const fallbackGenreOptions: SelectOption[] = [
   "R&B/Soul",
@@ -358,6 +359,126 @@ function hasLookupData(state: EndpointState) {
   return Boolean(state.data) && !state.error;
 }
 
+function readStoredActiveReleaseId() {
+  try {
+    return window.localStorage.getItem(activeReleaseStorageKey) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStoredActiveReleaseId(releaseId: string) {
+  try {
+    if (releaseId) window.localStorage.setItem(activeReleaseStorageKey, releaseId);
+    else window.localStorage.removeItem(activeReleaseStorageKey);
+  } catch {
+    // Ignore private browsing / storage access errors.
+  }
+}
+
+function getPayloadRecord(value: unknown) {
+  const payload = getPayloadData(value);
+  return isRecord(payload) ? payload : null;
+}
+
+function getActiveReleaseTitle(value: unknown) {
+  const record = getPayloadRecord(value);
+  const title = record ? getRecordValue(record, ["title", "name", "release_title"]) : null;
+  return typeof title === "string" || typeof title === "number" ? String(title) : "Untitled release";
+}
+
+function getActiveReleaseStatus(value: unknown) {
+  const record = getPayloadRecord(value);
+  const status = record ? getRecordValue(record, ["status"]) : null;
+  return typeof status === "string" || typeof status === "number" ? String(status) : "draft";
+}
+
+function getReleaseTimeParts(value: unknown) {
+  const record = getPayloadRecord(value);
+  const releaseTime = record?.releaseTime ?? record?.release_time;
+
+  if (isRecord(releaseTime)) {
+    const time = getRecordValue(releaseTime, ["time", "releaseTime", "release_time"]);
+    const timeZone = getRecordValue(releaseTime, ["timeZone", "time_zone"]);
+    return {
+      time: typeof time === "string" || typeof time === "number" ? String(time) : "",
+      timeZone: typeof timeZone === "string" || typeof timeZone === "number" ? String(timeZone) : "",
+    };
+  }
+
+  return {
+    time: getStringValueFromPayload(value, ["releaseTime", "release_time", "time"]),
+    timeZone: getStringValueFromPayload(value, ["timeZone", "time_zone"]),
+  };
+}
+
+function normalizeCreditList(value: unknown, fallbackRole: string) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter(isRecord)
+    .map((credit) => {
+      const name = getRecordValue(credit, ["name", "artist", "writer", "fullName", "full_name"]);
+      const roleValue = credit.role;
+      const role = Array.isArray(roleValue) ? roleValue.map(String).filter(Boolean) : [String(roleValue || fallbackRole)];
+
+      if (typeof name !== "string" && typeof name !== "number") return null;
+
+      return {
+        name: String(name),
+        role: role.length ? role : [fallbackRole],
+      };
+    })
+    .filter((credit): credit is { name: string; role: string[] } => Boolean(credit && credit.name.trim()));
+}
+
+function extractTrackForms(tracks: unknown): TooLostTrackPayload[] {
+  return getRows(tracks).map((track) => {
+    const lyrics = isRecord(track.lyrics) ? track.lyrics : {};
+    const explicit = typeof lyrics.explicit === "boolean" ? lyrics.explicit : undefined;
+    const cleanVersion = typeof lyrics.cleanVersion === "boolean" ? lyrics.cleanVersion : undefined;
+
+    return {
+      title: stringifyCell(getRecordValue(track, ["title"])).replace(/^—$/, ""),
+      language: stringifyCell(getRecordValue(track, ["language"])).replace(/^—$/, "") || "en",
+      audioFileKey: stringifyCell(getRecordValue(track, ["audioFileKey", "audio_file_key"])).replace(/^—$/, "") || undefined,
+      instrumentalFileKey: stringifyCell(getRecordValue(track, ["instrumentalFileKey", "instrumental_file_key"])).replace(/^—$/, "") || undefined,
+      dolbyFileKey: stringifyCell(getRecordValue(track, ["dolbyFileKey", "dolby_file_key"])).replace(/^—$/, "") || undefined,
+      isrc: stringifyCell(getRecordValue(track, ["isrc"])).replace(/^—$/, "") || undefined,
+      version: stringifyCell(getRecordValue(track, ["version"])).replace(/^—$/, "") || undefined,
+      linerNote: stringifyCell(getRecordValue(track, ["linerNote", "liner_note"])).replace(/^—$/, "") || undefined,
+      tiktokStartTime: stringifyCell(getRecordValue(track, ["tiktokStartTime", "tiktok_start_time"])).replace(/^—$/, "") || undefined,
+      artists: normalizeCreditList(track.artists, "primary"),
+      writers: normalizeCreditList(track.writers, "composer"),
+      lyrics: explicit !== undefined || cleanVersion !== undefined ? { explicit, cleanVersion } : undefined,
+    };
+  });
+}
+
+function cleanTrackPayload(track: TooLostTrackPayload): TooLostTrackPayload {
+  const cleanString = (value?: string) => value?.trim() || undefined;
+  const artists = (track.artists ?? [])
+    .map((artist) => ({ name: artist.name.trim(), role: artist.role?.length ? artist.role : ["primary"] }))
+    .filter((artist) => artist.name);
+  const writers = (track.writers ?? [])
+    .map((writer) => ({ name: writer.name.trim(), role: writer.role?.length ? writer.role : ["composer"] }))
+    .filter((writer) => writer.name);
+
+  return {
+    title: track.title.trim(),
+    language: track.language || "en",
+    audioFileKey: cleanString(track.audioFileKey),
+    instrumentalFileKey: cleanString(track.instrumentalFileKey),
+    dolbyFileKey: cleanString(track.dolbyFileKey),
+    isrc: cleanString(track.isrc),
+    version: cleanString(track.version),
+    linerNote: cleanString(track.linerNote),
+    tiktokStartTime: cleanString(track.tiktokStartTime),
+    artists,
+    writers,
+    lyrics: track.lyrics,
+  };
+}
 
 function getStringValueFromPayload(value: unknown, keys: string[]) {
   const payload = getPayloadData(value);
@@ -385,6 +506,8 @@ function getBooleanSelectValue(value: unknown, keys: string[]) {
 }
 
 function extractReleaseMetadataForm(release: unknown): ReleaseMetadataForm {
+  const releaseTimeParts = getReleaseTimeParts(release);
+
   return {
     version: getStringValueFromPayload(release, ["version"]),
     remixTitle: getStringValueFromPayload(release, ["remixTitle", "remix_title"]),
@@ -405,8 +528,8 @@ function extractReleaseMetadataForm(release: unknown): ReleaseMetadataForm {
     coverUrl: getStringValueFromPayload(release, ["coverUrl", "cover_url"]),
     compressedArtwork: getStringValueFromPayload(release, ["compressedArtwork", "compressed_artwork"]),
     isAiGenerated: getBooleanSelectValue(release, ["isAiGenerated", "isAiGeneratedArtwork", "is_ai_generated"]),
-    releaseTime: getStringValueFromPayload(release, ["releaseTime", "release_time", "time"]),
-    timeZone: getStringValueFromPayload(release, ["timeZone", "time_zone"]),
+    releaseTime: releaseTimeParts.time,
+    timeZone: releaseTimeParts.timeZone,
     label: getStringValueFromPayload(release, ["label"]),
   };
 }
@@ -695,7 +818,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [selectedPlatform, setSelectedPlatform] = useState("");
   const [totalStreamsState, setTotalStreamsState] = useState<EndpointState>(defaultEndpointState);
   const [releaseFilters, setReleaseFilters] = useState<ReleaseFilterForm>(emptyReleaseFilterForm);
-  const [selectedReleaseId, setSelectedReleaseId] = useState("");
+  const [selectedReleaseId, setSelectedReleaseId] = useState(() => readStoredActiveReleaseId());
   const [releaseDetailState, setReleaseDetailState] = useState<EndpointState>(defaultEndpointState);
   const [releaseTracksState, setReleaseTracksState] = useState<EndpointState>(defaultEndpointState);
   const [releaseDraftForm, setReleaseDraftForm] = useState<ReleaseDraftForm>(emptyReleaseDraftForm);
@@ -729,6 +852,27 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [artworkUploading, setArtworkUploading] = useState(false);
   const [artworkUploadError, setArtworkUploadError] = useState("");
   const releaseSetupAutoLoadedRef = useRef(false);
+
+  function setActiveReleaseSession(releaseId: string) {
+    setSelectedReleaseId(releaseId);
+    writeStoredActiveReleaseId(releaseId);
+  }
+
+  function clearActiveReleaseSession() {
+    setActiveReleaseSession("");
+    writeStoredActiveReleaseId("");
+    setReleaseDetailState(defaultEndpointState);
+    setReleaseTracksState(defaultEndpointState);
+    setReleaseMetadataForm(emptyReleaseMetadataForm);
+    setMetadataUpdateState(defaultEndpointState);
+    setDeliveryUpdateState(defaultEndpointState);
+    setPutTracksState(defaultEndpointState);
+    setSubmitState(defaultEndpointState);
+    setArtworkPreviewUrl("");
+    setTrackForms([]);
+    setActiveTrackIndex(null);
+    setActiveReleaseStep("start");
+  }
 
   async function loadConnection() {
     setConnectionLoading(true);
@@ -879,7 +1023,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   }
 
   async function loadReleaseDetails(releaseId: string) {
-    setSelectedReleaseId(releaseId);
+    setActiveReleaseSession(releaseId);
     setReleaseDetailState((current) => ({ ...current, loading: true, error: "" }));
     setReleaseTracksState((current) => ({ ...current, loading: true, error: "" }));
 
@@ -892,12 +1036,23 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       setReleaseDetailState({ loading: false, error: "", data: release, loadedAt: new Date().toISOString() });
       const metaForm = extractReleaseMetadataForm(release);
       setReleaseMetadataForm(metaForm);
-      if (metaForm.coverUrl) setArtworkPreviewUrl(metaForm.coverUrl);
+      setArtworkPreviewUrl(metaForm.coverUrl || "");
+
+      const loadedTrackForms = extractTrackForms(tracks);
+      if (loadedTrackForms.length) {
+        setTrackForms(loadedTrackForms);
+        setActiveTrackIndex(0);
+      }
+
       setReleaseTracksState({ loading: false, error: "", data: tracks, loadedAt: new Date().toISOString() });
     } catch (detailError) {
       const message = detailError instanceof Error ? detailError.message : "Could not load release details.";
       setReleaseDetailState((current) => ({ loading: false, error: message, data: current.data, loadedAt: current.loadedAt }));
       setReleaseTracksState((current) => ({ loading: false, error: message, data: current.data, loadedAt: current.loadedAt }));
+
+      if (!releaseDetailState.data) {
+        writeStoredActiveReleaseId("");
+      }
     }
   }
 
@@ -926,12 +1081,17 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
       const data = await createTooLostReleaseDraft(payload);
       const createdReleaseId = getCreatedReleaseId(data);
+      const createdMetaForm = extractReleaseMetadataForm(data);
 
       setCreateReleaseState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
       setReleaseDraftForm(emptyReleaseDraftForm);
 
       // Keep the live release flow moving forward without showing a separate selector/list.
       if (createdReleaseId) {
+        setActiveReleaseSession(createdReleaseId);
+        setReleaseDetailState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+        setReleaseMetadataForm(createdMetaForm);
+        setArtworkPreviewUrl(createdMetaForm.coverUrl || "");
         await loadReleaseDetails(createdReleaseId);
       }
 
@@ -957,6 +1117,10 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
       const data = await updateTooLostReleaseMetadata(selectedReleaseId, payload);
       setMetadataUpdateState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      setReleaseDetailState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      const updatedMetaForm = extractReleaseMetadataForm(data);
+      setReleaseMetadataForm(updatedMetaForm);
+      setArtworkPreviewUrl(updatedMetaForm.coverUrl || artworkPreviewUrl);
       await loadReleaseDetails(selectedReleaseId);
     } catch (metadataError) {
       setMetadataUpdateState((current) => ({
@@ -1073,6 +1237,11 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   async function uploadTrackFile() {
     if (!selectedReleaseId || !trackUploadFile) return;
 
+    if (!trackUploadFile.name.toLowerCase().endsWith(".flac")) {
+      setTrackUploadError("Too Lost track uploads require a .flac file.");
+      return;
+    }
+
     setTrackUploadPhase("url");
     setTrackUploadError("");
     setTrackUploadProgress(0);
@@ -1161,16 +1330,38 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   }
 
   async function saveTracklist() {
-    if (!selectedReleaseId) return;
-    const validTracks = trackForms.filter((t) => t.title.trim() && t.audioFileKey);
-    if (validTracks.length === 0) {
-      setPutTracksState((prev) => ({ ...prev, error: "Add at least one track with a title and uploaded audio file." }));
+    if (!selectedReleaseId) {
+      setPutTracksState((prev) => ({ ...prev, error: "Create or restore an active release before saving tracks." }));
+      return;
+    }
+
+    const cleanedTracks = trackForms
+      .map(cleanTrackPayload)
+      .filter((track) => track.title && track.audioFileKey);
+
+    if (cleanedTracks.length === 0) {
+      setPutTracksState((prev) => ({ ...prev, error: "Add at least one track with a title and uploaded FLAC audio file." }));
+      return;
+    }
+
+    const missingCredits = cleanedTracks.find((track) => !track.artists?.length || !track.writers?.length);
+    if (missingCredits) {
+      setPutTracksState((prev) => ({ ...prev, error: "Each saved track needs at least one artist and one writer/composer credit." }));
       return;
     }
 
     setPutTracksState((prev) => ({ ...prev, loading: true, error: "" }));
     try {
-      const data = await putTooLostReleaseTracks(selectedReleaseId, validTracks);
+      const data = await putTooLostReleaseTracks(selectedReleaseId, cleanedTracks);
+      const tracks = await getTooLostReleaseTracks(selectedReleaseId);
+      const loadedTrackForms = extractTrackForms(tracks);
+
+      if (loadedTrackForms.length) {
+        setTrackForms(loadedTrackForms);
+        setActiveTrackIndex(0);
+      }
+
+      setReleaseTracksState({ loading: false, error: "", data: tracks, loadedAt: new Date().toISOString() });
       setPutTracksState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
     } catch (err) {
       setPutTracksState((prev) => ({
@@ -1199,6 +1390,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       });
 
       setSubmitState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      setReleaseDetailState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
     } catch (submitError) {
       setSubmitState((current) => ({
         loading: false,
@@ -1306,6 +1498,13 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     void loadMany(releaseSetupLookupKeys);
   }, [activeTab, canLoad, actionLoading, setupDataNeedsLoad]);
 
+  useEffect(() => {
+    if (activeTab !== "Release Builder") return;
+    if (!canLoad || !selectedReleaseId || releaseDetailState.loading || releaseDetailState.data) return;
+
+    void loadReleaseDetails(selectedReleaseId);
+  }, [activeTab, canLoad, selectedReleaseId, releaseDetailState.loading, releaseDetailState.data]);
+
   const releaseDraftReady = Boolean(createReleaseState.data);
   const selectedReleaseReady = Boolean(selectedReleaseId && releaseDetailState.data);
   const metadataSaved = Boolean(metadataUpdateState.data);
@@ -1397,6 +1596,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     },
   };
   const currentHelp = releaseWizardHelp[activeWizardStep.key];
+  const activeReleaseTitle = selectedReleaseReady ? getActiveReleaseTitle(releaseDetailState.data) : "No active release";
+  const activeReleaseStatus = selectedReleaseReady ? getActiveReleaseStatus(releaseDetailState.data) : "not started";
 
   return (
     <section className={`page-section distribution-page distribution-dashboard-page distribution-v5-page ${activeTab === "Release Builder" ? "distribution-release-wizard-mode" : ""}`}>
@@ -1577,7 +1778,13 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <button className="ta-wizard-exit" type="button" onClick={() => setActiveTab("Overview")}>← Exit</button>
             </div>
             <div className="ta-wizard-top-actions">
-              <button className="ta-wizard-icon-btn" type="button" aria-label="Refresh release data" disabled={!canLoad || actionLoading} onClick={() => void loadReleasesWithFilters()}>↻</button>
+              {selectedReleaseId ? (
+                <div className="ta-active-release-pill">
+                  <span>{activeReleaseStatus}</span>
+                  <strong>{activeReleaseTitle}</strong>
+                </div>
+              ) : null}
+              <button className="ta-wizard-icon-btn" type="button" aria-label="Refresh active release" disabled={!canLoad || actionLoading || !selectedReleaseId} onClick={() => selectedReleaseId && void loadReleaseDetails(selectedReleaseId)}>↻</button>
               <span className={connected && !expired ? "ta-wizard-avatar ta-wizard-avatar-live" : "ta-wizard-avatar"}>{profileRecord ? "✓" : "SWU"}</span>
             </div>
           </header>
@@ -1659,6 +1866,22 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             ))}
           </div>
 
+          <div className="ta-active-release-bar">
+            <div>
+              <span>Active Release Session</span>
+              <strong>{activeReleaseTitle}</strong>
+              <small>{selectedReleaseId ? `ID ${selectedReleaseId} • ${activeReleaseStatus}` : "Create a draft release to start the session."}</small>
+            </div>
+            <div className="ta-active-release-actions">
+              <button className="secondary-btn" type="button" disabled={!selectedReleaseId || releaseDetailState.loading} onClick={() => selectedReleaseId && void loadReleaseDetails(selectedReleaseId)}>
+                {releaseDetailState.loading ? "Restoring..." : "Restore / Refresh"}
+              </button>
+              <button className="secondary-btn" type="button" disabled={!selectedReleaseId} onClick={clearActiveReleaseSession}>
+                Start New Release
+              </button>
+            </div>
+          </div>
+
           {activeReleaseStep === "start" ? (
             <div className="release-builder-step-panel release-builder-draft-panel">
               <article id="release-start-section" className="asset-card distribution-v5-panel distribution-roadmap-form-card release-builder-workflow-card">
@@ -1713,14 +1936,14 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <InlineError message={createReleaseState.error} />
                 {createReleaseState.data ? (
                   <div className="ta-release-flow-note">
-                    Release shell created. Track Adam OS is carrying this draft forward into Artwork.
+                    Release shell created and saved as the active release session. Track Adam OS is carrying this draft forward into Artwork.
                   </div>
                 ) : null}
                 <div className="ta-wizard-bottom-actions">
                   <button className="primary-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
                     {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
                   </button>
-                  <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("artwork")}>Continue to Artwork →</button>
+                  <button className="secondary-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("artwork")}>Continue to Artwork →</button>
                 </div>
               </article>
 
@@ -1821,7 +2044,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
                 <div className="ta-wizard-bottom-actions">
                   <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("start")}>← Previous</button>
-                  <button className="primary-btn" type="button" onClick={() => setActiveReleaseStep("info")}>Continue →</button>
+                  <button className="primary-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("info")}>Continue →</button>
                 </div>
               </article>
             </div>
@@ -1834,7 +2057,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   <div>
                     <span className="asset-type-pill">Release Info</span>
                     <h3>Release Metadata</h3>
-                    <p>Complete release-level metadata using store-ready field names. Start Release fields are not repeated here.</p>
+                    <p>Complete release-level metadata using Too Lost’s PATCH /metadata field names. The active release session keeps this tied to the draft you created.</p>
                   </div>
                   {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
                 </div>
@@ -2078,15 +2301,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                             <label>
                               <span>Language</span>
                               <select value={track.language ?? "en"} onChange={(e) => updateTrackField(idx, "language", e.target.value)}>
-                                <option value="en">English</option>
-                                <option value="es">Spanish</option>
-                                <option value="fr">French</option>
-                                <option value="de">German</option>
-                                <option value="pt">Portuguese</option>
-                                <option value="ja">Japanese</option>
-                                <option value="ko">Korean</option>
-                                <option value="zh">Chinese</option>
-                                <option value="zxx">No lyrics / Instrumental</option>
+                                {languageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                               </select>
                             </label>
                             <label>
@@ -2173,10 +2388,18 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                                   type="file"
                                   accept=".flac,audio/flac"
                                   onChange={(e) => {
-                                    setTrackUploadFile(e.target.files?.[0] ?? null);
+                                    const nextFile = e.target.files?.[0] ?? null;
                                     setTrackUploadPhase("idle");
-                                    setTrackUploadError("");
                                     setActiveTrackIndex(idx);
+
+                                    if (nextFile && !nextFile.name.toLowerCase().endsWith(".flac")) {
+                                      setTrackUploadFile(null);
+                                      setTrackUploadError("Choose a .flac file for Too Lost uploads.");
+                                      return;
+                                    }
+
+                                    setTrackUploadFile(nextFile);
+                                    setTrackUploadError("");
                                   }}
                                 />
                                 {trackUploadFile && activeTrackIndex === idx ? trackUploadFile.name : "Choose FLAC file"}
