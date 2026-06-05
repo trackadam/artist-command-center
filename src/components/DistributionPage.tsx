@@ -90,6 +90,7 @@ type ReleaseMetadataForm = {
   isAiGenerated: string;
   releaseTime: string;
   timeZone: string;
+  label: string; // Added to match TooLost metadata schema
 };
 
 const defaultEndpointState: EndpointState = {
@@ -134,6 +135,7 @@ const emptyReleaseMetadataForm: ReleaseMetadataForm = {
   isAiGenerated: "",
   releaseTime: "",
   timeZone: "",
+  label: "", // Added to match TooLost metadata schema
 };
 
 const releaseStatusOptions = ["draft", "in_review", "live", "takedown_pending", "takedown_complete"];
@@ -338,6 +340,7 @@ function extractReleaseMetadataForm(release: unknown): ReleaseMetadataForm {
     isAiGenerated: getBooleanSelectValue(release, ["isAiGenerated", "isAiGeneratedArtwork", "is_ai_generated"]),
     releaseTime: getStringValueFromPayload(release, ["releaseTime", "release_time", "time"]),
     timeZone: getStringValueFromPayload(release, ["timeZone", "time_zone"]),
+    label: getStringValueFromPayload(release, ["label"]),
   };
 }
 
@@ -354,7 +357,10 @@ function buildReleaseMetadataPayload(form: ReleaseMetadataForm) {
     if (!trimmed) return;
 
     const year = Number(trimmed);
-    if (Number.isInteger(year)) payload[key] = year;
+    // TooLost expects year between 1900-2100
+    if (Number.isInteger(year) && year >= 1900 && year <= 2100) {
+      payload[key] = year;
+    }
   };
 
   const addBoolean = (key: string, value: string) => {
@@ -362,24 +368,31 @@ function buildReleaseMetadataPayload(form: ReleaseMetadataForm) {
     if (value === "false") payload[key] = false;
   };
 
+  // Core fields aligned with TooLost PATCH /releases/{releaseId}/metadata schema
+  addString("label", form.label);
   addString("version", form.version);
   addString("remixTitle", form.remixTitle);
   addString("primaryGenre", form.primaryGenre);
   addString("secondaryGenre", form.secondaryGenre);
   addString("language", form.language);
+
   addString("releaseDate", form.releaseDate);
   addString("originalReleaseDate", form.originalReleaseDate);
+
   addBoolean("applePreorder", form.applePreorder);
   addString("applePreorderDate", form.applePreorderDate);
+
   addString("licenseType", form.licenseType);
   addString("licenseInfo", form.licenseInfo);
   addYear("cYear", form.cYear);
   addString("cLine", form.cLine);
   addYear("pYear", form.pYear);
   addString("pLine", form.pLine);
+
   addString("upc", form.upc);
   addString("coverUrl", form.coverUrl);
   addString("compressedArtwork", form.compressedArtwork);
+
   addBoolean("isAiGenerated", form.isAiGenerated);
   addString("releaseTime", form.releaseTime);
   addString("timeZone", form.timeZone);
@@ -1844,6 +1857,14 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   <label>
                     <span>Remix Title</span>
                     <input value={releaseMetadataForm.remixTitle} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, remixTitle: event.target.value }))} placeholder="Nova Waves Remix" />
+                  </label>
+                  <label>
+                    <span>Label</span>
+                    <input 
+                      value={releaseMetadataForm.label} 
+                      onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, label: event.target.value }))} 
+                      placeholder="Track Adam / SWU" 
+                    />
                   </label>
                   <label>
                     <span>Primary Genre</span>
