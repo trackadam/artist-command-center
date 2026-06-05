@@ -1099,18 +1099,20 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
         </article>
       </div>
 
-      <div className="distribution-tabs distribution-v5-tabs" role="tablist" aria-label="Distribution sections">
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            className={activeTab === tab ? "distribution-tab distribution-tab-active" : "distribution-tab"}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      {!onTabChange && (
+        <div className="distribution-tabs distribution-v5-tabs" role="tablist" aria-label="Distribution sections">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              className={activeTab === tab ? "distribution-tab distribution-tab-active" : "distribution-tab"}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      )}
 
       {activeTab === "Overview" ? (
         <div className="distribution-v5-section">
