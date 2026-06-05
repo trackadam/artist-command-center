@@ -1,3 +1,4 @@
+/* Too Lost API v21.1 schema-correct flow */
 import { supabase } from "../supabaseClient";
 
 const TOOLOST_STATE_KEY = "toolost_oauth_state";

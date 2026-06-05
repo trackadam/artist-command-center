@@ -1,3 +1,4 @@
+/* Too Lost Distribution v21.1 schema-correct flow: Start Release / Choose Release / Release Info */
 import { useEffect, useMemo, useState } from "react";
 import {
   callTooLostEndpoint,
@@ -797,8 +798,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     {
       key: "select",
       number: "02",
-      label: "Select Working Release",
-      helper: "Choose the draft you are building.",
+      label: "Choose Release",
+      helper: "Choose the release record to continue.",
       complete: selectedReleaseReady,
     },
     {
@@ -1018,7 +1019,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
               <p>Build the active draft in the right order: start the release shell, select the working draft, complete Too Lost metadata, then move to tracks, delivery, validation, and review.</p>
             </div>
             <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
-              {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Working Releases"}
+              {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
             </button>
           </div>
 
@@ -1044,7 +1045,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
                   <div>
                     <span className="asset-type-pill">Start Release</span>
                     <h3>Create Draft Shell</h3>
-                    <p>This step only uses the fields Too Lost requires for POST /releases: type, title, participants, and optional label.</p>
+                    <p>This first step only creates the Too Lost release shell using the fields required by POST /releases: type, title, participants, and optional label.</p>
                   </div>
                 </div>
                 <div className="distribution-form-grid">
@@ -1079,16 +1080,16 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
               </article>
 
               <article className="asset-card distribution-v5-panel release-builder-side-card">
-                <span className="asset-type-pill">No Duplicate Form</span>
+                <span className="asset-type-pill">Clean Flow</span>
                 <h3>Why This Step Is Short</h3>
-                <p>Start Release creates the draft shell only. Full release details now live in Release Info using Too Lost's metadata field names.</p>
+                <p>Start Release creates the release shell only. Full release details now live in Release Info using Too Lost's metadata field names.</p>
                 <div className="release-builder-mini-checklist">
                   <label><input type="checkbox" checked={Boolean(createReleaseState.data)} readOnly /> Draft response received</label>
-                  <label><input type="checkbox" checked={releasesReady} readOnly /> Working releases loaded</label>
-                  <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Working release selected</label>
+                  <label><input type="checkbox" checked={releasesReady} readOnly /> Release records loaded</label>
+                  <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release record selected</label>
                 </div>
                 <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("select")}>
-                  Continue to Select Working Release
+                  Continue to Choose Release
                 </button>
               </article>
             </div>
@@ -1099,9 +1100,9 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
               <article id="release-select-section" className="asset-card distribution-v5-panel distribution-roadmap-filter-card release-builder-workflow-card">
                 <div className="distribution-v11-panel-heading">
                   <div>
-                    <span className="asset-type-pill">Working Drafts</span>
-                    <h3>Select Working Release</h3>
-                    <p>Find the draft or working release you are actively building. Catalog remains separate for viewing account inventory.</p>
+                    <span className="asset-type-pill">Release Selector</span>
+                    <h3>Choose Release</h3>
+                    <p>Find the release record you are actively building. Catalog remains separate for viewing account inventory.</p>
                   </div>
                 </div>
                 <div className="distribution-form-grid">
@@ -1126,13 +1127,13 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
                 </div>
                 <InlineError message={getEndpointState(endpointResults, "releases").error} />
                 <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
-                  {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Working Releases"}
+                  {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
                 </button>
               </article>
 
               <article className="asset-card distribution-v5-panel distribution-roadmap-list-card release-builder-workflow-card">
-                <h3>Working Release List</h3>
-                <p className="distribution-empty">Select the draft or working release you want to build, then continue to Release Info.</p>
+                <h3>Release Record List</h3>
+                <p className="distribution-empty">Select the release record you want to build, then continue to Release Info.</p>
                 <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
                 <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("info")}>
                   Continue to Release Info
@@ -1281,7 +1282,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
               <article className="asset-card distribution-v5-panel release-builder-side-card">
                 <span className="asset-type-pill">Current Release</span>
                 <h3>Loaded Details</h3>
-                <p>Use this as a reference while editing. If the form is blank, go back to Select Working Release and choose a release first.</p>
+                <p>Use this as a reference while editing. If the form is blank, go back to Choose Release and choose a release first.</p>
                 <DataTable data={releaseDetailState.data} emptyLabel="No release details loaded yet." />
                 <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("tracks")}>
                   Continue to Tracks
@@ -1423,7 +1424,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
 
               <div className="release-builder-review-grid">
                 <label><input type="checkbox" checked={releaseDraftReady || releasesReady} readOnly /> Draft or release list loaded</label>
-                <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Working release selected</label>
+                <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release record selected</label>
                 <label><input type="checkbox" checked={metadataSaved} readOnly /> Release info saved</label>
                 <label><input type="checkbox" checked={tracksReady} readOnly /> Tracks inspected</label>
                 <label><input type="checkbox" checked={false} readOnly /> Delivery settings confirmed</label>
