@@ -1152,11 +1152,11 @@ function App() {
         const tokenResponse = await exchangeTooLostCode(code || "", state);
         await saveTooLostConnection(tokenResponse);
         setTooLostOauthStatus("success");
-        setTooLostOauthMessage("Too Lost Sandbox connected successfully. Run the /me test next.");
+        setTooLostOauthMessage("Distribution sandbox connected successfully. Run the profile test next.");
         window.history.replaceState({}, document.title, "/?toolost=success");
       } catch (oauthError) {
         setTooLostOauthStatus("error");
-        setTooLostOauthMessage(oauthError instanceof Error ? oauthError.message : "Too Lost connection failed.");
+        setTooLostOauthMessage(oauthError instanceof Error ? oauthError.message : "Distribution connection failed.");
         window.history.replaceState({}, document.title, "/?toolost=error");
       }
     }
@@ -8193,7 +8193,7 @@ function App() {
     },
     {
       title: "Distribution",
-      desc: "Connect Too Lost, then pull catalog, analytics, earnings, and release data.",
+      desc: "Connect your distributor, then pull catalog, analytics, earnings, and release data.",
       page: "Distribution",
     },
   ];
@@ -8477,7 +8477,7 @@ function App() {
             if (page === "Distribution") {
               const distSubPages: { key: DistributionSubPage; label: string }[] = [
                 { key: "overview", label: "Overview" },
-                { key: "releases", label: "Release Builder" },
+                { key: "releases", label: "Release Creator" },
                 { key: "catalog", label: "Catalog" },
                 { key: "analytics", label: "Analytics" },
                 { key: "sales", label: "Sales" },

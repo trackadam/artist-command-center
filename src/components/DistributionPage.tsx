@@ -1,5 +1,5 @@
-/* Too Lost Distribution v21.2 build fix - metadata helpers restored and Catalog open points to Release Info */
-/* Too Lost Distribution v21.1 schema-correct flow: Start Release / Choose Release / Release Info */
+/* Distribution v21.2 build fix - metadata helpers restored and Catalog open points to Release Info */
+/* Distribution v21.1 schema-correct flow: Start Release / Choose Release / Release Info */
 import { useEffect, useMemo, useState } from "react";
 import {
   callTooLostEndpoint,
@@ -246,7 +246,7 @@ function getOverviewMetrics(
     createMetric("Account Type", profileRecord?.type || "—", profileRecord?.confirmed === true ? "Confirmed" : "Load /me to confirm"),
     createMetric("Catalog", getCount(releases), "Releases returned"),
     createMetric("Streams", analyticsRecord ? getRecordValue(analyticsRecord, ["totalStreams", "total_streams", "streams"]) || "0" : "—", "Last 30 days if available"),
-    createMetric("Sales", salesRecord ? getRecordValue(salesRecord, ["amount", "total_amount", "earnings", "total"] ) || "—" : "—", "Requires Too Lost earnings scope"),
+    createMetric("Sales", salesRecord ? getRecordValue(salesRecord, ["amount", "total_amount", "earnings", "total"] ) || "—" : "—", "Requires distributor earnings scope"),
     createMetric("Token", connection ? (isTooLostTokenExpired(connection) ? "Expired" : "Active") : "Not connected", connection ? formatDate(connection.expires_at) : "Sandbox"),
   ];
 }
@@ -483,7 +483,7 @@ function ReleaseTable({
   const rows = getRows(data);
 
   if (!rows.length) {
-    return <p className="distribution-empty">No releases returned yet. Load Release Builder to pull draft and catalog data.</p>;
+    return <p className="distribution-empty">No releases returned yet. Load Release Creator to pull draft and catalog data.</p>;
   }
 
   return (
@@ -542,7 +542,7 @@ function RawJson({ data }: { data: unknown }) {
 
 function findEndpoint(key: TooLostEndpointKey) {
   const endpoint = TOOLOST_ENDPOINTS.find((item) => item.key === key);
-  if (!endpoint) throw new Error(`Missing Too Lost endpoint config for ${key}.`);
+  if (!endpoint) throw new Error(`Missing distributor endpoint config for ${key}.`);
   return endpoint;
 }
 
@@ -626,7 +626,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       const currentConnection = await getTooLostConnection();
       setConnection(currentConnection);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Could not load Too Lost connection.");
+      setError(loadError instanceof Error ? loadError.message : "Could not load distribution connection.");
     } finally {
       setConnectionLoading(false);
     }
@@ -650,12 +650,12 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       await startTooLostOAuth();
     } catch (connectError) {
       setActionLoading(false);
-      setError(connectError instanceof Error ? connectError.message : "Could not start Too Lost OAuth.");
+      setError(connectError instanceof Error ? connectError.message : "Could not start distributor OAuth.");
     }
   }
 
   async function handleDisconnect() {
-    const confirmed = window.confirm("Disconnect Too Lost Sandbox from Track Adam OS?");
+    const confirmed = window.confirm("Disconnect the distribution sandbox from Track Adam OS?");
     if (!confirmed) return;
 
     setActionLoading(true);
@@ -692,7 +692,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       await disconnectTooLost();
       setConnection(null);
     } catch (disconnectError) {
-      setError(disconnectError instanceof Error ? disconnectError.message : "Could not disconnect Too Lost.");
+      setError(disconnectError instanceof Error ? disconnectError.message : "Could not disconnect the distributor.");
     } finally {
       setActionLoading(false);
     }
@@ -1081,7 +1081,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
     try {
       if (!selectedReleaseId) throw new Error("No release selected.");
-      if (!acceptTerms) throw new Error("You must accept the Too Lost terms.");
+      if (!acceptTerms) throw new Error("You must accept the distribution terms.");
       if (!rightsConfirmed) throw new Error("You must confirm you own or control the rights.");
 
       const idempotencyKey = `rel-submit-${selectedReleaseId}-${Date.now()}`;
@@ -1145,7 +1145,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   try {
     configPreview = getTooLostConfig();
   } catch (configLoadError) {
-    configError = configLoadError instanceof Error ? configLoadError.message : "Too Lost environment variables are missing.";
+    configError = configLoadError instanceof Error ? configLoadError.message : "Distribution environment variables are missing.";
   }
 
   const connected = Boolean(connection);
@@ -1192,7 +1192,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       key: "start",
       number: "01",
       label: "Start Release",
-      helper: "Create the Too Lost draft shell.",
+      helper: "Create the draft shell.",
       complete: releaseDraftReady || releasesReady,
     },
     {
@@ -1213,7 +1213,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       key: "info",
       number: "04",
       label: "Release Info",
-      helper: "Complete Too Lost metadata fields.",
+      helper: "Complete store-ready metadata fields.",
       complete: selectedReleaseReady && metadataSaved,
     },
     {
@@ -1274,7 +1274,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     select: {
       title: "Choose Release",
       step: "Step 2",
-      body: "Load your Too Lost drafts and select the exact release record you want Track Adam OS to keep building.",
+      body: "Load your drafts and select the exact release record you want Track Adam OS to keep building.",
       tips: ["Use search when the catalog grows", "Open a selected release before editing metadata", "Delete only sandbox drafts you no longer need"],
       articles: ["Working with drafts", "Release catalog basics"],
     },
@@ -1324,17 +1324,17 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const currentHelp = releaseWizardHelp[activeWizardStep.key];
 
   return (
-    <section className={`page-section distribution-page distribution-dashboard-page distribution-v5-page ${activeTab === "Release Builder" ? "distribution-uploader-mode" : ""}`}>
+    <section className={`page-section distribution-page distribution-dashboard-page distribution-v5-page ${activeTab === "Release Builder" ? "distribution-release-wizard-mode" : ""}`}>
       <div className="section-header distribution-hero-header distribution-v5-hero">
         <div>
-          <p className="eyebrow">Too Lost Integration</p>
+          <p className="eyebrow">Distribution Command Center</p>
           <h2>Distribution Dashboard</h2>
-          <p>Clean command center for catalog, analytics, royalties, setup data, and Too Lost sandbox status.</p>
+          <p>Clean command center for catalog, analytics, royalties, setup data, and connected distributor status.</p>
         </div>
         <div className="distribution-hero-actions">
           {!connected ? (
             <button className="primary-btn" type="button" onClick={handleConnect} disabled={actionLoading || Boolean(configError)}>
-              {actionLoading ? "Opening Too Lost..." : "Connect Too Lost Sandbox"}
+              {actionLoading ? "Opening connection..." : "Connect Distribution Sandbox"}
             </button>
           ) : (
             <>
@@ -1366,7 +1366,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
           <span className={connected && !expired ? "status-pill status-live" : expired ? "status-pill status-warning" : "status-pill"}>
             {connectionLoading ? "Checking..." : connected ? (expired ? "Token Expired" : "Sandbox Connected") : "Not Connected"}
           </span>
-          <h3>{profileRecord ? `${stringifyCell(profileRecord.first_name)} ${stringifyCell(profileRecord.last_name)}` : "Too Lost Sandbox"}</h3>
+          <h3>{profileRecord ? `${stringifyCell(profileRecord.first_name)} ${stringifyCell(profileRecord.last_name)}` : "Distribution Sandbox"}</h3>
           <p>{profileRecord?.email ? stringifyCell(profileRecord.email) : "Connect, then sync profile to show account details."}</p>
         </article>
 
@@ -1392,7 +1392,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               type="button"
               onClick={() => setActiveTab(tab)}
             >
-              {tab}
+              {tab === "Release Builder" ? "Release Creator" : tab}
             </button>
           ))}
         </div>
@@ -1413,13 +1413,13 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
           <div className="distribution-v5-command-grid">
             <article className="asset-card distribution-v5-command-card">
               <h3>Catalog</h3>
-              <p>View the releases and songs already in your Too Lost account, separate from the release-building workflow.</p>
+              <p>View the releases and songs already in your connected distributor account, separate from the release-building workflow.</p>
               <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => setActiveTab("Catalog")}>Open Catalog</button>
             </article>
             <article className="asset-card distribution-v5-command-card">
-              <h3>Release Builder</h3>
+              <h3>Release Creator</h3>
               <p>Create or continue sandbox drafts, edit metadata, inspect tracks, and validate identifiers before delivery tools.</p>
-              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => setActiveTab("Release Builder")}>Open Release Builder</button>
+              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => setActiveTab("Release Builder")}>Open Release Creator</button>
             </article>
             <article className="asset-card distribution-v5-command-card">
               <h3>Analytics</h3>
@@ -1428,7 +1428,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             </article>
             <article className="asset-card distribution-v5-command-card">
               <h3>Sales / Royalties</h3>
-              <p>Sales endpoints may need Too Lost to confirm whether your sandbox uses read:earnings or read:sales.</p>
+              <p>Sales endpoints may need your distributor to confirm whether the sandbox uses read:earnings or read:sales.</p>
               <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => void loadMany(["salesOverview"])}>Try Sales Sync</button>
             </article>
           </div>
@@ -1440,7 +1440,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
           <div className="distribution-v5-section-head">
             <div>
               <h3>Catalog</h3>
-              <p>View releases and songs already in your Too Lost account. This section is separate from Release Builder drafts and submission prep.</p>
+              <p>View releases and songs already in your connected distributor account. This section is separate from Release Creator drafts and submission prep.</p>
             </div>
             <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
               {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Catalog"}
@@ -1453,7 +1453,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <div>
                   <span className="asset-type-pill">Catalog Filter</span>
                   <h3>Find Catalog Items</h3>
-                  <p>Filter releases from your Too Lost account without mixing them into the release-building steps.</p>
+                  <p>Filter releases from your connected account without mixing them into the release-building steps.</p>
                 </div>
               </div>
               <div className="distribution-form-grid">
@@ -1484,10 +1484,10 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
             <article className="asset-card distribution-v5-panel distribution-roadmap-list-card">
               <h3>Catalog List</h3>
-              <p className="distribution-empty">These are Too Lost release records from your account. Select one only when you want to inspect or continue editing it in Release Builder.</p>
+              <p className="distribution-empty">These are release records from your connected account. Select one only when you want to inspect or continue editing it in Release Creator.</p>
               <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
               <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => { setActiveTab("Release Builder"); setActiveReleaseStep("info"); }}>
-                Open Selected in Release Builder
+                Open Selected in Release Creator
               </button>
             </article>
           </div>
@@ -1495,43 +1495,43 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       ) : null}
 
       {activeTab === "Release Builder" ? (
-        <div className="tl-uploader-shell">
-          <header className="tl-uploader-topbar">
-            <div className="tl-uploader-brand-lockup">
-              <span className="tl-uploader-logo">T</span>
-              <button className="tl-uploader-exit" type="button" onClick={() => setActiveTab("Overview")}>← Exit</button>
+        <div className="ta-wizard-shell">
+          <header className="ta-wizard-topbar">
+            <div className="ta-wizard-brand-lockup">
+              <span className="ta-wizard-logo">TA</span>
+              <button className="ta-wizard-exit" type="button" onClick={() => setActiveTab("Overview")}>← Exit</button>
             </div>
-            <div className="tl-uploader-top-actions">
-              <button className="tl-uploader-icon-btn" type="button" aria-label="Refresh release data" disabled={!canLoad || actionLoading} onClick={() => void loadReleasesWithFilters()}>↻</button>
-              <span className={connected && !expired ? "tl-uploader-avatar tl-uploader-avatar-live" : "tl-uploader-avatar"}>{profileRecord ? "✓" : "SWU"}</span>
+            <div className="ta-wizard-top-actions">
+              <button className="ta-wizard-icon-btn" type="button" aria-label="Refresh release data" disabled={!canLoad || actionLoading} onClick={() => void loadReleasesWithFilters()}>↻</button>
+              <span className={connected && !expired ? "ta-wizard-avatar ta-wizard-avatar-live" : "ta-wizard-avatar"}>{profileRecord ? "✓" : "SWU"}</span>
             </div>
           </header>
 
-          <div className="tl-uploader-grid">
-            <aside className="tl-uploader-left-rail">
-              <p className="tl-uploader-rail-title">Steps</p>
-              <nav className="tl-uploader-step-list" aria-label="Release creator steps">
+          <div className="ta-wizard-grid">
+            <aside className="ta-wizard-left-rail">
+              <p className="ta-wizard-rail-title">Steps</p>
+              <nav className="ta-wizard-step-list" aria-label="Release creator steps">
                 {releaseWizardSteps.map((step) => (
                   <button
                     key={step.key}
                     type="button"
-                    className={`tl-uploader-step ${activeReleaseStep === step.key ? "tl-uploader-step-active" : ""}`}
+                    className={`ta-wizard-step ${activeReleaseStep === step.key ? "ta-wizard-step-active" : ""}`}
                     onClick={() => setActiveReleaseStep(step.key)}
                   >
-                    <span className="tl-uploader-step-icon">{step.icon}</span>
+                    <span className="ta-wizard-step-icon">{step.icon}</span>
                     <span>{step.label}</span>
-                    {step.complete ? <span className="tl-uploader-step-check">✓</span> : null}
+                    {step.complete ? <span className="ta-wizard-step-check">✓</span> : null}
                   </button>
                 ))}
               </nav>
 
-              <div className="tl-uploader-rail-bottom">
-                <div className={issueCount ? "tl-uploader-issues-card" : "tl-uploader-issues-card tl-uploader-issues-card-clean"}>
-                  <button type="button" className="tl-uploader-issues-head">
+              <div className="ta-wizard-rail-bottom">
+                <div className={issueCount ? "ta-wizard-issues-card" : "ta-wizard-issues-card ta-wizard-issues-card-clean"}>
+                  <button type="button" className="ta-wizard-issues-head">
                     <span>⚠ {issueCount} issues</span>
                     <span>⌄</span>
                   </button>
-                  <div className="tl-uploader-issue-list">
+                  <div className="ta-wizard-issue-list">
                     <button type="button" onClick={() => setActiveReleaseStep("tracks")}>
                       <strong>Release Format</strong>
                       <small>{trackForms.length ? "Track count in progress" : "Add more tracks or confirm format"}</small>
@@ -1547,28 +1547,28 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   </div>
                 </div>
 
-                <button className="tl-uploader-rail-action tl-uploader-preview-action" type="button" onClick={() => setActiveReleaseStep("review")}>
-                  <span className="tl-uploader-mini-cover">▧</span>
+                <button className="ta-wizard-rail-action ta-wizard-preview-action" type="button" onClick={() => setActiveReleaseStep("review")}>
+                  <span className="ta-wizard-mini-cover">▧</span>
                   Preview Release
                   <span>◉</span>
                 </button>
-                <button className="tl-uploader-rail-action" type="button" disabled={!selectedReleaseId || metadataUpdateState.loading} onClick={() => void saveReleaseMetadata()}>▣ Save Changes</button>
-                <button className="tl-uploader-publish-btn" type="button" onClick={() => setActiveReleaseStep("review")}>↑ Publish ›</button>
+                <button className="ta-wizard-rail-action" type="button" disabled={!selectedReleaseId || metadataUpdateState.loading} onClick={() => void saveReleaseMetadata()}>▣ Save Changes</button>
+                <button className="ta-wizard-publish-btn" type="button" onClick={() => setActiveReleaseStep("review")}>↑ Publish ›</button>
               </div>
             </aside>
 
-            <main className="tl-uploader-main">
+            <main className="ta-wizard-main">
           <div className="distribution-v5-section-head">
             <div>
-              <h3>Release Builder</h3>
-              <p>Build the active draft in the right order: start the release shell, select the working draft, complete Too Lost metadata, then move to tracks, delivery, validation, and review.</p>
+              <h3>Release Creator</h3>
+              <p>Build the active draft in the right order: start the release shell, select the working draft, complete release metadata, then move to tracks, delivery, validation, and review.</p>
             </div>
             <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
               {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
             </button>
           </div>
 
-          <div className="release-builder-stepper release-builder-stepper-compact" aria-label="Release Builder workflow">
+          <div className="release-builder-stepper release-builder-stepper-compact" aria-label="Release Creator workflow">
             {releaseWorkflowSteps.map((step) => (
               <button
                 key={step.key}
@@ -1590,7 +1590,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   <div>
                     <span className="asset-type-pill">Step 1</span>
                     <h3>Create Draft Release</h3>
-                    <p>Select a release type, name it, and set the primary artist to create the Too Lost draft shell.</p>
+                    <p>Select a release type, name it, and set the primary artist to create the draft shell.</p>
                   </div>
                 </div>
 
@@ -1625,7 +1625,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                     <input value={releaseDraftForm.artistName} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Natasha Storm" />
                   </label>
                   <label>
-                    <span>Too Lost Artist ID optional</span>
+                    <span>Distributor Artist ID optional</span>
                     <input value={releaseDraftForm.artistId} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistId: event.target.value }))} placeholder="123" inputMode="numeric" />
                   </label>
                   <label className="distribution-form-wide">
@@ -1636,7 +1636,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
                 <InlineError message={createReleaseState.error} />
                 {createReleaseState.data ? <DataTable data={createReleaseState.data} emptyLabel="Draft created." /> : null}
-                <div className="tl-wizard-bottom-actions">
+                <div className="ta-wizard-bottom-actions">
                   <button className="primary-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
                     {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
                   </button>
@@ -1647,7 +1647,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <article className="asset-card distribution-v5-panel release-builder-side-card">
                 <span className="asset-type-pill">Clean Flow</span>
                 <h3>Why This Step Is Short</h3>
-                <p>Start Release creates the release shell only. Full release details live in Release Info using Too Lost's metadata field names.</p>
+                <p>Start Release creates the release shell only. Full release details live in Release Info using distributor-ready metadata field names.</p>
                 <div className="release-builder-mini-checklist">
                   <label><input type="checkbox" checked={Boolean(createReleaseState.data)} readOnly /> Draft response received</label>
                   <label><input type="checkbox" checked={releasesReady} readOnly /> Release records loaded</label>
@@ -1716,9 +1716,9 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
           {activeReleaseStep === "artwork" ? (
             <div className="release-builder-step-panel release-builder-artwork-panel">
-              <article id="release-artwork-section" className="asset-card distribution-v5-panel release-builder-workflow-card tl-wizard-artwork-card">
-                <div className="tl-artwork-source-grid">
-                  <label className="tl-artwork-source-card tl-artwork-upload-source">
+              <article id="release-artwork-section" className="asset-card distribution-v5-panel release-builder-workflow-card ta-wizard-artwork-card">
+                <div className="ta-artwork-source-grid">
+                  <label className="ta-artwork-source-card ta-artwork-upload-source">
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/tiff,image/webp"
@@ -1728,21 +1728,21 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                     <strong>Upload Artwork</strong>
                     <small>JPG, PNG, or TIFF</small>
                   </label>
-                  <button className="tl-artwork-source-card" type="button">
+                  <button className="ta-artwork-source-card" type="button">
                     <span>✦</span>
                     <strong>Gemini</strong>
                     <small>Generate with Google</small>
                   </button>
-                  <button className="tl-artwork-source-card" type="button">
+                  <button className="ta-artwork-source-card" type="button">
                     <span>●</span>
                     <strong>DALL-E</strong>
                     <small>Generate with OpenAI</small>
                   </button>
                 </div>
 
-                <div className="tl-artwork-guidelines-card">
+                <div className="ta-artwork-guidelines-card">
                   <h4>Artwork Guidelines</h4>
-                  <div className="tl-artwork-guidelines-grid">
+                  <div className="ta-artwork-guidelines-grid">
                     <span>▣ Recommended 3000px, maximum 5000px</span>
                     <span>⬚ Must be a perfect square</span>
                     <span>↥ File size under 36MB</span>
@@ -1754,7 +1754,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
                 <div className="artwork-upload-section">
                   <h4>Cover Artwork</h4>
-                  <p className="distribution-empty">Upload the release cover or paste an existing artwork URL. The preview updates immediately and the Cloudinary URL saves into the Too Lost metadata form.</p>
+                  <p className="distribution-empty">Upload the release cover or paste an existing artwork URL. The preview updates immediately and the Cloudinary URL saves into the release metadata form.</p>
                   <div className="artwork-upload-layout">
                     <label className={`artwork-drop-zone${artworkUploading ? " artwork-uploading" : ""}${artworkPreviewUrl ? " artwork-has-preview" : ""}`}>
                       <input
@@ -1790,7 +1790,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                         <input
                           value={releaseMetadataForm.compressedArtwork}
                           onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, compressedArtwork: e.target.value }))}
-                          placeholder="Compressed artwork URL if Too Lost provides one"
+                          placeholder="Optional compressed artwork URL"
                         />
                       </label>
                       <InlineError message={artworkUploadError} />
@@ -1798,7 +1798,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   </div>
                 </div>
 
-                <div className="tl-motion-art-card">
+                <div className="ta-motion-art-card">
                   <div>
                     <h4>🍎 Apple Motion Art</h4>
                     <p>Upload animated artwork in ProRes format. This is separate from your cover artwork and only displays on Apple Music.</p>
@@ -1806,7 +1806,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   <button className="secondary-btn" type="button">☁ Upload Motion Art</button>
                 </div>
 
-                <div className="tl-wizard-bottom-actions">
+                <div className="ta-wizard-bottom-actions">
                   <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("start")}>← Previous</button>
                   <button className="primary-btn" type="button" onClick={() => setActiveReleaseStep("info")}>Continue →</button>
                 </div>
@@ -1820,15 +1820,15 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
                   <div>
                     <span className="asset-type-pill">Release Info</span>
-                    <h3>Too Lost Metadata</h3>
-                    <p>Complete release-level metadata using Too Lost's documented field names. Start Release fields are not repeated here.</p>
+                    <h3>Release Metadata</h3>
+                    <p>Complete release-level metadata using store-ready field names. Start Release fields are not repeated here.</p>
                   </div>
                   {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
                 </div>
 
                 {(genreOptions.length === 0 || languageOptions.length === 0) ? (
                   <div className="distribution-v5-muted-warning release-info-setup-warning">
-                    Load Setup Data first so genre and language dropdowns use Too Lost's real options.
+                    Load Setup Data first so genre and language dropdowns use the connected distributor options.
                     <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupGenres", "lookupLanguages", "lookupPlatforms", "lookupCountries"])}>
                       Load Setup Data
                     </button>
@@ -1848,14 +1848,14 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   <label>
                     <span>Primary Genre</span>
                     <select value={releaseMetadataForm.primaryGenre} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, primaryGenre: event.target.value }))}>
-                      <option value="">Choose Too Lost genre</option>
+                      <option value="">Choose genre</option>
                       {genreOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </label>
                   <label>
                     <span>Secondary Genre</span>
                     <select value={releaseMetadataForm.secondaryGenre} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, secondaryGenre: event.target.value }))}>
-                      <option value="">Choose Too Lost genre</option>
+                      <option value="">Choose genre</option>
                       {genreOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </label>
@@ -1930,7 +1930,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 {/* Artwork upload section */}
                 <div className="artwork-upload-section">
                   <h4>Cover Artwork</h4>
-                  <p className="distribution-empty">3000×3000px minimum, square format, JPG/PNG/TIFF. Uploaded to Cloudinary, URL saved to Too Lost.</p>
+                  <p className="distribution-empty">3000×3000px minimum, square format, JPG/PNG/TIFF. Uploaded to Cloudinary, URL saved to the release metadata.</p>
 
                   <div className="artwork-upload-layout">
                     <label className={`artwork-drop-zone${artworkUploading ? " artwork-uploading" : ""}${artworkPreviewUrl ? " artwork-has-preview" : ""}`}>
@@ -2215,12 +2215,12 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <article className="asset-card distribution-v5-panel release-builder-side-card">
                 <span className="asset-type-pill">Upload Guide</span>
                 <h3>Track Upload Flow</h3>
-                <p>Each track goes through a 3-step pipeline: get a pre-signed S3 URL, upload the FLAC directly to S3, then save the full tracklist to Too Lost.</p>
+                <p>Each track goes through a 3-step pipeline: get a pre-signed S3 URL, upload the FLAC directly to S3, then save the full tracklist to the release.</p>
                 <div className="release-builder-mini-checklist">
                   <label><input type="checkbox" checked={trackForms.length > 0} readOnly /> At least one track added</label>
                   <label><input type="checkbox" checked={trackForms.some(t => Boolean(t.audioFileKey))} readOnly /> Audio uploaded to S3</label>
                   <label><input type="checkbox" checked={trackForms.every(t => Boolean(t.title))} readOnly /> All tracks titled</label>
-                  <label><input type="checkbox" checked={Boolean(putTracksState.data)} readOnly /> Tracklist saved to Too Lost</label>
+                  <label><input type="checkbox" checked={Boolean(putTracksState.data)} readOnly /> Tracklist saved to release</label>
                 </div>
                 <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("delivery")}>
                   Continue to Delivery
@@ -2235,7 +2235,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <div>
                   <span className="asset-type-pill">Delivery</span>
                   <h3>Platforms & Territories</h3>
-                  <p>Choose where Too Lost delivers this release. Requires platform and territory lookup data from Setup.</p>
+                  <p>Choose where this release will be delivered. Requires platform and territory lookup data from Setup.</p>
                 </div>
                 {deliveryConfirmed
                   ? <span className="status-pill status-live">Delivery Saved</span>
@@ -2353,7 +2353,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <div>
                   <span className="asset-type-pill">Identifier Validation</span>
                   <h3>UPC & ISRC Checks</h3>
-                  <p>Validate release and track identifiers against Too Lost sandbox before moving toward final review.</p>
+                  <p>Validate release and track identifiers before moving toward final review.</p>
                 </div>
                 {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
               </div>
@@ -2361,7 +2361,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <div className="release-validation-grid">
                 <div>
                   <h4>UPC Check</h4>
-                  <p className="distribution-empty">Too Lost requires a 12 or 13 digit UPC.</p>
+                  <p className="distribution-empty">A UPC is usually 12 or 13 digits.</p>
                   <div className="distribution-v5-inline-form distribution-upc-inline-form">
                     <input value={upcToValidate} onChange={(event) => setUpcToValidate(event.target.value)} placeholder="123456789012" inputMode="numeric" />
                     <button className="secondary-btn" type="button" disabled={!canLoad || upcValidationState.loading || !upcToValidate.trim()} onClick={validateUpc}>
@@ -2374,7 +2374,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
                 <div>
                   <h4>ISRC Check</h4>
-                  <p className="distribution-empty">Too Lost requires 12 uppercase letters/numbers with no hyphens.</p>
+                  <p className="distribution-empty">An ISRC uses 12 uppercase letters/numbers with no hyphens.</p>
                   <div className="distribution-v5-inline-form distribution-upc-inline-form">
                     <input value={isrcToValidate} onChange={(event) => setIsrcToValidate(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder="USABC1234567" maxLength={12} />
                     <button className="secondary-btn" type="button" disabled={!canLoad || isrcValidationState.loading || !isrcToValidate.trim()} onClick={validateIsrc}>
@@ -2423,7 +2423,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 </label>
                 <label className="release-delivery-checkbox-label release-review-rights-label">
                   <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} />
-                  I accept the Too Lost distribution terms
+                  I accept the distribution terms
                 </label>
               </div>
 
@@ -2464,39 +2464,39 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
           ) : null}
             </main>
 
-            <aside className="tl-uploader-help-panel">
-              <div className="tl-uploader-help-tabs">
-                <button className="tl-uploader-help-tab-active" type="button">▮ Help</button>
-                <button type="button">☊ Ask Valerie</button>
+            <aside className="ta-wizard-help-panel">
+              <div className="ta-wizard-help-tabs">
+                <button className="ta-wizard-help-tab-active" type="button">▮ Help</button>
+                <button type="button">☊ Ask Command Center</button>
               </div>
-              <div className="tl-uploader-help-body">
-                <div className="tl-uploader-help-title-row">
-                  <span className="tl-uploader-help-icon">{activeWizardStep.icon}</span>
+              <div className="ta-wizard-help-body">
+                <div className="ta-wizard-help-title-row">
+                  <span className="ta-wizard-help-icon">{activeWizardStep.icon}</span>
                   <div>
                     <h3>{currentHelp.title}</h3>
                     <p>{currentHelp.step}</p>
                   </div>
                 </div>
-                <p className="tl-uploader-help-copy">{currentHelp.body}</p>
-                <div className="tl-uploader-help-tips">
+                <p className="ta-wizard-help-copy">{currentHelp.body}</p>
+                <div className="ta-wizard-help-tips">
                   {currentHelp.tips.map((tip) => (
                     <div key={tip}><span>✹</span>{tip}</div>
                   ))}
                 </div>
-                <div className="tl-uploader-formats">
+                <div className="ta-wizard-formats">
                   <span>Accepted formats</span>
                   <div>
                     {["WAV", "MP3", "M4A", "AIFF", "FLAC"].map((format) => <small key={format}>{format}</small>)}
                   </div>
                 </div>
-                <div className="tl-uploader-help-articles">
+                <div className="ta-wizard-help-articles">
                   <span>Help Articles</span>
                   {currentHelp.articles.map((article) => (
-                    <button key={article} type="button"><span>▣</span><strong>{article}</strong><small>toolost.com ↗</small></button>
+                    <button key={article} type="button"><span>▣</span><strong>{article}</strong><small>Guide ↗</small></button>
                   ))}
                 </div>
               </div>
-              <button className="tl-uploader-close-help" type="button">× Close</button>
+              <button className="ta-wizard-close-help" type="button">× Close</button>
             </aside>
           </div>
         </div>
@@ -2559,7 +2559,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
           <div className="distribution-v5-section-head">
             <div>
               <h3>Sales / Royalties</h3>
-              <p>If Too Lost returns Invalid scope(s), ask them to confirm read:earnings vs read:sales for sandbox sales endpoints.</p>
+              <p>If the distributor returns Invalid scope(s), confirm read:earnings vs read:sales for sandbox sales endpoints.</p>
             </div>
             <button className="primary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["salesOverview", "salesTracks", "salesReleases", "salesChannels", "salesTerritories"])}>
               {actionLoading ? "Loading..." : "Load Sales"}
