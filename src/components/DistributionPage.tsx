@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  callTooLostEndpoint,
   connectionHasScope,
   disconnectTooLost,
   fetchTooLostEndpoint,
@@ -19,7 +20,7 @@ type DistributionPageProps = {
   oauthMessage?: string;
 };
 
-type DashboardTab = "Overview" | "Releases" | "Analytics" | "Sales" | "Lookups" | "Preferences" | "Debug";
+type DashboardTab = "Overview" | "Catalog" | "Analytics" | "Sales" | "Setup" | "Developer";
 
 type EndpointState = {
   loading: boolean;
@@ -66,7 +67,7 @@ function asArray(value: unknown): unknown[] {
     const nestedData = data.data;
     if (Array.isArray(nestedData)) return nestedData;
 
-    const commonLists = ["items", "results", "releases", "tracks", "channels", "territories", "platforms"];
+    const commonLists = ["items", "results", "releases", "tracks", "channels", "territories", "platforms", "genres", "languages", "countries", "artists"];
     for (const key of commonLists) {
       const possibleArray = data[key];
       if (Array.isArray(possibleArray)) return possibleArray;
@@ -89,6 +90,10 @@ function stringifyCell(value: unknown) {
   return JSON.stringify(value);
 }
 
+function getEndpointState(results: Partial<Record<TooLostEndpointKey, EndpointState>>, key: TooLostEndpointKey) {
+  return results[key] || defaultEndpointState;
+}
+
 function getCount(value: unknown) {
   const rows = asArray(value);
   if (rows.length) return rows.length;
@@ -102,10 +107,6 @@ function getCount(value: unknown) {
   return "—";
 }
 
-function getEndpointState(results: Partial<Record<TooLostEndpointKey, EndpointState>>, key: TooLostEndpointKey) {
-  return results[key] || defaultEndpointState;
-}
-
 function createMetric(label: string, value: unknown, helper?: string): MetricCard {
   return {
     label,
@@ -114,15 +115,23 @@ function createMetric(label: string, value: unknown, helper?: string): MetricCar
   };
 }
 
-function makeOverviewMetrics(
+function getProfileRecord(profile: unknown) {
+  const profileData = getPayloadData(profile);
+  return isRecord(profileData) ? profileData : null;
+}
+
+function getOverviewMetrics(
   connection: TooLostConnection | null,
   profile: unknown,
   releases: unknown,
   analytics: unknown,
   sales: unknown,
 ): MetricCard[] {
-  const profileData = getPayloadData(profile);
-  const profileRecord = isRecord(profileData) ? profileData : null;
+  const profileRecord = getProfileRecord(profile);
+  const analyticsData = getPayloadData(analytics);
+  const analyticsRecord = isRecord(analyticsData) ? analyticsData : null;
+  const salesData = getPayloadData(sales);
+  const salesRecord = isRecord(salesData) ? salesData : null;
 
   return [
     createMetric(
@@ -130,36 +139,38 @@ function makeOverviewMetrics(
       profileRecord ? `${stringifyCell(profileRecord.first_name)} ${stringifyCell(profileRecord.last_name)}` : "Not loaded",
       profileRecord?.email ? stringifyCell(profileRecord.email) : undefined,
     ),
-    createMetric("Type", profileRecord?.type || "—", profileRecord?.confirmed === true ? "Confirmed account" : "Profile not confirmed or not loaded"),
-    createMetric("Catalog Items", getCount(releases), "From GET /releases"),
-    createMetric("Analytics", getCount(analytics), "From GET /analytics/overview"),
-    createMetric("Sales", getCount(sales), "From GET /sales/overview"),
-    createMetric("Token Expires", connection ? formatDate(connection.expires_at) : "Not connected", connection?.environment || "Sandbox"),
+    createMetric("Account Type", profileRecord?.type || "—", profileRecord?.confirmed === true ? "Confirmed" : "Load /me to confirm"),
+    createMetric("Catalog", getCount(releases), "Releases returned"),
+    createMetric("Streams", analyticsRecord ? getRecordValue(analyticsRecord, ["totalStreams", "total_streams", "streams"]) || "0" : "—", "Last 30 days if available"),
+    createMetric("Sales", salesRecord ? getRecordValue(salesRecord, ["amount", "total_amount", "earnings", "total"] ) || "—" : "—", "Requires Too Lost earnings scope"),
+    createMetric("Token", connection ? (isTooLostTokenExpired(connection) ? "Expired" : "Active") : "Not connected", connection ? formatDate(connection.expires_at) : "Sandbox"),
   ];
 }
 
-function EndpointDebug({ data }: { data: unknown }) {
-  if (!data) return null;
-
-  return (
-    <details className="distribution-json-details">
-      <summary>View raw JSON</summary>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-    </details>
-  );
+function getRows(value: unknown) {
+  return asArray(value).filter(isRecord) as Record<string, unknown>[];
 }
 
-function GenericDataTable({ data, fallbackTitle }: { data: unknown; fallbackTitle: string }) {
-  const rows = asArray(data);
+function getPlatformOptions(platforms: unknown) {
+  const rows = getRows(platforms);
+  const options = rows
+    .map((row) => getRecordValue(row, ["platform", "channel", "service", "slug", "code", "name", "id"]))
+    .filter((value): value is string | number => typeof value === "string" || typeof value === "number")
+    .map(String);
+
+  return Array.from(new Set(options)).slice(0, 50);
+}
+
+function DataTable({ data, emptyLabel = "No data returned yet." }: { data: unknown; emptyLabel?: string }) {
+  const rows = getRows(data);
 
   if (!rows.length) {
     const payload = getPayloadData(data);
-
     if (isRecord(payload)) {
-      const entries = Object.entries(payload).slice(0, 12);
+      const entries = Object.entries(payload).slice(0, 10);
       if (entries.length) {
         return (
-          <div className="distribution-kv-grid">
+          <div className="distribution-v5-kv-list">
             {entries.map(([key, value]) => (
               <div key={key}>
                 <span>{key.replace(/_/g, " ")}</span>
@@ -171,18 +182,7 @@ function GenericDataTable({ data, fallbackTitle }: { data: unknown; fallbackTitl
       }
     }
 
-    return <p className="distribution-empty">No {fallbackTitle.toLowerCase()} data returned yet.</p>;
-  }
-
-  const recordRows = rows.filter(isRecord) as Record<string, unknown>[];
-  if (!recordRows.length) {
-    return (
-      <div className="distribution-simple-list">
-        {rows.slice(0, 20).map((row, index) => (
-          <div key={`${fallbackTitle}-${index}`}>{stringifyCell(row)}</div>
-        ))}
-      </div>
-    );
+    return <p className="distribution-empty">{emptyLabel}</p>;
   }
 
   const preferredColumns = [
@@ -205,15 +205,15 @@ function GenericDataTable({ data, fallbackTitle }: { data: unknown; fallbackTitl
     "code",
   ];
 
-  const allKeys = Array.from(new Set(recordRows.flatMap((row) => Object.keys(row))));
+  const allKeys = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
   const columns = [
     ...preferredColumns.filter((column) => allKeys.includes(column)),
     ...allKeys.filter((column) => !preferredColumns.includes(column)),
-  ].slice(0, 6);
+  ].slice(0, 7);
 
   return (
-    <div className="distribution-table-wrap">
-      <table className="distribution-table">
+    <div className="distribution-v5-table-wrap">
+      <table className="distribution-table distribution-v5-table">
         <thead>
           <tr>
             {columns.map((column) => (
@@ -222,8 +222,8 @@ function GenericDataTable({ data, fallbackTitle }: { data: unknown; fallbackTitl
           </tr>
         </thead>
         <tbody>
-          {recordRows.slice(0, 20).map((row, rowIndex) => (
-            <tr key={`${fallbackTitle}-${rowIndex}`}>
+          {rows.slice(0, 25).map((row, rowIndex) => (
+            <tr key={`row-${rowIndex}`}>
               {columns.map((column) => (
                 <td key={column}>{stringifyCell(row[column])}</td>
               ))}
@@ -231,56 +231,31 @@ function GenericDataTable({ data, fallbackTitle }: { data: unknown; fallbackTitl
           ))}
         </tbody>
       </table>
-      {recordRows.length > 20 ? <p className="distribution-table-note">Showing first 20 rows.</p> : null}
+      {rows.length > 25 ? <p className="distribution-table-note">Showing first 25 rows.</p> : null}
     </div>
   );
 }
 
-function EndpointCard({
-  endpoint,
-  state,
-  connection,
-  onLoad,
-}: {
-  endpoint: TooLostEndpointDefinition;
-  state: EndpointState;
-  connection: TooLostConnection | null;
-  onLoad: (endpoint: TooLostEndpointDefinition) => void;
-}) {
-  const missingScope = Boolean(connection && endpoint.scope && !connectionHasScope(connection, endpoint.scope));
+function InlineError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <div className="distribution-error-box distribution-v5-error">{message}</div>;
+}
+
+function RawJson({ data }: { data: unknown }) {
+  if (!data) return null;
 
   return (
-    <article className="distribution-panel-card">
-      <div className="asset-card-header distribution-mini-header">
-        <div>
-          <span className="asset-type-pill">{endpoint.path}</span>
-          <h3>{endpoint.label}</h3>
-          <p>{endpoint.description}</p>
-        </div>
-        <button className="mini-action-btn" type="button" onClick={() => onLoad(endpoint)} disabled={state.loading || !connection}>
-          {state.loading ? "Loading..." : state.data ? "Refresh" : "Load"}
-        </button>
-      </div>
-
-      {missingScope ? (
-        <div className="distribution-warning-box">
-          This connection may not include <strong>{endpoint.scope}</strong>. Disconnect and reconnect Too Lost if this endpoint returns a 403 scope error.
-        </div>
-      ) : null}
-
-      {state.error ? <div className="distribution-error-box">{state.error}</div> : null}
-
-      {state.data ? (
-        <>
-          <GenericDataTable data={state.data} fallbackTitle={endpoint.label} />
-          <EndpointDebug data={state.data} />
-          {state.loadedAt ? <p className="distribution-loaded-at">Loaded {formatDate(state.loadedAt)}</p> : null}
-        </>
-      ) : (
-        <p className="distribution-empty">Click Load to pull this from Too Lost sandbox.</p>
-      )}
-    </article>
+    <details className="distribution-json-details distribution-v5-json">
+      <summary>Raw JSON</summary>
+      <pre>{JSON.stringify(data, null, 2)}</pre>
+    </details>
   );
+}
+
+function findEndpoint(key: TooLostEndpointKey) {
+  const endpoint = TOOLOST_ENDPOINTS.find((item) => item.key === key);
+  if (!endpoint) throw new Error(`Missing Too Lost endpoint config for ${key}.`);
+  return endpoint;
 }
 
 export default function DistributionPage({ oauthStatus, oauthMessage }: DistributionPageProps) {
@@ -290,6 +265,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const [error, setError] = useState("");
   const [endpointResults, setEndpointResults] = useState<Partial<Record<TooLostEndpointKey, EndpointState>>>({});
   const [activeTab, setActiveTab] = useState<DashboardTab>("Overview");
+  const [selectedPlatform, setSelectedPlatform] = useState("");
+  const [totalStreamsState, setTotalStreamsState] = useState<EndpointState>(defaultEndpointState);
 
   async function loadConnection() {
     setConnectionLoading(true);
@@ -334,6 +311,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     setActionLoading(true);
     setError("");
     setEndpointResults({});
+    setTotalStreamsState(defaultEndpointState);
 
     try {
       await disconnectTooLost();
@@ -375,28 +353,39 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     }
   }
 
-  async function loadDashboardBasics() {
+  async function loadMany(keys: TooLostEndpointKey[]) {
     setActionLoading(true);
     setError("");
 
-    const starterKeys: TooLostEndpointKey[] = ["profile", "releases", "analyticsOverview", "salesOverview"];
-
     try {
-      for (const key of starterKeys) {
-        const endpoint = TOOLOST_ENDPOINTS.find((item) => item.key === key);
-        if (endpoint) {
-          // eslint-disable-next-line no-await-in-loop
-          await loadEndpoint(endpoint);
-        }
+      for (const key of keys) {
+        // eslint-disable-next-line no-await-in-loop
+        await loadEndpoint(findEndpoint(key));
       }
     } finally {
       setActionLoading(false);
     }
   }
 
-  async function testProfile() {
-    const endpoint = TOOLOST_ENDPOINTS.find((item) => item.key === "profile");
-    if (endpoint) await loadEndpoint(endpoint);
+  async function loadTotalStreams() {
+    if (!selectedPlatform.trim()) {
+      setTotalStreamsState({ loading: false, error: "Choose a platform first.", data: totalStreamsState.data, loadedAt: totalStreamsState.loadedAt });
+      return;
+    }
+
+    setTotalStreamsState((current) => ({ ...current, loading: true, error: "" }));
+
+    try {
+      const data = await callTooLostEndpoint(`/analytics/platforms/total-streams?platform=${encodeURIComponent(selectedPlatform)}`);
+      setTotalStreamsState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+    } catch (streamError) {
+      setTotalStreamsState((current) => ({
+        loading: false,
+        error: streamError instanceof Error ? streamError.message : "Could not load total streams.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
   }
 
   let configPreview: ReturnType<typeof getTooLostConfig> | null = null;
@@ -413,32 +402,26 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const profileResult = getEndpointState(endpointResults, "profile").data;
   const releasesResult = getEndpointState(endpointResults, "releases").data;
   const analyticsOverview = getEndpointState(endpointResults, "analyticsOverview").data;
+  const analyticsTracks = getEndpointState(endpointResults, "analyticsTracks");
+  const analyticsPlatforms = getEndpointState(endpointResults, "analyticsPlatforms");
   const salesOverview = getEndpointState(endpointResults, "salesOverview").data;
+  const profileRecord = getProfileRecord(profileResult);
+  const platformOptions = useMemo(() => getPlatformOptions(analyticsPlatforms.data), [analyticsPlatforms.data]);
   const metrics = useMemo(
-    () => makeOverviewMetrics(connection, profileResult, releasesResult, analyticsOverview, salesOverview),
+    () => getOverviewMetrics(connection, profileResult, releasesResult, analyticsOverview, salesOverview),
     [connection, profileResult, releasesResult, analyticsOverview, salesOverview],
   );
 
-  const tabs: DashboardTab[] = ["Overview", "Releases", "Analytics", "Sales", "Lookups", "Preferences", "Debug"];
-  const endpointsByTab: Record<Exclude<DashboardTab, "Overview" | "Debug">, TooLostEndpointDefinition[]> = {
-    Releases: TOOLOST_ENDPOINTS.filter((endpoint) => endpoint.section === "Catalog"),
-    Analytics: TOOLOST_ENDPOINTS.filter((endpoint) => endpoint.section === "Analytics"),
-    Sales: TOOLOST_ENDPOINTS.filter((endpoint) => endpoint.section === "Sales"),
-    Lookups: TOOLOST_ENDPOINTS.filter((endpoint) => endpoint.section === "Lookup"),
-    Preferences: TOOLOST_ENDPOINTS.filter((endpoint) => endpoint.section === "Preferences"),
-  };
-
-  const needsReconnectForSales = connected && !connectionHasScope(connection, "read:earnings");
+  const canLoad = connected && !expired && !actionLoading;
+  const tabs: DashboardTab[] = ["Overview", "Catalog", "Analytics", "Sales", "Setup", "Developer"];
 
   return (
-    <section className="page-section distribution-page distribution-dashboard-page">
-      <div className="section-header distribution-hero-header">
+    <section className="page-section distribution-page distribution-dashboard-page distribution-v5-page">
+      <div className="section-header distribution-hero-header distribution-v5-hero">
         <div>
           <p className="eyebrow">Too Lost Integration</p>
           <h2>Distribution Dashboard</h2>
-          <p>
-            Manage Too Lost sandbox connection, catalog pulls, analytics snapshots, sales/royalty checks, and lookup data from inside Track Adam OS.
-          </p>
+          <p>Clean command center for catalog, analytics, royalties, setup data, and Too Lost sandbox status.</p>
         </div>
         <div className="distribution-hero-actions">
           {!connected ? (
@@ -447,8 +430,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
             </button>
           ) : (
             <>
-              <button className="primary-btn" type="button" onClick={loadDashboardBasics} disabled={actionLoading || expired}>
-                {actionLoading ? "Loading..." : "Load Dashboard"}
+              <button className="primary-btn" type="button" onClick={() => void loadMany(["profile", "releases", "analyticsOverview"])} disabled={!canLoad}>
+                {actionLoading ? "Syncing..." : "Sync Overview"}
               </button>
               <button className="secondary-btn" type="button" onClick={handleDisconnect} disabled={actionLoading}>
                 Disconnect
@@ -470,92 +453,29 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
         </div>
       ) : null}
 
-      {needsReconnectForSales ? (
-        <div className="detail-section distribution-warning-box distribution-wide-warning">
-          <strong>Reconnect recommended:</strong> This token does not show <code>read:earnings</code>. Reconnect Too Lost Sandbox once so the approved earnings permission is included.
-        </div>
-      ) : null}
-
-      <div className="distribution-top-grid">
-        <article className="asset-card distribution-card distribution-connection-card">
-          <div className="asset-card-header">
-            <div>
-              <span className="asset-type-pill">Sandbox</span>
-              <h3>Too Lost</h3>
-              <p>OAuth 2.0 Authorization Code Flow with PKCE</p>
-            </div>
-            <span className={connected && !expired ? "status-pill status-live" : expired ? "status-pill status-warning" : "status-pill"}>
-              {connectionLoading ? "Checking..." : connected ? (expired ? "Token Expired" : "Sandbox Connected") : "Not Connected"}
-            </span>
-          </div>
-
-          <div className="detail-grid distribution-detail-grid">
-            <div>
-              <span>API Base</span>
-              <strong>{configPreview?.apiBaseUrl || "Missing"}</strong>
-            </div>
-            <div>
-              <span>Redirect URI</span>
-              <strong>{configPreview?.redirectUri || "Missing"}</strong>
-            </div>
-            <div>
-              <span>Scopes Requested</span>
-              <strong>{TOOLOST_SCOPES}</strong>
-            </div>
-            <div>
-              <span>Current Token Scope</span>
-              <strong>{connection?.scope || "Not connected"}</strong>
-            </div>
-            <div>
-              <span>Expires</span>
-              <strong>{connection ? formatDate(connection.expires_at) : "Not connected"}</strong>
-            </div>
-            <div>
-              <span>Environment</span>
-              <strong>{connection?.environment || "Sandbox setup"}</strong>
-            </div>
-          </div>
-
-          <div className="asset-actions distribution-actions">
-            {!connected ? (
-              <button className="primary-btn" type="button" onClick={handleConnect} disabled={actionLoading || Boolean(configError)}>
-                {actionLoading ? "Opening Too Lost..." : "Connect Too Lost Sandbox"}
-              </button>
-            ) : (
-              <>
-                <button className="primary-btn" type="button" onClick={testProfile} disabled={actionLoading || expired}>
-                  Test /me
-                </button>
-                <button className="secondary-btn" type="button" onClick={loadDashboardBasics} disabled={actionLoading || expired}>
-                  Load Dashboard
-                </button>
-              </>
-            )}
-          </div>
+      <div className="distribution-v5-status-row">
+        <article className="asset-card distribution-v5-status-card">
+          <span className={connected && !expired ? "status-pill status-live" : expired ? "status-pill status-warning" : "status-pill"}>
+            {connectionLoading ? "Checking..." : connected ? (expired ? "Token Expired" : "Sandbox Connected") : "Not Connected"}
+          </span>
+          <h3>{profileRecord ? `${stringifyCell(profileRecord.first_name)} ${stringifyCell(profileRecord.last_name)}` : "Too Lost Sandbox"}</h3>
+          <p>{profileRecord?.email ? stringifyCell(profileRecord.email) : "Connect, then sync profile to show account details."}</p>
         </article>
 
-        <article className="asset-card distribution-card distribution-roadmap-card">
-          <div className="asset-card-header">
-            <div>
-              <span className="asset-type-pill">Build Status</span>
-              <h3>Distribution Command Center</h3>
-              <p>Phase 2 adds read-only data panels. Release creation comes later after every endpoint shape is confirmed.</p>
-            </div>
-          </div>
+        <article className="asset-card distribution-v5-status-card">
+          <span>Current Scope</span>
+          <strong>{connection?.scope || "Not connected"}</strong>
+          {connection && !connectionHasScope(connection, "read:catalog") ? <p className="distribution-v5-muted-warning">Catalog is not granted on this token.</p> : null}
+        </article>
 
-          <div className="checklist-list">
-            <label><input type="checkbox" checked readOnly /> Add Distribution page</label>
-            <label><input type="checkbox" checked readOnly /> Connect Too Lost with PKCE</label>
-            <label><input type="checkbox" checked={connected} readOnly /> Store sandbox connection</label>
-            <label><input type="checkbox" checked={Boolean(profileResult)} readOnly /> Confirm profile API</label>
-            <label><input type="checkbox" checked={Boolean(releasesResult)} readOnly /> Pull releases catalog</label>
-            <label><input type="checkbox" checked={Boolean(analyticsOverview)} readOnly /> Pull analytics overview</label>
-            <label><input type="checkbox" checked={Boolean(salesOverview)} readOnly /> Pull sales overview</label>
-          </div>
+        <article className="asset-card distribution-v5-status-card">
+          <span>Token Expires</span>
+          <strong>{connection ? formatDate(connection.expires_at) : "Not connected"}</strong>
+          <p>{configPreview?.apiBaseUrl || "Missing API base URL"}</p>
         </article>
       </div>
 
-      <div className="distribution-tabs" role="tablist" aria-label="Distribution sections">
+      <div className="distribution-tabs distribution-v5-tabs" role="tablist" aria-label="Distribution sections">
         {tabs.map((tab) => (
           <button
             key={tab}
@@ -569,8 +489,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
       </div>
 
       {activeTab === "Overview" ? (
-        <div className="distribution-overview-panel">
-          <div className="distribution-metric-grid">
+        <div className="distribution-v5-section">
+          <div className="distribution-metric-grid distribution-v5-metrics">
             {metrics.map((metric) => (
               <article className="distribution-metric-card" key={metric.label}>
                 <span>{metric.label}</span>
@@ -580,44 +500,174 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
             ))}
           </div>
 
-          <div className="distribution-panel-grid">
-            {TOOLOST_ENDPOINTS.filter((endpoint) => ["profile", "releases", "analyticsOverview", "salesOverview"].includes(endpoint.key)).map((endpoint) => (
-              <EndpointCard
-                key={endpoint.key}
-                endpoint={endpoint}
-                state={getEndpointState(endpointResults, endpoint.key)}
-                connection={connection}
-                onLoad={loadEndpoint}
-              />
-            ))}
+          <div className="distribution-v5-command-grid">
+            <article className="asset-card distribution-v5-command-card">
+              <h3>Catalog</h3>
+              <p>Pull release list from Too Lost and review catalog data.</p>
+              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => void loadMany(["releases"])}>Open Catalog Sync</button>
+            </article>
+            <article className="asset-card distribution-v5-command-card">
+              <h3>Analytics</h3>
+              <p>Load overview, tracks, platform breakdowns, and stream checks.</p>
+              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => void loadMany(["analyticsOverview", "analyticsTracks", "analyticsPlatforms"])}>Sync Analytics</button>
+            </article>
+            <article className="asset-card distribution-v5-command-card">
+              <h3>Sales / Royalties</h3>
+              <p>Sales endpoints may need Too Lost to confirm whether your sandbox uses read:earnings or read:sales.</p>
+              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => void loadMany(["salesOverview"])}>Try Sales Sync</button>
+            </article>
           </div>
         </div>
       ) : null}
 
-      {activeTab !== "Overview" && activeTab !== "Debug" ? (
-        <div className="distribution-panel-grid">
-          {endpointsByTab[activeTab as Exclude<DashboardTab, "Overview" | "Debug">].map((endpoint) => (
-            <EndpointCard
-              key={endpoint.key}
-              endpoint={endpoint}
-              state={getEndpointState(endpointResults, endpoint.key)}
-              connection={connection}
-              onLoad={loadEndpoint}
-            />
-          ))}
+      {activeTab === "Catalog" ? (
+        <div className="distribution-v5-section">
+          <div className="distribution-v5-section-head">
+            <div>
+              <h3>Catalog</h3>
+              <p>Releases from Too Lost sandbox. This becomes the real release management table later.</p>
+            </div>
+            <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={() => void loadMany(["releases"])}>
+              {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
+            </button>
+          </div>
+          <InlineError message={getEndpointState(endpointResults, "releases").error} />
+          <DataTable data={releasesResult} emptyLabel="No releases returned yet. Click Load Releases." />
         </div>
       ) : null}
 
-      {activeTab === "Debug" ? (
-        <div className="detail-section ai-output-box distribution-debug-card">
-          <div className="asset-card-header">
+      {activeTab === "Analytics" ? (
+        <div className="distribution-v5-section">
+          <div className="distribution-v5-section-head">
             <div>
-              <span className="asset-type-pill">Debug</span>
-              <h3>Too Lost API Responses</h3>
-              <p>Tokens are never shown here. This only shows endpoint responses that you loaded in this session.</p>
+              <h3>Analytics</h3>
+              <p>Streaming overview, tracks, and platform data in one clean page.</p>
+            </div>
+            <button className="primary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["analyticsOverview", "analyticsTracks", "analyticsPlatforms"])}>
+              {actionLoading ? "Loading..." : "Load Analytics"}
+            </button>
+          </div>
+
+          <div className="distribution-v5-two-col">
+            <article className="asset-card distribution-v5-panel">
+              <h3>Overview</h3>
+              <InlineError message={getEndpointState(endpointResults, "analyticsOverview").error} />
+              <DataTable data={analyticsOverview} emptyLabel="No analytics overview loaded yet." />
+            </article>
+            <article className="asset-card distribution-v5-panel">
+              <h3>Platform Total Streams</h3>
+              <p className="distribution-empty">Choose a platform before loading this endpoint.</p>
+              <div className="distribution-v5-inline-form">
+                <select value={selectedPlatform} onChange={(event) => setSelectedPlatform(event.target.value)}>
+                  <option value="">Choose platform</option>
+                  {platformOptions.map((platform) => (
+                    <option key={platform} value={platform}>{platform}</option>
+                  ))}
+                </select>
+                <button className="secondary-btn" type="button" disabled={!canLoad || totalStreamsState.loading || !selectedPlatform} onClick={loadTotalStreams}>
+                  {totalStreamsState.loading ? "Loading..." : "Load"}
+                </button>
+              </div>
+              <InlineError message={totalStreamsState.error} />
+              <DataTable data={totalStreamsState.data} emptyLabel="No platform total stream data loaded yet." />
+            </article>
+          </div>
+
+          <div className="distribution-v5-two-col">
+            <article className="asset-card distribution-v5-panel">
+              <h3>Tracks</h3>
+              <InlineError message={analyticsTracks.error} />
+              <DataTable data={analyticsTracks.data} emptyLabel="No track analytics returned yet." />
+            </article>
+            <article className="asset-card distribution-v5-panel">
+              <h3>Platforms</h3>
+              <InlineError message={analyticsPlatforms.error} />
+              <DataTable data={analyticsPlatforms.data} emptyLabel="No platform analytics returned yet." />
+            </article>
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === "Sales" ? (
+        <div className="distribution-v5-section">
+          <div className="distribution-v5-section-head">
+            <div>
+              <h3>Sales / Royalties</h3>
+              <p>If Too Lost returns Invalid scope(s), ask them to confirm read:earnings vs read:sales for sandbox sales endpoints.</p>
+            </div>
+            <button className="primary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["salesOverview", "salesTracks", "salesReleases", "salesChannels", "salesTerritories"])}>
+              {actionLoading ? "Loading..." : "Load Sales"}
+            </button>
+          </div>
+
+          <div className="distribution-v5-two-col">
+            {(["salesOverview", "salesTracks", "salesReleases", "salesChannels", "salesTerritories"] as TooLostEndpointKey[]).map((key) => {
+              const endpoint = findEndpoint(key);
+              const state = getEndpointState(endpointResults, key);
+              return (
+                <article className="asset-card distribution-v5-panel" key={key}>
+                  <h3>{endpoint.label}</h3>
+                  <InlineError message={state.error} />
+                  <DataTable data={state.data} emptyLabel={`No ${endpoint.label.toLowerCase()} loaded yet.`} />
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === "Setup" ? (
+        <div className="distribution-v5-section">
+          <div className="distribution-v5-section-head">
+            <div>
+              <h3>Setup Data</h3>
+              <p>Lookup and preference data used later for release creation forms.</p>
+            </div>
+            <button className="primary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupPlatforms", "lookupGenres", "lookupLanguages", "lookupCountries", "preferencesLabel", "preferencesArtists"])}>
+              {actionLoading ? "Loading..." : "Load Setup Data"}
+            </button>
+          </div>
+
+          <div className="distribution-v5-two-col">
+            {(["lookupPlatforms", "lookupGenres", "lookupLanguages", "lookupCountries", "preferencesLabel", "preferencesArtists"] as TooLostEndpointKey[]).map((key) => {
+              const endpoint = findEndpoint(key);
+              const state = getEndpointState(endpointResults, key);
+              return (
+                <article className="asset-card distribution-v5-panel" key={key}>
+                  <h3>{endpoint.label}</h3>
+                  <InlineError message={state.error} />
+                  <DataTable data={state.data} emptyLabel={`No ${endpoint.label.toLowerCase()} loaded yet.`} />
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === "Developer" ? (
+        <div className="distribution-v5-section">
+          <div className="distribution-v5-section-head">
+            <div>
+              <h3>Developer Debug</h3>
+              <p>Raw API responses and endpoint status. Keep this hidden during normal use.</p>
             </div>
           </div>
-          <pre>{JSON.stringify(endpointResults, null, 2)}</pre>
+
+          <div className="distribution-v5-two-col">
+            <article className="asset-card distribution-v5-panel">
+              <h3>Connection</h3>
+              <div className="distribution-v5-kv-list">
+                <div><span>API Base</span><strong>{configPreview?.apiBaseUrl || "Missing"}</strong></div>
+                <div><span>Redirect URI</span><strong>{configPreview?.redirectUri || "Missing"}</strong></div>
+                <div><span>Requested Scopes</span><strong>{TOOLOST_SCOPES}</strong></div>
+                <div><span>Current Scope</span><strong>{connection?.scope || "Not connected"}</strong></div>
+              </div>
+            </article>
+            <article className="asset-card distribution-v5-panel">
+              <h3>Loaded Responses</h3>
+              <RawJson data={{ endpointResults, totalStreamsState }} />
+            </article>
+          </div>
         </div>
       ) : null}
     </section>
