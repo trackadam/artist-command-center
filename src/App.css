@@ -4976,3 +4976,81 @@ section .section-heading {
   }
 }
 
+
+
+/* Too Lost Distribution v21 schema cleanup */
+.release-builder-stepper-compact {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.release-info-setup-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.release-info-setup-warning .secondary-btn {
+  min-height: 38px;
+  padding-inline: 14px;
+  white-space: nowrap;
+}
+
+.release-delivery-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.release-delivery-preview-grid h4 {
+  margin: 0 0 12px;
+}
+
+.release-option-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 4px 4px 4px 0;
+}
+
+.release-option-chip-grid span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  color: rgba(245, 248, 255, 0.9);
+  font-size: 0.78rem;
+}
+
+.release-builder-delivery-card {
+  min-height: 430px;
+}
+
+@media (max-width: 1450px) {
+  .release-builder-stepper-compact {
+    grid-template-columns: repeat(4, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .release-builder-stepper-compact,
+  .release-delivery-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .release-info-setup-warning {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .release-info-setup-warning .secondary-btn {
+    width: 100%;
+  }
+}
+
