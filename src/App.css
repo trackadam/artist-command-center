@@ -6181,3 +6181,198 @@ section .section-heading {
     margin-bottom: 18px;
   }
 }
+
+/* ==========================================================
+   v22.2 Adaptive Release Creator Frame
+   Fixes page utilization when the main nav is open and prevents
+   the right command/help rail from squeezing the release forms.
+   ========================================================== */
+body {
+  overflow-x: hidden;
+}
+
+.main:has(.distribution-release-wizard-mode) {
+  padding: 14px 16px !important;
+  overflow-x: hidden;
+}
+
+.distribution-release-wizard-mode {
+  width: 100%;
+  max-width: 100% !important;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ta-wizard-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border-radius: 22px;
+  min-height: calc(100vh - 28px);
+  overflow: hidden;
+}
+
+.ta-wizard-grid {
+  min-width: 0;
+  grid-template-columns: clamp(176px, 14vw, 220px) minmax(0, 1fr) clamp(236px, 18vw, 286px);
+}
+
+.ta-wizard-left-rail,
+.ta-wizard-main,
+.ta-wizard-help-panel {
+  min-width: 0;
+}
+
+.ta-wizard-main {
+  max-width: 100%;
+  overflow-x: hidden;
+  padding: clamp(18px, 2vw, 28px) clamp(18px, 2.3vw, 34px) 36px;
+}
+
+.ta-wizard-help-panel {
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 28px);
+  overflow-y: auto;
+}
+
+.ta-release-stage-header {
+  max-width: 100%;
+}
+
+.ta-release-tier-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 100%;
+}
+
+.ta-release-tier {
+  min-width: 0;
+}
+
+.ta-wizard-shell .release-type-grid {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)) !important;
+}
+
+.ta-wizard-shell .distribution-form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+}
+
+.ta-wizard-shell .distribution-form-wide {
+  grid-column: 1 / -1;
+}
+
+.ta-wizard-shell input,
+.ta-wizard-shell select,
+.ta-wizard-shell textarea,
+.ta-wizard-shell button {
+  min-width: 0;
+}
+
+.ta-wizard-shell .distribution-v5-table-wrap,
+.ta-wizard-shell .distribution-roadmap-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ta-wizard-shell .distribution-v5-table {
+  width: 100%;
+}
+
+/* When the full Track Adam OS nav is open, the right help rail has to yield.
+   Otherwise the app creates a trapped horizontal scroll and hides the form area. */
+.app-shell:not(.sidebar-collapsed) .ta-wizard-grid {
+  grid-template-columns: clamp(166px, 13vw, 202px) minmax(0, 1fr) !important;
+}
+
+.app-shell:not(.sidebar-collapsed) .ta-wizard-help-panel {
+  display: none !important;
+}
+
+.app-shell:not(.sidebar-collapsed) .ta-wizard-main {
+  padding: 22px clamp(18px, 2.2vw, 32px) 36px;
+}
+
+.app-shell:not(.sidebar-collapsed) .ta-release-tier-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.app-shell:not(.sidebar-collapsed) .ta-release-tier {
+  min-height: 72px;
+  padding: 11px 12px;
+}
+
+.app-shell:not(.sidebar-collapsed) .ta-release-tier small {
+  -webkit-line-clamp: 1;
+}
+
+/* With the icon-only nav, bring back the help rail only when the canvas is truly wide. */
+@media (max-width: 1540px) {
+  .app-shell.sidebar-collapsed .ta-wizard-grid {
+    grid-template-columns: clamp(168px, 14vw, 210px) minmax(0, 1fr) !important;
+  }
+
+  .app-shell.sidebar-collapsed .ta-wizard-help-panel {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1541px) {
+  .app-shell.sidebar-collapsed .ta-wizard-grid {
+    grid-template-columns: clamp(180px, 13vw, 224px) minmax(0, 1fr) clamp(244px, 17vw, 292px) !important;
+  }
+}
+
+@media (max-width: 1200px) {
+  .ta-release-tier-strip,
+  .app-shell:not(.sidebar-collapsed) .ta-release-tier-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ta-wizard-grid,
+  .app-shell:not(.sidebar-collapsed) .ta-wizard-grid,
+  .app-shell.sidebar-collapsed .ta-wizard-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .ta-wizard-left-rail {
+    border-right: 0;
+    border-bottom: 1px solid var(--ta-border);
+  }
+
+  .ta-wizard-step-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .ta-wizard-step {
+    min-height: 46px;
+  }
+
+  .ta-wizard-rail-bottom {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .main:has(.distribution-release-wizard-mode) {
+    padding: 10px !important;
+  }
+
+  .ta-wizard-topbar {
+    height: auto;
+    min-height: 58px;
+    padding: 10px 12px;
+  }
+
+  .ta-release-tier-strip,
+  .app-shell:not(.sidebar-collapsed) .ta-release-tier-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .ta-wizard-step-list {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ta-wizard-main {
+    padding: 16px 14px 26px;
+  }
+}
