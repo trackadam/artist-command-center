@@ -8,6 +8,7 @@ import {
   getTooLostReleaseTracks,
   listTooLostReleases,
   updateTooLostReleaseMetadata,
+  updateTooLostReleaseDelivery,
   validateTooLostUpc,
   validateTooLostIsrc,
   connectionHasScope,
@@ -559,6 +560,11 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const [upcValidationState, setUpcValidationState] = useState<EndpointState>(defaultEndpointState);
   const [isrcToValidate, setIsrcToValidate] = useState("");
   const [isrcValidationState, setIsrcValidationState] = useState<EndpointState>(defaultEndpointState);
+  const [selectedDeliveryPlatforms, setSelectedDeliveryPlatforms] = useState<string[]>([]);
+  const [selectedTerritories, setSelectedTerritories] = useState<string[]>([]);
+  const [deliveryYoutube, setDeliveryYoutube] = useState(false);
+  const [deliveryUpdateState, setDeliveryUpdateState] = useState<EndpointState>(defaultEndpointState);
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
 
   async function loadConnection() {
     setConnectionLoading(true);
@@ -612,6 +618,11 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     setCreateReleaseState(defaultEndpointState);
     setUpcValidationState(defaultEndpointState);
     setIsrcValidationState(defaultEndpointState);
+    setSelectedDeliveryPlatforms([]);
+    setSelectedTerritories([]);
+    setDeliveryYoutube(false);
+    setDeliveryUpdateState(defaultEndpointState);
+    setRightsConfirmed(false);
 
     try {
       await disconnectTooLost();
@@ -804,6 +815,31 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     }
   }
 
+  async function saveDelivery() {
+    setDeliveryUpdateState((current) => ({ ...current, loading: true, error: "" }));
+
+    try {
+      if (!selectedReleaseId) throw new Error("Select a release before saving delivery settings.");
+      if (selectedDeliveryPlatforms.length === 0) throw new Error("Select at least one platform.");
+      if (selectedTerritories.length === 0) throw new Error("Select at least one territory.");
+
+      const data = await updateTooLostReleaseDelivery(selectedReleaseId, {
+        platforms: selectedDeliveryPlatforms,
+        territories: selectedTerritories,
+        additional: { youtube: deliveryYoutube },
+      });
+
+      setDeliveryUpdateState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+    } catch (deliveryError) {
+      setDeliveryUpdateState((current) => ({
+        loading: false,
+        error: deliveryError instanceof Error ? deliveryError.message : "Could not save delivery settings.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
   async function loadMany(keys: TooLostEndpointKey[]) {
     setActionLoading(true);
     setError("");
@@ -878,6 +914,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const metadataSaved = Boolean(metadataUpdateState.data);
   const tracksReady = Boolean(releaseTracksState.data);
   const upcValidated = Boolean(upcValidationState.data);
+  const deliveryConfirmed = Boolean(deliveryUpdateState.data);
 
   const releaseWorkflowSteps: Array<{
     key: ReleaseBuilderStepKey;
@@ -919,9 +956,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
       key: "delivery",
       number: "05",
       label: "Delivery",
-      helper: "Preview platform and territory options.",
-      complete: false,
-      locked: true,
+      helper: "Set platforms, territories, and YouTube.",
+      complete: deliveryConfirmed,
     },
     {
       key: "validation",
@@ -1426,16 +1462,18 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
             <article id="release-delivery-section" className="asset-card distribution-v5-panel release-builder-review-card release-builder-delivery-card">
               <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
                 <div>
-                  <span className="asset-type-pill">Delivery Prep</span>
+                  <span className="asset-type-pill">Delivery</span>
                   <h3>Platforms & Territories</h3>
-                  <p>Delivery will use Too Lost platform and country lookup data. Saving delivery stays locked until we finish the delivery schema implementation.</p>
+                  <p>Choose where Too Lost delivers this release. Requires platform and territory lookup data from Setup.</p>
                 </div>
-                <span className="status-pill status-warning">Delivery Save Locked</span>
+                {deliveryConfirmed
+                  ? <span className="status-pill status-live">Delivery Saved</span>
+                  : <span className="status-pill status-warning">Not Saved</span>}
               </div>
 
               {(deliveryPlatformOptions.length === 0 || territoryOptions.length === 0) ? (
                 <div className="distribution-v5-muted-warning release-info-setup-warning">
-                  Load Setup Data to preview Too Lost platform and territory options.
+                  Load Setup Data to populate platform and territory options.
                   <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupPlatforms", "lookupCountries"])}>
                     Load Platform / Country Data
                   </button>
@@ -1444,19 +1482,92 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
 
               <div className="release-delivery-preview-grid">
                 <div>
-                  <h4>Platform Options</h4>
-                  <div className="release-option-chip-grid">
-                    {deliveryPlatformOptions.slice(0, 18).map((option) => <span key={option.value}>{option.label}</span>)}
-                    {deliveryPlatformOptions.length === 0 ? <p className="distribution-empty">No platform options loaded yet.</p> : null}
+                  <h4>Platforms</h4>
+                  <p className="distribution-empty">Select every store this release should reach.</p>
+                  <div className="release-delivery-select-actions">
+                    <button className="mini-action-btn" type="button" onClick={() => setSelectedDeliveryPlatforms(deliveryPlatformOptions.map((o) => o.value))}>All</button>
+                    <button className="mini-action-btn" type="button" onClick={() => setSelectedDeliveryPlatforms([])}>None</button>
+                  </div>
+                  <div className="release-option-chip-grid release-delivery-checkbox-grid">
+                    {deliveryPlatformOptions.map((option) => (
+                      <label key={option.value} className="release-delivery-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={selectedDeliveryPlatforms.includes(option.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedDeliveryPlatforms((prev) => [...prev, option.value]);
+                            } else {
+                              setSelectedDeliveryPlatforms((prev) => prev.filter((p) => p !== option.value));
+                            }
+                          }}
+                        />
+                        {option.label}
+                      </label>
+                    ))}
                   </div>
                 </div>
+
                 <div>
-                  <h4>Territory Options</h4>
-                  <div className="release-option-chip-grid">
-                    {territoryOptions.slice(0, 18).map((option) => <span key={option.value}>{option.label}</span>)}
-                    {territoryOptions.length === 0 ? <p className="distribution-empty">No country options loaded yet.</p> : null}
+                  <h4>Territories</h4>
+                  <p className="distribution-empty">Select every country/territory for distribution.</p>
+                  <div className="release-delivery-select-actions">
+                    <button className="mini-action-btn" type="button" onClick={() => setSelectedTerritories(territoryOptions.map((o) => o.value))}>All</button>
+                    <button className="mini-action-btn" type="button" onClick={() => setSelectedTerritories([])}>None</button>
+                  </div>
+                  <div className="release-option-chip-grid release-delivery-checkbox-grid">
+                    {territoryOptions.map((option) => (
+                      <label key={option.value} className="release-delivery-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={selectedTerritories.includes(option.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTerritories((prev) => [...prev, option.value]);
+                            } else {
+                              setSelectedTerritories((prev) => prev.filter((t) => t !== option.value));
+                            }
+                          }}
+                        />
+                        {option.label}
+                      </label>
+                    ))}
                   </div>
                 </div>
+              </div>
+
+              <div className="release-delivery-additional">
+                <h4>Additional Options</h4>
+                <label className="release-delivery-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={deliveryYoutube}
+                    onChange={(e) => setDeliveryYoutube(e.target.checked)}
+                  />
+                  Enable YouTube Content ID
+                </label>
+              </div>
+
+              {deliveryUpdateState.data ? (
+                <div className="distribution-v5-kv-list release-delivery-summary">
+                  <div><span>Platforms saved</span><strong>{selectedDeliveryPlatforms.length}</strong></div>
+                  <div><span>Territories saved</span><strong>{selectedTerritories.length}</strong></div>
+                  <div><span>YouTube</span><strong>{deliveryYoutube ? "Enabled" : "Disabled"}</strong></div>
+                  <div><span>Saved at</span><strong>{deliveryUpdateState.loadedAt ? new Date(deliveryUpdateState.loadedAt).toLocaleTimeString() : "—"}</strong></div>
+                </div>
+              ) : null}
+
+              <InlineError message={deliveryUpdateState.error} />
+
+              <div className="distribution-v5-inline-form">
+                <button
+                  className="primary-btn distribution-full-width-btn"
+                  type="button"
+                  disabled={!canLoad || deliveryUpdateState.loading || !selectedReleaseId || selectedDeliveryPlatforms.length === 0 || selectedTerritories.length === 0}
+                  onClick={() => void saveDelivery()}
+                >
+                  {deliveryUpdateState.loading ? "Saving..." : "Save Delivery Settings"}
+                </button>
               </div>
 
               <button className="secondary-btn distribution-full-width-btn release-builder-next-btn" type="button" onClick={() => setActiveReleaseStep("validation")}>
@@ -1526,14 +1637,23 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
                 <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release record selected</label>
                 <label><input type="checkbox" checked={metadataSaved} readOnly /> Release info saved</label>
                 <label><input type="checkbox" checked={tracksReady} readOnly /> Tracks inspected</label>
-                <label><input type="checkbox" checked={false} readOnly /> Delivery settings confirmed</label>
+                <label><input type="checkbox" checked={deliveryConfirmed} readOnly /> Delivery settings saved</label>
                 <label><input type="checkbox" checked={upcValidated} readOnly /> UPC validation checked</label>
                 <label><input type="checkbox" checked={Boolean(isrcValidationState.data)} readOnly /> ISRC validation checked</label>
-                <label><input type="checkbox" checked={false} readOnly /> Rights / terms confirmed</label>
+                <label className="release-delivery-checkbox-label release-review-rights-label">
+                  <input type="checkbox" checked={rightsConfirmed} onChange={(e) => setRightsConfirmed(e.target.checked)} />
+                  I own or control all rights to this release
+                </label>
               </div>
 
-              <button className="secondary-btn distribution-full-width-btn" type="button" disabled>
-                Submit Release Locked Until Full Sandbox Review
+              <button
+                className="secondary-btn distribution-full-width-btn"
+                type="button"
+                disabled={!(releaseDraftReady || releasesReady) || !selectedReleaseReady || !metadataSaved || !tracksReady || !deliveryConfirmed || !upcValidated || !rightsConfirmed}
+              >
+                {(releaseDraftReady || releasesReady) && selectedReleaseReady && metadataSaved && tracksReady && deliveryConfirmed && upcValidated && rightsConfirmed
+                  ? "Submit Release"
+                  : "Complete all steps to unlock submission"}
               </button>
             </article>
           ) : null}

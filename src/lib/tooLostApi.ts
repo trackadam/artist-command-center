@@ -550,6 +550,21 @@ export async function createTooLostReleaseDraft(payload: TooLostCreateReleaseDra
   return callTooLostEndpoint("/releases", { method: "POST", body: payload });
 }
 
+export type TooLostDeliveryPayload = {
+  platforms: string[];
+  territories: string[];
+  additional?: {
+    youtube?: boolean;
+  };
+};
+
+export async function updateTooLostReleaseDelivery(releaseId: string | number, delivery: TooLostDeliveryPayload) {
+  return callTooLostEndpoint(`/releases/${releaseId}/delivery`, {
+    method: "PATCH",
+    body: { delivery },
+  });
+}
+
 export async function validateTooLostUpc(upc: string, releaseId?: string | number) {
   return callTooLostEndpoint("/releases/validate/upc", {
     method: "POST",
