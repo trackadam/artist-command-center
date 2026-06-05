@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   callTooLostEndpoint,
+  createTooLostReleaseDraft,
+  getTooLostRelease,
+  getTooLostReleaseTracks,
+  listTooLostReleases,
+  validateTooLostUpc,
   connectionHasScope,
   disconnectTooLost,
   fetchTooLostEndpoint,
@@ -20,7 +25,7 @@ type DistributionPageProps = {
   oauthMessage?: string;
 };
 
-type DashboardTab = "Overview" | "Catalog" | "Analytics" | "Sales" | "Setup" | "Developer";
+type DashboardTab = "Overview" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
 
 type EndpointState = {
   loading: boolean;
@@ -35,11 +40,42 @@ type MetricCard = {
   helper?: string;
 };
 
+type ReleaseDraftForm = {
+  title: string;
+  type: string;
+  label: string;
+  artistName: string;
+  artistId: string;
+};
+
+type ReleaseFilterForm = {
+  status: string;
+  type: string;
+  search: string;
+};
+
 const defaultEndpointState: EndpointState = {
   loading: false,
   error: "",
   data: null,
 };
+
+const emptyReleaseDraftForm: ReleaseDraftForm = {
+  title: "",
+  type: "Single",
+  label: "",
+  artistName: "",
+  artistId: "",
+};
+
+const emptyReleaseFilterForm: ReleaseFilterForm = {
+  status: "",
+  type: "",
+  search: "",
+};
+
+const releaseStatusOptions = ["draft", "in_review", "live", "takedown_pending", "takedown_complete"];
+const releaseTypeOptions = ["Single", "EP", "Album", "Compilation", "MusicVideo", "Music Video"];
 
 function formatDate(value?: string | null) {
   if (!value) return "Not available";
@@ -186,13 +222,16 @@ function DataTable({ data, emptyLabel = "No data returned yet." }: { data: unkno
   }
 
   const preferredColumns = [
+    "id",
     "title",
     "name",
     "release_title",
     "artist",
+    "label",
     "type",
     "status",
     "upc",
+    "catalogNumber",
     "isrc",
     "release_date",
     "created_at",
@@ -236,6 +275,65 @@ function DataTable({ data, emptyLabel = "No data returned yet." }: { data: unkno
   );
 }
 
+
+function getReleaseId(row: Record<string, unknown>) {
+  const id = getRecordValue(row, ["id", "releaseId", "release_id"]);
+  return id === null ? "" : String(id);
+}
+
+function ReleaseTable({
+  data,
+  selectedReleaseId,
+  onSelect,
+}: {
+  data: unknown;
+  selectedReleaseId: string;
+  onSelect: (releaseId: string) => void;
+}) {
+  const rows = getRows(data);
+
+  if (!rows.length) {
+    return <p className="distribution-empty">No releases returned yet. Load Release Builder to pull draft and catalog data.</p>;
+  }
+
+  return (
+    <div className="distribution-v5-table-wrap distribution-roadmap-table-wrap">
+      <table className="distribution-table distribution-v5-table distribution-roadmap-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>UPC</th>
+            <th>Release Date</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.slice(0, 30).map((row, rowIndex) => {
+            const releaseId = getReleaseId(row);
+            const active = releaseId && releaseId === selectedReleaseId;
+            return (
+              <tr key={releaseId || `release-${rowIndex}`} className={active ? "distribution-selected-row" : undefined}>
+                <td>{stringifyCell(getRecordValue(row, ["title", "name", "release_title"]))}</td>
+                <td>{stringifyCell(getRecordValue(row, ["type", "releaseType"]))}</td>
+                <td>{stringifyCell(getRecordValue(row, ["status"]))}</td>
+                <td>{stringifyCell(getRecordValue(row, ["upc"]))}</td>
+                <td>{stringifyCell(getRecordValue(row, ["releaseDate", "release_date", "originalReleaseDate"]))}</td>
+                <td>
+                  <button className="mini-action-btn" type="button" disabled={!releaseId} onClick={() => releaseId && onSelect(releaseId)}>
+                    Details
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function InlineError({ message }: { message?: string }) {
   if (!message) return null;
   return <div className="distribution-error-box distribution-v5-error">{message}</div>;
@@ -267,6 +365,14 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const [activeTab, setActiveTab] = useState<DashboardTab>("Overview");
   const [selectedPlatform, setSelectedPlatform] = useState("");
   const [totalStreamsState, setTotalStreamsState] = useState<EndpointState>(defaultEndpointState);
+  const [releaseFilters, setReleaseFilters] = useState<ReleaseFilterForm>(emptyReleaseFilterForm);
+  const [selectedReleaseId, setSelectedReleaseId] = useState("");
+  const [releaseDetailState, setReleaseDetailState] = useState<EndpointState>(defaultEndpointState);
+  const [releaseTracksState, setReleaseTracksState] = useState<EndpointState>(defaultEndpointState);
+  const [releaseDraftForm, setReleaseDraftForm] = useState<ReleaseDraftForm>(emptyReleaseDraftForm);
+  const [createReleaseState, setCreateReleaseState] = useState<EndpointState>(defaultEndpointState);
+  const [upcToValidate, setUpcToValidate] = useState("");
+  const [upcValidationState, setUpcValidationState] = useState<EndpointState>(defaultEndpointState);
 
   async function loadConnection() {
     setConnectionLoading(true);
@@ -312,6 +418,11 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     setError("");
     setEndpointResults({});
     setTotalStreamsState(defaultEndpointState);
+    setSelectedReleaseId("");
+    setReleaseDetailState(defaultEndpointState);
+    setReleaseTracksState(defaultEndpointState);
+    setCreateReleaseState(defaultEndpointState);
+    setUpcValidationState(defaultEndpointState);
 
     try {
       await disconnectTooLost();
@@ -349,6 +460,118 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
           data: getEndpointState(current, endpoint.key).data,
           loadedAt: getEndpointState(current, endpoint.key).loadedAt,
         },
+      }));
+    }
+  }
+
+
+  async function loadReleasesWithFilters() {
+    setEndpointResults((current) => ({
+      ...current,
+      releases: { ...getEndpointState(current, "releases"), loading: true, error: "" },
+    }));
+
+    try {
+      const data = await listTooLostReleases({
+        status: releaseFilters.status,
+        type: releaseFilters.type,
+        search: releaseFilters.search,
+        page: 1,
+        perPage: 25,
+      });
+
+      setEndpointResults((current) => ({
+        ...current,
+        releases: {
+          loading: false,
+          error: "",
+          data,
+          loadedAt: new Date().toISOString(),
+        },
+      }));
+    } catch (releaseError) {
+      setEndpointResults((current) => ({
+        ...current,
+        releases: {
+          loading: false,
+          error: releaseError instanceof Error ? releaseError.message : "Could not load releases.",
+          data: getEndpointState(current, "releases").data,
+          loadedAt: getEndpointState(current, "releases").loadedAt,
+        },
+      }));
+    }
+  }
+
+  async function loadReleaseDetails(releaseId: string) {
+    setSelectedReleaseId(releaseId);
+    setReleaseDetailState((current) => ({ ...current, loading: true, error: "" }));
+    setReleaseTracksState((current) => ({ ...current, loading: true, error: "" }));
+
+    try {
+      const [release, tracks] = await Promise.all([
+        getTooLostRelease(releaseId),
+        getTooLostReleaseTracks(releaseId),
+      ]);
+
+      setReleaseDetailState({ loading: false, error: "", data: release, loadedAt: new Date().toISOString() });
+      setReleaseTracksState({ loading: false, error: "", data: tracks, loadedAt: new Date().toISOString() });
+    } catch (detailError) {
+      const message = detailError instanceof Error ? detailError.message : "Could not load release details.";
+      setReleaseDetailState((current) => ({ loading: false, error: message, data: current.data, loadedAt: current.loadedAt }));
+      setReleaseTracksState((current) => ({ loading: false, error: message, data: current.data, loadedAt: current.loadedAt }));
+    }
+  }
+
+  async function createReleaseDraft() {
+    setCreateReleaseState({ loading: true, error: "", data: createReleaseState.data, loadedAt: createReleaseState.loadedAt });
+
+    try {
+      if (!releaseDraftForm.title.trim()) throw new Error("Release title is required.");
+      if (!releaseDraftForm.artistName.trim()) throw new Error("Primary artist name is required.");
+
+      const artistId = releaseDraftForm.artistId.trim() ? Number(releaseDraftForm.artistId) : undefined;
+      if (releaseDraftForm.artistId.trim() && Number.isNaN(artistId)) throw new Error("Artist ID must be a number.");
+
+      const payload = {
+        type: releaseDraftForm.type,
+        title: releaseDraftForm.title.trim(),
+        label: releaseDraftForm.label.trim() || undefined,
+        participants: [
+          {
+            name: releaseDraftForm.artistName.trim(),
+            ...(artistId ? { artistId } : {}),
+            role: ["primary"],
+          },
+        ],
+      };
+
+      const data = await createTooLostReleaseDraft(payload);
+      setCreateReleaseState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      setReleaseDraftForm(emptyReleaseDraftForm);
+      await loadReleasesWithFilters();
+    } catch (draftError) {
+      setCreateReleaseState((current) => ({
+        loading: false,
+        error: draftError instanceof Error ? draftError.message : "Could not create release draft.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
+  async function validateUpc() {
+    setUpcValidationState({ loading: true, error: "", data: upcValidationState.data, loadedAt: upcValidationState.loadedAt });
+
+    try {
+      if (!upcToValidate.trim()) throw new Error("Enter a UPC first.");
+      const data = await validateTooLostUpc(upcToValidate.trim(), selectedReleaseId || undefined);
+      setUpcValidationState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+    } catch (upcError) {
+      setUpcValidationState((current) => ({
+        loading: false,
+        error: upcError instanceof Error ? upcError.message : "Could not validate UPC.",
+        data: current.data,
+        loadedAt: current.loadedAt,
       }));
     }
   }
@@ -413,7 +636,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   );
 
   const canLoad = connected && !expired && !actionLoading;
-  const tabs: DashboardTab[] = ["Overview", "Catalog", "Analytics", "Sales", "Setup", "Developer"];
+  const tabs: DashboardTab[] = ["Overview", "Release Builder", "Analytics", "Sales", "Setup", "Developer"];
 
   return (
     <section className="page-section distribution-page distribution-dashboard-page distribution-v5-page">
@@ -502,9 +725,9 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
 
           <div className="distribution-v5-command-grid">
             <article className="asset-card distribution-v5-command-card">
-              <h3>Catalog</h3>
-              <p>Pull release list from Too Lost and review catalog data.</p>
-              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => void loadMany(["releases"])}>Open Catalog Sync</button>
+              <h3>Release Builder</h3>
+              <p>Create sandbox release drafts, pull release lists, review tracks, and validate UPCs before moving toward submit tools.</p>
+              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => setActiveTab("Release Builder")}>Open Release Builder</button>
             </article>
             <article className="asset-card distribution-v5-command-card">
               <h3>Analytics</h3>
@@ -520,19 +743,127 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
         </div>
       ) : null}
 
-      {activeTab === "Catalog" ? (
-        <div className="distribution-v5-section">
+      {activeTab === "Release Builder" ? (
+        <div className="distribution-v5-section distribution-roadmaps-section">
           <div className="distribution-v5-section-head">
             <div>
-              <h3>Catalog</h3>
-              <p>Releases from Too Lost sandbox. This becomes the real release management table later.</p>
+              <h3>Release Builder</h3>
+              <p>Sandbox-first release management: create draft releases, filter your catalog, inspect tracks, and validate UPCs.</p>
             </div>
-            <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={() => void loadMany(["releases"])}>
+            <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
               {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
             </button>
           </div>
-          <InlineError message={getEndpointState(endpointResults, "releases").error} />
-          <DataTable data={releasesResult} emptyLabel="No releases returned yet. Click Load Releases." />
+
+          <div className="distribution-v5-two-col distribution-roadmap-builder-grid">
+            <article className="asset-card distribution-v5-panel distribution-roadmap-form-card">
+              <div className="distribution-v11-panel-heading">
+                <div>
+                  <span className="asset-type-pill">Sandbox Draft</span>
+                  <h3>Create Release Draft</h3>
+                  <p>Creates a Too Lost draft release. Submit tools stay locked until the draft workflow is fully confirmed.</p>
+                </div>
+              </div>
+              <div className="distribution-form-grid">
+                <label>
+                  <span>Release Title</span>
+                  <input value={releaseDraftForm.title} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, title: event.target.value }))} placeholder="Better Late" />
+                </label>
+                <label>
+                  <span>Release Type</span>
+                  <select value={releaseDraftForm.type} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, type: event.target.value }))}>
+                    {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Label</span>
+                  <input value={releaseDraftForm.label} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, label: event.target.value }))} placeholder="Track Adam / SWU" />
+                </label>
+                <label>
+                  <span>Primary Artist</span>
+                  <input value={releaseDraftForm.artistName} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Artist name" />
+                </label>
+                <label>
+                  <span>Too Lost Artist ID optional</span>
+                  <input value={releaseDraftForm.artistId} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistId: event.target.value }))} placeholder="123" inputMode="numeric" />
+                </label>
+              </div>
+              <InlineError message={createReleaseState.error} />
+              {createReleaseState.data ? <DataTable data={createReleaseState.data} emptyLabel="Draft created." /> : null}
+              <button className="primary-btn distribution-full-width-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
+                {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
+              </button>
+            </article>
+
+            <article className="asset-card distribution-v5-panel distribution-roadmap-filter-card">
+              <div className="distribution-v11-panel-heading">
+                <div>
+                  <span className="asset-type-pill">Catalog Filter</span>
+                  <h3>Find Releases</h3>
+                  <p>Use Too Lost's release filters instead of loading everything at once.</p>
+                </div>
+              </div>
+              <div className="distribution-form-grid">
+                <label>
+                  <span>Status</span>
+                  <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
+                    <option value="">Any status</option>
+                    {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Type</span>
+                  <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
+                    <option value="">Any type</option>
+                    {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                  </select>
+                </label>
+                <label className="distribution-form-wide">
+                  <span>Search</span>
+                  <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search release title" />
+                </label>
+              </div>
+              <InlineError message={getEndpointState(endpointResults, "releases").error} />
+              <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
+                {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Apply Filters"}
+              </button>
+            </article>
+          </div>
+
+          <div className="distribution-v5-two-col distribution-roadmap-main-grid">
+            <article className="asset-card distribution-v5-panel distribution-roadmap-list-card">
+              <h3>Release List</h3>
+              <p className="distribution-empty">Select a release to load its details and track list.</p>
+              <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
+            </article>
+            <article className="asset-card distribution-v5-panel distribution-roadmap-detail-card">
+              <h3>Selected Release</h3>
+              <InlineError message={releaseDetailState.error} />
+              <DataTable data={releaseDetailState.data} emptyLabel="No release selected yet." />
+              <h3 className="distribution-v11-subhead">Tracks</h3>
+              <InlineError message={releaseTracksState.error} />
+              <DataTable data={releaseTracksState.data} emptyLabel="No tracks loaded for this release yet." />
+            </article>
+          </div>
+
+          <article className="asset-card distribution-v5-panel distribution-upc-tool-card">
+            <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
+              <div>
+                <span className="asset-type-pill">Validation Tool</span>
+                <h3>UPC Check</h3>
+                <p>Validates UPC format and uniqueness against Too Lost sandbox. If a release is selected, its ID is sent with the check.</p>
+              </div>
+              {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
+            </div>
+            <div className="distribution-v5-inline-form distribution-upc-inline-form">
+              <input value={upcToValidate} onChange={(event) => setUpcToValidate(event.target.value)} placeholder="Enter UPC" inputMode="numeric" />
+              <button className="secondary-btn" type="button" disabled={!canLoad || upcValidationState.loading || !upcToValidate.trim()} onClick={validateUpc}>
+                {upcValidationState.loading ? "Checking..." : "Validate UPC"}
+              </button>
+            </div>
+            <InlineError message={upcValidationState.error} />
+            <DataTable data={upcValidationState.data} emptyLabel="No UPC validation result yet." />
+          </article>
         </div>
       ) : null}
 

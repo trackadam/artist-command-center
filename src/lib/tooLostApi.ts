@@ -12,6 +12,7 @@ export const TOOLOST_SCOPES = [
   "read:audience",
   "read:analytics",
   "read:releases",
+  "write:releases",
   "read:earnings",
   "read:sales",
 ].join(" ");
@@ -437,7 +438,25 @@ export function connectionHasScope(connection: TooLostConnection | null, scope: 
   return scopes.includes(scope);
 }
 
-export async function callTooLostEndpoint(path: string) {
+export type TooLostRequestOptions = {
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  query?: Record<string, string | number | boolean | null | undefined>;
+  body?: unknown;
+};
+
+function buildTooLostPath(path: string, query?: TooLostRequestOptions["query"]) {
+  const params = new URLSearchParams();
+
+  Object.entries(query || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    params.set(key, String(value));
+  });
+
+  const queryString = params.toString();
+  return queryString ? `${path}?${queryString}` : path;
+}
+
+export async function callTooLostEndpoint(path: string, options: TooLostRequestOptions = {}) {
   const connection = await getTooLostPrivateConnection();
 
   if (!connection?.access_token) {
@@ -449,11 +468,17 @@ export async function callTooLostEndpoint(path: string) {
   }
 
   const config = getTooLostConfig();
-  const response = await fetch(`${config.apiBaseUrl}${path}`, {
+  const requestPath = buildTooLostPath(path, options.query);
+  const method = options.method || "GET";
+
+  const response = await fetch(`${config.apiBaseUrl}${requestPath}`, {
+    method,
     headers: {
       Authorization: `${connection.token_type || "Bearer"} ${connection.access_token}`,
       Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
     },
+    body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
   const payload = await response.json().catch(() => ({}));
@@ -462,11 +487,68 @@ export async function callTooLostEndpoint(path: string) {
     const message =
       typeof payload?.message === "string"
         ? payload.message
-        : `Too Lost request failed for ${path}.`;
+        : typeof payload?.error_description === "string"
+          ? payload.error_description
+          : typeof payload?.error === "string"
+            ? payload.error
+            : `Too Lost request failed for ${requestPath}.`;
     throw new Error(message);
   }
 
   return payload;
+}
+
+export type TooLostReleaseFilters = {
+  status?: string;
+  type?: string;
+  search?: string;
+  page?: number;
+  perPage?: number;
+};
+
+export type TooLostCreateReleaseDraftPayload = {
+  type: string;
+  title: string;
+  label?: string;
+  participants: Array<{
+    name: string;
+    artistId?: number;
+    role: string[];
+  }>;
+};
+
+export async function listTooLostReleases(filters: TooLostReleaseFilters = {}) {
+  return callTooLostEndpoint("/releases", {
+    query: {
+      status: filters.status,
+      type: filters.type,
+      search: filters.search,
+      page: filters.page || 1,
+      perPage: filters.perPage || 20,
+    },
+  });
+}
+
+export async function getTooLostRelease(releaseId: string | number) {
+  return callTooLostEndpoint(`/releases/${releaseId}`);
+}
+
+export async function getTooLostReleaseTracks(releaseId: string | number) {
+  return callTooLostEndpoint(`/releases/${releaseId}/tracks`);
+}
+
+export async function createTooLostReleaseDraft(payload: TooLostCreateReleaseDraftPayload) {
+  return callTooLostEndpoint("/releases", { method: "POST", body: payload });
+}
+
+export async function validateTooLostUpc(upc: string, releaseId?: string | number) {
+  return callTooLostEndpoint("/releases/validate/upc", {
+    method: "POST",
+    body: {
+      upc,
+      ...(releaseId ? { releaseId: Number(releaseId) } : {}),
+    },
+  });
 }
 
 export async function testTooLostProfile() {
