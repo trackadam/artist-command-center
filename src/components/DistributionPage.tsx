@@ -39,7 +39,7 @@ type DistributionPageProps = {
 };
 
 type DashboardTab = "Overview" | "Catalog" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
-type ReleaseBuilderStepKey = "start" | "select" | "artwork" | "info" | "tracks" | "delivery" | "validation" | "review";
+type ReleaseBuilderStepKey = "start" | "artwork" | "info" | "tracks" | "delivery" | "validation" | "review";
 
 type EndpointState = {
   loading: boolean;
@@ -1208,64 +1208,56 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       key: "start",
       number: "01",
       label: "Start Release",
-      helper: "Create the draft shell.",
-      complete: releaseDraftReady || releasesReady,
-    },
-    {
-      key: "select",
-      number: "02",
-      label: "Choose Release",
-      helper: "Choose the release record to continue.",
-      complete: selectedReleaseReady,
+      helper: "Create the draft shell or resume an existing one.",
+      complete: releaseDraftReady || selectedReleaseReady,
     },
     {
       key: "artwork",
-      number: "03",
+      number: "02",
       label: "Artwork",
       helper: "Upload and preview the cover art.",
       complete: Boolean(releaseMetadataForm.coverUrl || artworkPreviewUrl),
     },
     {
       key: "info",
-      number: "04",
+      number: "03",
       label: "Release Info",
       helper: "Complete store-ready metadata fields.",
       complete: selectedReleaseReady && metadataSaved,
     },
     {
       key: "tracks",
-      number: "05",
+      number: "04",
       label: "Tracks",
       helper: "Upload FLAC audio and set track metadata.",
       complete: Boolean(putTracksState.data),
     },
     {
       key: "delivery",
-      number: "06",
+      number: "05",
       label: "Delivery",
       helper: "Set platforms, territories, and YouTube.",
       complete: deliveryConfirmed,
     },
     {
       key: "validation",
-      number: "07",
+      number: "06",
       label: "Validation",
       helper: "Run UPC and ISRC checks.",
       complete: upcValidated || Boolean(isrcValidationState.data),
     },
     {
       key: "review",
-      number: "08",
+      number: "07",
       label: "Review",
-      helper: "Final review and submit stay locked.",
+      helper: "Final review and submit.",
       complete: false,
       locked: true,
     },
   ];
   const tabs: DashboardTab[] = ["Overview", "Catalog", "Release Builder", "Analytics", "Sales", "Setup", "Developer"];
   const releaseWizardSteps = [
-    { key: "start" as const, label: "Basic Information", icon: "◆", complete: releaseDraftReady || releasesReady },
-    { key: "select" as const, label: "Choose Release", icon: "▣", complete: selectedReleaseReady },
+    { key: "start" as const, label: "Basic Information", icon: "◆", complete: releaseDraftReady || selectedReleaseReady },
     { key: "artwork" as const, label: "Artwork", icon: "▧", complete: Boolean(releaseMetadataForm.coverUrl || artworkPreviewUrl) },
     { key: "info" as const, label: "Release Information", icon: "☷", complete: metadataSaved },
     { key: "tracks" as const, label: "Manage Tracks", icon: "♪", complete: Boolean(putTracksState.data) },
@@ -1275,7 +1267,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   ];
   const activeWizardStep = releaseWizardSteps.find((step) => step.key === activeReleaseStep) ?? releaseWizardSteps[0];
   const issueCount = [
-    !(releaseDraftReady || releasesReady),
+    !(releaseDraftReady || selectedReleaseReady),
     !Boolean(releaseMetadataForm.coverUrl || artworkPreviewUrl),
     !(releaseMetadataForm.cLine.trim() && releaseMetadataForm.pLine.trim()),
   ].filter(Boolean).length;
@@ -1283,55 +1275,48 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     start: {
       title: "Basic Information",
       step: "Step 1",
-      body: "Start by selecting the release type, naming the release, and adding the primary artist exactly how it should appear on stores.",
+      body: "Select the release type, name the release, and add the primary artist exactly as it should appear on stores. Already have a draft? Expand 'Resume an Existing Draft' to pick it up where you left off.",
       tips: ["Use the same capitalization you want on platforms", "Pick the correct release format before creating", "Add the primary artist before creating the draft"],
       articles: ["Naming your release", "Understanding release types"],
     },
-    select: {
-      title: "Choose Release",
-      step: "Step 2",
-      body: "Load your drafts and select the exact release record you want Track Adam OS to keep building.",
-      tips: ["Use search when the catalog grows", "Open a selected release before editing metadata", "Delete only sandbox drafts you no longer need"],
-      articles: ["Working with drafts", "Release catalog basics"],
-    },
     artwork: {
       title: "Cover Artwork",
-      step: "Step 3",
+      step: "Step 2",
       body: "Upload or paste cover artwork for the release. Square artwork at 3000×3000 pixels is the safest store-ready format.",
       tips: ["Minimum 3000×3000 pixels, square format", "Avoid blurry or pixelated artwork", "Text on artwork should match the release title and artist"],
       articles: ["Artwork content guidelines", "Artwork size and format"],
     },
     info: {
       title: "Release Information",
-      step: "Step 4",
+      step: "Step 3",
       body: "Complete the metadata fields stores need: date, genre, language, label, copyright lines, UPC, pricing, and optional details.",
       tips: ["Schedule at least 7 days in advance", "Pre-save campaigns work best with 2–4 weeks lead time", "C and P lines usually match your label or rights owner"],
       articles: ["Choosing release metadata", "Copyright line examples"],
     },
     tracks: {
       title: "Manage Tracks",
-      step: "Step 5",
+      step: "Step 4",
       body: "Upload audio files and manage track details. Make sure each track is titled properly and has complete credits.",
       tips: ["WAV or FLAC files are best quality", "Track titles should match your intended release", "Add songwriter and producer credits"],
       articles: ["Audio file requirements", "Adding track credits"],
     },
     delivery: {
       title: "Delivery",
-      step: "Step 6",
+      step: "Step 5",
       body: "Choose platforms, territories, and additional monetization services before submitting.",
       tips: ["Load setup data to use real store and country options", "Select all territories unless you have a restriction", "Only enable services you control rights for"],
       articles: ["Store delivery options", "Territory selection"],
     },
     validation: {
       title: "Validation",
-      step: "Step 7",
+      step: "Step 6",
       body: "Check identifiers before review so UPC and ISRC issues do not hold up the release.",
       tips: ["UPC is usually 12 digits", "ISRC uses 12 uppercase letters/numbers", "Validate identifiers before final review"],
       articles: ["UPC validation", "ISRC formatting"],
     },
     review: {
       title: "Review & Publish",
-      step: "Step 8",
+      step: "Step 7",
       body: "Review every section, confirm you own the rights, accept the terms, then submit the release when ready.",
       tips: ["Do one final title and artist spelling check", "Confirm rights before submission", "Save changes before publishing"],
       articles: ["Final release checklist", "Submission review"],
@@ -1577,7 +1562,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
           <div className="distribution-v5-section-head">
             <div>
               <h3>Release Creator</h3>
-              <p>Build the active draft in the right order: start the release shell, select the working draft, complete release metadata, then move to tracks, delivery, validation, and review.</p>
+              <p>Build the active draft in the right order: create the release shell, add artwork, complete release metadata, then move to tracks, delivery, validation, and review.</p>
             </div>
             <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
               {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
@@ -1656,7 +1641,9 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   <button className="primary-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
                     {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
                   </button>
-                  <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("select")}>Continue →</button>
+                  {(releaseDraftReady || selectedReleaseReady) && (
+                    <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("artwork")}>Continue to Artwork →</button>
+                  )}
                 </div>
               </article>
 
@@ -1666,66 +1653,54 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <p>Start Release creates the release shell only. Full release details live in Release Info using distributor-ready metadata field names.</p>
                 <div className="release-builder-mini-checklist">
                   <label><input type="checkbox" checked={Boolean(createReleaseState.data)} readOnly /> Draft response received</label>
-                  <label><input type="checkbox" checked={releasesReady} readOnly /> Release records loaded</label>
                   <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release record selected</label>
                 </div>
-                <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("select")}>
-                  Continue to Choose Release
-                </button>
-              </article>
-            </div>
-          ) : null}
 
-          {activeReleaseStep === "select" ? (
-            <div className="release-builder-step-panel release-builder-catalog-panel">
-              <article id="release-select-section" className="asset-card distribution-v5-panel distribution-roadmap-filter-card release-builder-workflow-card">
-                <div className="distribution-v11-panel-heading">
-                  <div>
-                    <span className="asset-type-pill">Release Selector</span>
-                    <h3>Choose Release</h3>
-                    <p>Find the release record you are actively building. Catalog remains separate for viewing account inventory.</p>
-                  </div>
-                </div>
-                <div className="distribution-form-grid">
-                  <label>
-                    <span>Status</span>
-                    <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
-                      <option value="">Any status</option>
-                      {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Type</span>
-                    <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
-                      <option value="">Any type</option>
-                      {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                  </label>
-                  <label className="distribution-form-wide">
-                    <span>Search</span>
-                    <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search release title" />
-                  </label>
-                </div>
-                <InlineError message={getEndpointState(endpointResults, "releases").error} />
-                <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
-                  {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
-                </button>
-              </article>
-
-              <article className="asset-card distribution-v5-panel distribution-roadmap-list-card release-builder-workflow-card">
-                <h3>Release Record List</h3>
-                <p className="distribution-empty">Select the release record you want to build, then continue to Artwork.</p>
-                <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
-                <div className="release-builder-choose-actions">
-                  <button className="secondary-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("artwork")}>
-                    Continue to Artwork
-                  </button>
-                  {selectedReleaseId ? (
-                    <button className="danger-btn" type="button" onClick={() => void deleteReleaseDraft(selectedReleaseId)}>
-                      Delete Draft
+                <details className="resume-draft-details">
+                  <summary className="resume-draft-summary">Resume an Existing Draft</summary>
+                  <div className="resume-draft-body">
+                    <p className="distribution-empty">Already have a draft? Load it here and pick up where you left off. This skips creating a new one.</p>
+                    <div className="distribution-form-grid">
+                      <label>
+                        <span>Status</span>
+                        <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
+                          <option value="">Any status</option>
+                          {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                        </select>
+                      </label>
+                      <label>
+                        <span>Type</span>
+                        <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
+                          <option value="">Any type</option>
+                          {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                        </select>
+                      </label>
+                      <label className="distribution-form-wide">
+                        <span>Search</span>
+                        <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search release title" />
+                      </label>
+                    </div>
+                    <InlineError message={getEndpointState(endpointResults, "releases").error} />
+                    <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
+                      {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Drafts"}
                     </button>
-                  ) : null}
-                </div>
+                    {releasesResult && (
+                      <>
+                        <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
+                        <div className="release-builder-choose-actions">
+                          <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("artwork")}>
+                            Resume — Continue to Artwork →
+                          </button>
+                          {selectedReleaseId ? (
+                            <button className="danger-btn" type="button" onClick={() => void deleteReleaseDraft(selectedReleaseId)}>
+                              Delete Draft
+                            </button>
+                          ) : null}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </details>
               </article>
             </div>
           ) : null}

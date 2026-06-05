@@ -3896,6 +3896,62 @@ section .section-heading {
   margin: 0;
 }
 
+/* ── Resume Draft collapsible ───────────────────────────── */
+.resume-draft-details {
+  margin-top: 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.resume-draft-summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.resume-draft-summary::-webkit-details-marker { display: none; }
+
+.resume-draft-summary::before {
+  content: "▸";
+  font-size: 11px;
+  transition: transform 0.2s;
+}
+
+details[open] .resume-draft-summary::before {
+  transform: rotate(90deg);
+}
+
+.resume-draft-summary:hover {
+  color: #fff;
+}
+
+.resume-draft-body {
+  padding: 0 16px 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.resume-draft-body .distribution-form-grid {
+  margin-top: 4px;
+}
+
+.resume-draft-body .release-builder-choose-actions {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .release-builder-next-btn {
   margin-top: 18px;
 }
