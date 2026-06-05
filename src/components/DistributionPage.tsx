@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   callTooLostEndpoint,
   createTooLostReleaseDraft,
+  deleteTooLostRelease,
   getTooLostRelease,
   getTooLostReleaseTracks,
   listTooLostReleases,
@@ -266,33 +267,6 @@ function createMetric(label: string, value: unknown, helper?: string): MetricCar
 function getProfileRecord(profile: unknown) {
   const profileData = getPayloadData(profile);
   return isRecord(profileData) ? profileData : null;
-}
-
-function getOverviewMetrics(
-  connection: TooLostConnection | null,
-  profile: unknown,
-  releases: unknown,
-  analytics: unknown,
-  sales: unknown,
-): MetricCard[] {
-  const profileRecord = getProfileRecord(profile);
-  const analyticsData = getPayloadData(analytics);
-  const analyticsRecord = isRecord(analyticsData) ? analyticsData : null;
-  const salesData = getPayloadData(sales);
-  const salesRecord = isRecord(salesData) ? salesData : null;
-
-  return [
-    createMetric(
-      "Account",
-      profileRecord ? `${stringifyCell(profileRecord.first_name)} ${stringifyCell(profileRecord.last_name)}` : "Not loaded",
-      profileRecord?.email ? stringifyCell(profileRecord.email) : undefined,
-    ),
-    createMetric("Account Type", profileRecord?.type || "—", profileRecord?.confirmed === true ? "Confirmed" : "Load /me to confirm"),
-    createMetric("Catalog", getCount(releases), "Releases returned"),
-    createMetric("Streams", analyticsRecord ? getRecordValue(analyticsRecord, ["totalStreams", "total_streams", "streams"]) || "0" : "—", "Last 30 days if available"),
-    createMetric("Sales", salesRecord ? getRecordValue(salesRecord, ["amount", "total_amount", "earnings", "total"] ) || "—" : "—", "Requires distributor earnings scope"),
-    createMetric("Token", connection ? (isTooLostTokenExpired(connection) ? "Expired" : "Active") : "Not connected", connection ? formatDate(connection.expires_at) : "Sandbox"),
-  ];
 }
 
 function formatAnalyticsValue(value: unknown) {
@@ -782,49 +756,91 @@ function getCreatedReleaseId(value: unknown): string {
   return scan(getPayloadData(value)) || scan(value);
 }
 
+function getReleaseStatus(row: Record<string, unknown>) {
+  return stringifyCell(getRecordValue(row, ["status"])).toLowerCase();
+}
+
+function getReleaseTitle(row: Record<string, unknown>) {
+  return stringifyCell(getRecordValue(row, ["title", "name", "release_title"]));
+}
+
 function ReleaseTable({
   data,
   selectedReleaseId,
   onSelect,
+  onDeleteDraft,
+  deleteDisabled = false,
 }: {
   data: unknown;
   selectedReleaseId: string;
   onSelect: (releaseId: string) => void;
+  onDeleteDraft?: (releaseId: string, title: string) => void;
+  deleteDisabled?: boolean;
 }) {
   const rows = getRows(data);
 
   if (!rows.length) {
-    return <p className="distribution-empty">No releases returned yet. Load Release Creator to pull draft and catalog data.</p>;
+    return (
+      <div className="catalog-empty-state">
+        <span>↻</span>
+        <strong>No catalog items loaded yet</strong>
+        <p>Sync Catalog to pull drafts and submitted releases from the connected distributor account.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="distribution-v5-table-wrap distribution-roadmap-table-wrap">
-      <table className="distribution-table distribution-v5-table distribution-roadmap-table">
+    <div className="catalog-table-shell">
+      <table className="distribution-table distribution-v5-table distribution-roadmap-table catalog-release-table">
         <thead>
           <tr>
-            <th>Title</th>
+            <th>Release</th>
             <th>Type</th>
             <th>Status</th>
-            <th>UPC</th>
+            <th>UPC / Catalog</th>
             <th>Release Date</th>
-            <th>Action</th>
+            <th>Tracks</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {rows.slice(0, 30).map((row, rowIndex) => {
+          {rows.slice(0, 40).map((row, rowIndex) => {
             const releaseId = getReleaseId(row);
             const active = releaseId && releaseId === selectedReleaseId;
+            const status = getReleaseStatus(row);
+            const title = getReleaseTitle(row);
+            const trackCount = Array.isArray(row.tracks) ? row.tracks.length : 0;
+            const catalogNumber = getRecordValue(row, ["catalogNumber", "catalog_number"]);
+            const upc = getRecordValue(row, ["upc", "barcode"]);
+            const isDraft = status === "draft";
+
             return (
-              <tr key={releaseId || `release-${rowIndex}`} className={active ? "distribution-selected-row" : undefined}>
-                <td>{stringifyCell(getRecordValue(row, ["title", "name", "release_title"]))}</td>
-                <td>{stringifyCell(getRecordValue(row, ["type", "releaseType"]))}</td>
-                <td>{stringifyCell(getRecordValue(row, ["status"]))}</td>
-                <td>{stringifyCell(getRecordValue(row, ["upc"]))}</td>
-                <td>{stringifyCell(getRecordValue(row, ["releaseDate", "release_date", "originalReleaseDate"]))}</td>
+              <tr key={releaseId || `release-${rowIndex}`} className={active ? "distribution-selected-row catalog-selected-row" : undefined}>
                 <td>
-                  <button className="mini-action-btn" type="button" disabled={!releaseId} onClick={() => releaseId && onSelect(releaseId)}>
-                    Details
+                  <button className="catalog-release-select" type="button" disabled={!releaseId} onClick={() => releaseId && onSelect(releaseId)}>
+                    <span className={active ? "catalog-select-dot catalog-select-dot-active" : "catalog-select-dot"} />
+                    <span>
+                      <strong>{title}</strong>
+                      <small>{stringifyCell(getRecordValue(row, ["label"]))}</small>
+                    </span>
                   </button>
+                </td>
+                <td>{stringifyCell(getRecordValue(row, ["type", "releaseType"]))}</td>
+                <td><span className={`catalog-status-pill catalog-status-${status.replace(/[^a-z0-9]+/g, "-")}`}>{status || "unknown"}</span></td>
+                <td>{stringifyCell(upc || catalogNumber)}</td>
+                <td>{stringifyCell(getRecordValue(row, ["releaseDate", "release_date", "originalReleaseDate"]))}</td>
+                <td>{trackCount ? `${trackCount} track${trackCount === 1 ? "" : "s"}` : "—"}</td>
+                <td>
+                  <div className="catalog-row-actions">
+                    <button className="mini-action-btn" type="button" disabled={!releaseId} onClick={() => releaseId && onSelect(releaseId)}>
+                      Details
+                    </button>
+                    {isDraft && onDeleteDraft ? (
+                      <button className="mini-action-btn catalog-danger-btn" type="button" disabled={!releaseId || deleteDisabled} onClick={() => releaseId && onDeleteDraft(releaseId, title)}>
+                        Delete Draft
+                      </button>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             );
@@ -1176,6 +1192,75 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       if (!releaseDetailState.data) {
         writeStoredActiveReleaseId("");
       }
+    }
+  }
+
+  async function deleteCatalogDraft(releaseId: string, title: string) {
+    const confirmed = window.confirm(`Delete draft release "${title}" from the distributor catalog? This cannot be undone.`);
+    if (!confirmed) return;
+
+    setActionLoading(true);
+    setError("");
+
+    try {
+      await deleteTooLostRelease(releaseId);
+      if (releaseId === selectedReleaseId) {
+        clearActiveReleaseSession();
+      }
+      await loadReleasesWithFilters();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Could not delete the draft release.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function removeCatalogTrackFromDraft(trackIndex: number) {
+    if (!selectedReleaseId) return;
+
+    const currentTracks = extractTrackForms(releaseTracksState.data);
+    const sourceTracks = currentTracks.length ? currentTracks : trackForms;
+    const targetTrack = sourceTracks[trackIndex];
+    if (!targetTrack) return;
+
+    if (sourceTracks.length <= 1) {
+      setPutTracksState((current) => ({
+        ...current,
+        error: "Too Lost requires at least one track when saving a draft tracklist. Delete the draft release or replace the track instead.",
+      }));
+      return;
+    }
+
+    const confirmed = window.confirm(`Remove "${targetTrack.title || `Track ${trackIndex + 1}`}" from this draft release?`);
+    if (!confirmed) return;
+
+    const updatedTracks = sourceTracks
+      .filter((_, index) => index !== trackIndex)
+      .map(cleanTrackPayload)
+      .filter((track) => track.title && track.audioFileKey);
+
+    if (!updatedTracks.length) {
+      setPutTracksState((current) => ({ ...current, error: "No valid tracks remain to save." }));
+      return;
+    }
+
+    setPutTracksState((current) => ({ ...current, loading: true, error: "" }));
+
+    try {
+      const data = await putTooLostReleaseTracks(selectedReleaseId, updatedTracks);
+      const tracks = await getTooLostReleaseTracks(selectedReleaseId);
+      const loadedTrackForms = extractTrackForms(tracks);
+      setTrackForms(loadedTrackForms);
+      setActiveTrackIndex(loadedTrackForms.length ? 0 : null);
+      setReleaseTracksState({ loading: false, error: "", data: tracks, loadedAt: new Date().toISOString() });
+      setPutTracksState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      await loadReleasesWithFilters();
+    } catch (trackDeleteError) {
+      setPutTracksState((current) => ({
+        ...current,
+        loading: false,
+        error: trackDeleteError instanceof Error ? trackDeleteError.message : "Could not remove the track from this draft.",
+      }));
     }
   }
 
@@ -1603,11 +1688,6 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     () => withFallbackOptions(getLookupOptions(lookupCountries.data, ["code", "value", "id", "name"], ["name", "label", "code", "value"]), fallbackTerritoryOptions),
     [lookupCountries.data],
   );
-  const metrics = useMemo(
-    () => getOverviewMetrics(connection, profileResult, releasesResult, analyticsOverview, salesOverview),
-    [connection, profileResult, releasesResult, analyticsOverview, salesOverview],
-  );
-
   const canLoad = connected && !expired && !actionLoading;
   const setupDataLoaded =
     hasLookupData(lookupGenres) &&
@@ -1735,14 +1815,87 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const currentHelp = releaseWizardHelp[activeWizardStep.key];
   const activeReleaseTitle = selectedReleaseReady ? getActiveReleaseTitle(releaseDetailState.data) : "No active release";
   const activeReleaseStatus = selectedReleaseReady ? getActiveReleaseStatus(releaseDetailState.data) : "not started";
+  const catalogRows = useMemo(() => getRows(releasesResult), [releasesResult]);
+  const catalogCounts = useMemo(() => {
+    const counts = { total: catalogRows.length, draft: 0, inReview: 0, live: 0 };
+    for (const row of catalogRows) {
+      const status = getReleaseStatus(row);
+      if (status === "draft") counts.draft += 1;
+      if (status === "in_review") counts.inReview += 1;
+      if (status === "live") counts.live += 1;
+    }
+    return counts;
+  }, [catalogRows]);
+  const selectedCatalogRow = useMemo(
+    () => catalogRows.find((row) => getReleaseId(row) === selectedReleaseId) || null,
+    [catalogRows, selectedReleaseId],
+  );
+  const selectedCatalogStatus = getReleaseStatus((getPayloadData(releaseDetailState.data) as Record<string, unknown>) || selectedCatalogRow || {});
+  const selectedCatalogIsDraft = selectedCatalogStatus === "draft";
+  const selectedCatalogTracks = getRows(releaseTracksState.data);
+
+  const distributionHeroCopy: Record<DashboardTab, { eyebrow: string; title: string; description: string; syncLabel: string }> = {
+    Overview: {
+      eyebrow: "Distribution Command Center",
+      title: "Release Creator",
+      description: "Create, submit, and track releases through your connected distributor tools.",
+      syncLabel: "Sync Setup",
+    },
+    Catalog: {
+      eyebrow: "Catalog Control",
+      title: "Catalog",
+      description: "Review drafts and submitted releases, open details, and remove draft releases when needed.",
+      syncLabel: "Sync Catalog",
+    },
+    "Release Builder": {
+      eyebrow: "Release Command Center",
+      title: "Release Creator",
+      description: "Build a release from basic information to artwork, metadata, delivery, tracks, and submission.",
+      syncLabel: "Sync Setup",
+    },
+    Analytics: {
+      eyebrow: "Streaming Intelligence",
+      title: "Analytics",
+      description: "Production-ready view of streams, saves, skips, platform reach, and track performance.",
+      syncLabel: "Sync Analytics",
+    },
+    Sales: {
+      eyebrow: "Royalty Command Center",
+      title: "Sales & Royalties",
+      description: "Monitor sales, royalty activity, tracks, releases, channels, and territory earnings.",
+      syncLabel: "Sync Sales",
+    },
+    Setup: {
+      eyebrow: "Distribution Setup",
+      title: "Setup Data",
+      description: "Sync platform, country, genre, language, label, and artist setup data from the distributor.",
+      syncLabel: "Sync Setup",
+    },
+    Developer: {
+      eyebrow: "API Control Room",
+      title: "Developer",
+      description: "Inspect connection health, endpoint responses, scopes, and integration readiness.",
+      syncLabel: "Sync Profile",
+    },
+  };
+  const activeHeroCopy = distributionHeroCopy[activeTab] ?? distributionHeroCopy["Release Builder"];
+
+  function syncActiveDistributionSection() {
+    if (activeTab === "Catalog") return void loadReleasesWithFilters();
+    if (activeTab === "Analytics") return void loadMany(["analyticsOverview", "analyticsTracks", "analyticsPlatforms", "lookupPlatforms"]);
+    if (activeTab === "Sales") return void loadMany(["salesOverview", "salesTracks", "salesReleases", "salesChannels", "salesTerritories"]);
+    if (activeTab === "Setup" || activeTab === "Release Builder") return void loadMany(releaseSetupLookupKeys);
+    if (activeTab === "Developer") return void loadMany(["profile"]);
+    return void loadMany(["profile", "releases"]);
+  }
 
   return (
     <section className={`page-section distribution-page distribution-dashboard-page distribution-v5-page ${activeTab === "Release Builder" ? "distribution-release-wizard-mode" : ""}`}>
       <div className="section-header distribution-hero-header distribution-v5-hero">
         <div>
-          <p className="eyebrow">Distribution Command Center</p>
-          <h2>Distribution Dashboard</h2>
-          <p>Clean command center for catalog, analytics, royalties, setup data, and connected distributor status.</p>
+          <p className="eyebrow">{activeHeroCopy.eyebrow}</p>
+          <h2>{activeHeroCopy.title}</h2>
+          <p>{activeHeroCopy.description}</p>
         </div>
         <div className="distribution-hero-actions">
           {!connected ? (
@@ -1751,8 +1904,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             </button>
           ) : (
             <>
-              <button className="primary-btn" type="button" onClick={() => void loadMany(["profile", "releases", "analyticsOverview"])} disabled={!canLoad}>
-                {actionLoading ? "Syncing..." : "Sync Overview"}
+              <button className="primary-btn" type="button" onClick={syncActiveDistributionSection} disabled={!canLoad}>
+                {actionLoading || getEndpointState(endpointResults, "releases").loading ? "Syncing..." : activeHeroCopy.syncLabel}
               </button>
               <button className="secondary-btn" type="button" onClick={handleDisconnect} disabled={actionLoading}>
                 Disconnect
@@ -1805,98 +1958,143 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
         </div>
       )}
 
-      {activeTab === "Overview" ? (
-        <div className="distribution-v5-section">
-          <div className="distribution-metric-grid distribution-v5-metrics">
-            {metrics.map((metric) => (
-              <article className="distribution-metric-card" key={metric.label}>
-                <span>{metric.label}</span>
-                <strong>{metric.value}</strong>
-                {metric.helper ? <p>{metric.helper}</p> : null}
-              </article>
-            ))}
-          </div>
-
-          <div className="distribution-v5-command-grid">
-            <article className="asset-card distribution-v5-command-card">
-              <h3>Catalog</h3>
-              <p>View the releases and songs already in your connected distributor account, separate from the release-building workflow.</p>
-              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => setActiveTab("Catalog")}>Open Catalog</button>
-            </article>
-            <article className="asset-card distribution-v5-command-card">
-              <h3>Release Creator</h3>
-              <p>Create or continue sandbox drafts, edit metadata, inspect tracks, and validate identifiers before delivery tools.</p>
-              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => setActiveTab("Release Builder")}>Open Release Creator</button>
-            </article>
-            <article className="asset-card distribution-v5-command-card">
-              <h3>Analytics</h3>
-              <p>Load overview, tracks, platform breakdowns, and stream checks.</p>
-              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => void loadMany(["analyticsOverview", "analyticsTracks", "analyticsPlatforms"])}>Sync Analytics</button>
-            </article>
-            <article className="asset-card distribution-v5-command-card">
-              <h3>Sales / Royalties</h3>
-              <p>Sales endpoints may need your distributor to confirm whether the sandbox uses read:earnings or read:sales.</p>
-              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => void loadMany(["salesOverview"])}>Try Sales Sync</button>
-            </article>
-          </div>
-        </div>
-      ) : null}
+      {activeTab === "Overview" ? null : null}
 
       {activeTab === "Catalog" ? (
-        <div className="distribution-v5-section distribution-catalog-section">
-          <div className="distribution-v5-section-head">
+        <div className="distribution-v5-section distribution-catalog-section catalog-command-section">
+          <div className="catalog-command-hero">
             <div>
-              <h3>Catalog</h3>
-              <p>View releases and songs already in your connected distributor account. This section is separate from Release Creator drafts and submission prep.</p>
+              <span className="asset-type-pill">Catalog</span>
+              <h3>Release Inventory</h3>
+              <p>Sync drafts, submitted releases, live releases, identifiers, and track details from the connected distributor catalog.</p>
             </div>
             <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
-              {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Catalog"}
+              {getEndpointState(endpointResults, "releases").loading ? "Syncing..." : "Sync Catalog"}
             </button>
           </div>
 
-          <div className="release-builder-step-panel distribution-catalog-workspace">
-            <article className="asset-card distribution-v5-panel distribution-roadmap-filter-card">
-              <div className="distribution-v11-panel-heading">
+          <div className="catalog-stat-grid">
+            <article><span>Total</span><strong>{catalogCounts.total}</strong><small>Synced releases</small></article>
+            <article><span>Drafts</span><strong>{catalogCounts.draft}</strong><small>Can be deleted</small></article>
+            <article><span>In Review</span><strong>{catalogCounts.inReview}</strong><small>Awaiting approval</small></article>
+            <article><span>Live</span><strong>{catalogCounts.live}</strong><small>Released catalog</small></article>
+          </div>
+
+          <div className="catalog-filter-bar">
+            <label>
+              <span>Status</span>
+              <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
+                <option value="">Any status</option>
+                {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Type</span>
+              <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
+                <option value="">Any type</option>
+                {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </label>
+            <label className="catalog-search-field">
+              <span>Search</span>
+              <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search title, label, UPC..." />
+            </label>
+            <button className="secondary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
+              Apply Filters
+            </button>
+          </div>
+          <InlineError message={getEndpointState(endpointResults, "releases").error} />
+          <InlineError message={putTracksState.error} />
+
+          <div className="catalog-management-grid">
+            <article className="asset-card distribution-v5-panel catalog-list-panel">
+              <div className="catalog-panel-heading">
                 <div>
-                  <span className="asset-type-pill">Catalog Filter</span>
-                  <h3>Find Catalog Items</h3>
-                  <p>Filter releases from your connected account without mixing them into the release-building steps.</p>
+                  <span className="asset-type-pill">Releases</span>
+                  <h3>Catalog List</h3>
+                  <p>Select a release to view metadata, tracks, identifiers, and draft management actions.</p>
                 </div>
+                {selectedReleaseId ? <span className="status-pill">Selected ID {selectedReleaseId}</span> : <span className="status-pill">No selection</span>}
               </div>
-              <div className="distribution-form-grid">
-                <label>
-                  <span>Status</span>
-                  <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
-                    <option value="">Any status</option>
-                    {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
-                  </select>
-                </label>
-                <label>
-                  <span>Type</span>
-                  <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
-                    <option value="">Any type</option>
-                    {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
-                  </select>
-                </label>
-                <label className="distribution-form-wide">
-                  <span>Search</span>
-                  <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search release title" />
-                </label>
-              </div>
-              <InlineError message={getEndpointState(endpointResults, "releases").error} />
-              <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
-                {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Apply Catalog Filters"}
-              </button>
+              <ReleaseTable
+                data={releasesResult}
+                selectedReleaseId={selectedReleaseId}
+                onSelect={(releaseId) => void loadReleaseDetails(releaseId)}
+                onDeleteDraft={deleteCatalogDraft}
+                deleteDisabled={actionLoading}
+              />
             </article>
 
-            <article className="asset-card distribution-v5-panel distribution-roadmap-list-card">
-              <h3>Catalog List</h3>
-              <p className="distribution-empty">These are release records from your connected account. Select one only when you want to inspect or continue editing it in Release Creator.</p>
-              <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
-              <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => { setActiveTab("Release Builder"); setActiveReleaseStep("info"); }}>
-                Open Selected in Release Creator
-              </button>
-            </article>
+            <aside className="asset-card distribution-v5-panel catalog-detail-panel">
+              <div className="catalog-panel-heading">
+                <div>
+                  <span className="asset-type-pill">Details</span>
+                  <h3>{selectedReleaseReady ? activeReleaseTitle : "Select a Release"}</h3>
+                  <p>{selectedReleaseReady ? "Review synced metadata, assigned identifiers, draft actions, and track list." : "Choose a release from the catalog table to open its details here."}</p>
+                </div>
+                {selectedReleaseReady ? <span className={`catalog-status-pill catalog-status-${activeReleaseStatus.replace(/[^a-z0-9]+/g, "-")}`}>{activeReleaseStatus}</span> : null}
+              </div>
+
+              {selectedReleaseReady ? (
+                <>
+                  <div className="catalog-detail-kpis">
+                    <div><span>UPC</span><strong>{stringifyCell(getRecordValue((getPayloadData(releaseDetailState.data) as Record<string, unknown>) || {}, ["upc", "barcode"]))}</strong></div>
+                    <div><span>Catalog #</span><strong>{stringifyCell(getRecordValue((getPayloadData(releaseDetailState.data) as Record<string, unknown>) || {}, ["catalogNumber", "catalog_number"]))}</strong></div>
+                    <div><span>Release Date</span><strong>{stringifyCell(getRecordValue((getPayloadData(releaseDetailState.data) as Record<string, unknown>) || {}, ["releaseDate", "release_date"]))}</strong></div>
+                  </div>
+
+                  <div className="catalog-detail-actions">
+                    <button className="primary-btn" type="button" onClick={() => { setActiveTab("Release Builder"); setActiveReleaseStep("info"); }}>
+                      Continue in Release Creator
+                    </button>
+                    {selectedCatalogIsDraft ? (
+                      <button className="secondary-btn catalog-danger-outline" type="button" disabled={actionLoading} onClick={() => selectedReleaseId && void deleteCatalogDraft(selectedReleaseId, activeReleaseTitle)}>
+                        Delete Draft
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="catalog-track-list-card">
+                    <div className="catalog-panel-heading catalog-panel-heading-compact">
+                      <div>
+                        <h4>Tracks / Songs</h4>
+                        <p>{selectedCatalogTracks.length ? "Synced tracks from this release." : "No tracks returned for this release yet."}</p>
+                      </div>
+                      <span className="status-pill">{selectedCatalogTracks.length} track{selectedCatalogTracks.length === 1 ? "" : "s"}</span>
+                    </div>
+                    {selectedCatalogTracks.length ? (
+                      <div className="catalog-track-list">
+                        {selectedCatalogTracks.map((track, index) => (
+                          <div className="catalog-track-row" key={`${stringifyCell(track.id)}-${index}`}>
+                            <div>
+                              <strong>{stringifyCell(getRecordValue(track, ["title"]))}</strong>
+                              <small>ISRC {stringifyCell(getRecordValue(track, ["isrc"]))} • {stringifyCell(getRecordValue(track, ["language"]))}</small>
+                            </div>
+                            {selectedCatalogIsDraft ? (
+                              <button className="mini-action-btn catalog-danger-btn" type="button" disabled={putTracksState.loading} onClick={() => void removeCatalogTrackFromDraft(index)}>
+                                Remove
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="catalog-empty-state catalog-empty-state-compact">
+                        <span>♪</span>
+                        <strong>No tracks synced</strong>
+                        <p>Open the release in Release Creator to add or upload tracks.</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="catalog-empty-state">
+                  <span>▣</span>
+                  <strong>No release selected</strong>
+                  <p>Select Details on a release row to view identifiers, tracks, and available draft actions.</p>
+                </div>
+              )}
+            </aside>
           </div>
         </div>
       ) : null}
@@ -1906,7 +2104,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
           <header className="ta-wizard-topbar">
             <div className="ta-wizard-brand-lockup">
               <span className="ta-wizard-logo">TA</span>
-              <button className="ta-wizard-exit" type="button" onClick={() => setActiveTab("Overview")}>← Exit</button>
+              <button className="ta-wizard-exit" type="button" onClick={() => setActiveTab("Catalog")}>← Exit</button>
             </div>
             <div className="ta-wizard-top-actions">
               {selectedReleaseId ? (
