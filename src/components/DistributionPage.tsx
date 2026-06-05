@@ -39,7 +39,7 @@ type DistributionPageProps = {
 };
 
 type DashboardTab = "Overview" | "Catalog" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
-type ReleaseBuilderStepKey = "start" | "select" | "info" | "tracks" | "delivery" | "validation" | "review";
+type ReleaseBuilderStepKey = "start" | "select" | "artwork" | "info" | "tracks" | "delivery" | "validation" | "review";
 
 type EndpointState = {
   loading: boolean;
@@ -951,11 +951,15 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
   async function deleteReleaseDraft(releaseId: string | number) {
     if (!window.confirm("Delete this draft release? This cannot be undone.")) return;
+
     try {
       await deleteTooLostRelease(releaseId);
-      setSelectedReleaseId(null);
-      setReleasesResult(null);
-      setEndpointResults((prev) => prev.filter((r) => r.key !== "releases"));
+      setSelectedReleaseId("");
+      setReleaseDetailState(defaultEndpointState);
+      setReleaseTracksState(defaultEndpointState);
+      setReleaseMetadataForm(emptyReleaseMetadataForm);
+      setArtworkPreviewUrl("");
+      await loadReleasesWithFilters();
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "Could not delete release.");
     }
@@ -1199,36 +1203,43 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       complete: selectedReleaseReady,
     },
     {
-      key: "info",
+      key: "artwork",
       number: "03",
+      label: "Artwork",
+      helper: "Upload and preview the cover art.",
+      complete: Boolean(releaseMetadataForm.coverUrl || artworkPreviewUrl),
+    },
+    {
+      key: "info",
+      number: "04",
       label: "Release Info",
       helper: "Complete Too Lost metadata fields.",
       complete: selectedReleaseReady && metadataSaved,
     },
     {
       key: "tracks",
-      number: "04",
+      number: "05",
       label: "Tracks",
       helper: "Upload FLAC audio and set track metadata.",
       complete: Boolean(putTracksState.data),
     },
     {
       key: "delivery",
-      number: "05",
+      number: "06",
       label: "Delivery",
       helper: "Set platforms, territories, and YouTube.",
       complete: deliveryConfirmed,
     },
     {
       key: "validation",
-      number: "06",
+      number: "07",
       label: "Validation",
       helper: "Run UPC and ISRC checks.",
       complete: upcValidated || Boolean(isrcValidationState.data),
     },
     {
       key: "review",
-      number: "07",
+      number: "08",
       label: "Review",
       helper: "Final review and submit stay locked.",
       complete: false,
@@ -1236,9 +1247,84 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     },
   ];
   const tabs: DashboardTab[] = ["Overview", "Catalog", "Release Builder", "Analytics", "Sales", "Setup", "Developer"];
+  const releaseWizardSteps = [
+    { key: "start" as const, label: "Basic Information", icon: "◆", complete: releaseDraftReady || releasesReady },
+    { key: "select" as const, label: "Choose Release", icon: "▣", complete: selectedReleaseReady },
+    { key: "artwork" as const, label: "Artwork", icon: "▧", complete: Boolean(releaseMetadataForm.coverUrl || artworkPreviewUrl) },
+    { key: "info" as const, label: "Release Information", icon: "☷", complete: metadataSaved },
+    { key: "tracks" as const, label: "Manage Tracks", icon: "♪", complete: Boolean(putTracksState.data) },
+    { key: "delivery" as const, label: "Delivery", icon: "↗", complete: deliveryConfirmed },
+    { key: "validation" as const, label: "Validation", icon: "✓", complete: upcValidated || Boolean(isrcValidationState.data) },
+    { key: "review" as const, label: "Review & Publish", icon: "↑", complete: Boolean(submitState.data) },
+  ];
+  const activeWizardStep = releaseWizardSteps.find((step) => step.key === activeReleaseStep) ?? releaseWizardSteps[0];
+  const issueCount = [
+    !(releaseDraftReady || releasesReady),
+    !Boolean(releaseMetadataForm.coverUrl || artworkPreviewUrl),
+    !(releaseMetadataForm.cLine.trim() && releaseMetadataForm.pLine.trim()),
+  ].filter(Boolean).length;
+  const releaseWizardHelp: Record<ReleaseBuilderStepKey, { title: string; step: string; body: string; tips: string[]; articles: string[] }> = {
+    start: {
+      title: "Basic Information",
+      step: "Step 1",
+      body: "Start by selecting the release type, naming the release, and adding the primary artist exactly how it should appear on stores.",
+      tips: ["Use the same capitalization you want on platforms", "Pick the correct release format before creating", "Add the primary artist before creating the draft"],
+      articles: ["Naming your release", "Understanding release types"],
+    },
+    select: {
+      title: "Choose Release",
+      step: "Step 2",
+      body: "Load your Too Lost drafts and select the exact release record you want Track Adam OS to keep building.",
+      tips: ["Use search when the catalog grows", "Open a selected release before editing metadata", "Delete only sandbox drafts you no longer need"],
+      articles: ["Working with drafts", "Release catalog basics"],
+    },
+    artwork: {
+      title: "Cover Artwork",
+      step: "Step 3",
+      body: "Upload or paste cover artwork for the release. Square artwork at 3000×3000 pixels is the safest store-ready format.",
+      tips: ["Minimum 3000×3000 pixels, square format", "Avoid blurry or pixelated artwork", "Text on artwork should match the release title and artist"],
+      articles: ["Artwork content guidelines", "Artwork size and format"],
+    },
+    info: {
+      title: "Release Information",
+      step: "Step 4",
+      body: "Complete the metadata fields stores need: date, genre, language, label, copyright lines, UPC, pricing, and optional details.",
+      tips: ["Schedule at least 7 days in advance", "Pre-save campaigns work best with 2–4 weeks lead time", "C and P lines usually match your label or rights owner"],
+      articles: ["Choosing release metadata", "Copyright line examples"],
+    },
+    tracks: {
+      title: "Manage Tracks",
+      step: "Step 5",
+      body: "Upload audio files and manage track details. Make sure each track is titled properly and has complete credits.",
+      tips: ["WAV or FLAC files are best quality", "Track titles should match your intended release", "Add songwriter and producer credits"],
+      articles: ["Audio file requirements", "Adding track credits"],
+    },
+    delivery: {
+      title: "Delivery",
+      step: "Step 6",
+      body: "Choose platforms, territories, and additional monetization services before submitting.",
+      tips: ["Load setup data to use real store and country options", "Select all territories unless you have a restriction", "Only enable services you control rights for"],
+      articles: ["Store delivery options", "Territory selection"],
+    },
+    validation: {
+      title: "Validation",
+      step: "Step 7",
+      body: "Check identifiers before review so UPC and ISRC issues do not hold up the release.",
+      tips: ["UPC is usually 12 digits", "ISRC uses 12 uppercase letters/numbers", "Validate identifiers before final review"],
+      articles: ["UPC validation", "ISRC formatting"],
+    },
+    review: {
+      title: "Review & Publish",
+      step: "Step 8",
+      body: "Review every section, confirm you own the rights, accept the terms, then submit the release when ready.",
+      tips: ["Do one final title and artist spelling check", "Confirm rights before submission", "Save changes before publishing"],
+      articles: ["Final release checklist", "Submission review"],
+    },
+  };
+  const currentHelp = releaseWizardHelp[activeWizardStep.key];
 
   return (
-    <section className="page-section distribution-page distribution-dashboard-page distribution-v5-page">
+    <section className={`page-section distribution-page distribution-dashboard-page distribution-v5-page ${activeTab === "Release Builder" ? "distribution-uploader-mode" : ""}`}>
       <div className="section-header distribution-hero-header distribution-v5-hero">
         <div>
           <p className="eyebrow">Too Lost Integration</p>
@@ -1409,7 +1495,69 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       ) : null}
 
       {activeTab === "Release Builder" ? (
-        <div className="distribution-v5-section distribution-roadmaps-section release-builder-workspace">
+        <div className="tl-uploader-shell">
+          <header className="tl-uploader-topbar">
+            <div className="tl-uploader-brand-lockup">
+              <span className="tl-uploader-logo">T</span>
+              <button className="tl-uploader-exit" type="button" onClick={() => setActiveTab("Overview")}>← Exit</button>
+            </div>
+            <div className="tl-uploader-top-actions">
+              <button className="tl-uploader-icon-btn" type="button" aria-label="Refresh release data" disabled={!canLoad || actionLoading} onClick={() => void loadReleasesWithFilters()}>↻</button>
+              <span className={connected && !expired ? "tl-uploader-avatar tl-uploader-avatar-live" : "tl-uploader-avatar"}>{profileRecord ? "✓" : "SWU"}</span>
+            </div>
+          </header>
+
+          <div className="tl-uploader-grid">
+            <aside className="tl-uploader-left-rail">
+              <p className="tl-uploader-rail-title">Steps</p>
+              <nav className="tl-uploader-step-list" aria-label="Release creator steps">
+                {releaseWizardSteps.map((step) => (
+                  <button
+                    key={step.key}
+                    type="button"
+                    className={`tl-uploader-step ${activeReleaseStep === step.key ? "tl-uploader-step-active" : ""}`}
+                    onClick={() => setActiveReleaseStep(step.key)}
+                  >
+                    <span className="tl-uploader-step-icon">{step.icon}</span>
+                    <span>{step.label}</span>
+                    {step.complete ? <span className="tl-uploader-step-check">✓</span> : null}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="tl-uploader-rail-bottom">
+                <div className={issueCount ? "tl-uploader-issues-card" : "tl-uploader-issues-card tl-uploader-issues-card-clean"}>
+                  <button type="button" className="tl-uploader-issues-head">
+                    <span>⚠ {issueCount} issues</span>
+                    <span>⌄</span>
+                  </button>
+                  <div className="tl-uploader-issue-list">
+                    <button type="button" onClick={() => setActiveReleaseStep("tracks")}>
+                      <strong>Release Format</strong>
+                      <small>{trackForms.length ? "Track count in progress" : "Add more tracks or confirm format"}</small>
+                    </button>
+                    <button type="button" onClick={() => setActiveReleaseStep("artwork")}>
+                      <strong>Artwork</strong>
+                      <small>{releaseMetadataForm.coverUrl || artworkPreviewUrl ? "Artwork attached" : "Upload valid artwork"}</small>
+                    </button>
+                    <button type="button" onClick={() => setActiveReleaseStep("info")}>
+                      <strong>C & P Line</strong>
+                      <small>{releaseMetadataForm.cLine && releaseMetadataForm.pLine ? "Copyright lines started" : "Invalid copyright line(s)"}</small>
+                    </button>
+                  </div>
+                </div>
+
+                <button className="tl-uploader-rail-action tl-uploader-preview-action" type="button" onClick={() => setActiveReleaseStep("review")}>
+                  <span className="tl-uploader-mini-cover">▧</span>
+                  Preview Release
+                  <span>◉</span>
+                </button>
+                <button className="tl-uploader-rail-action" type="button" disabled={!selectedReleaseId || metadataUpdateState.loading} onClick={() => void saveReleaseMetadata()}>▣ Save Changes</button>
+                <button className="tl-uploader-publish-btn" type="button" onClick={() => setActiveReleaseStep("review")}>↑ Publish ›</button>
+              </div>
+            </aside>
+
+            <main className="tl-uploader-main">
           <div className="distribution-v5-section-head">
             <div>
               <h3>Release Builder</h3>
@@ -1488,9 +1636,12 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
                 <InlineError message={createReleaseState.error} />
                 {createReleaseState.data ? <DataTable data={createReleaseState.data} emptyLabel="Draft created." /> : null}
-                <button className="primary-btn distribution-full-width-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
-                  {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
-                </button>
+                <div className="tl-wizard-bottom-actions">
+                  <button className="primary-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
+                    {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
+                  </button>
+                  <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("select")}>Continue →</button>
+                </div>
               </article>
 
               <article className="asset-card distribution-v5-panel release-builder-side-card">
@@ -1547,17 +1698,117 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
               <article className="asset-card distribution-v5-panel distribution-roadmap-list-card release-builder-workflow-card">
                 <h3>Release Record List</h3>
-                <p className="distribution-empty">Select the release record you want to build, then continue to Release Info.</p>
+                <p className="distribution-empty">Select the release record you want to build, then continue to Artwork.</p>
                 <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
                 <div className="release-builder-choose-actions">
-                  <button className="secondary-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("info")}>
-                    Continue to Release Info
+                  <button className="secondary-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("artwork")}>
+                    Continue to Artwork
                   </button>
                   {selectedReleaseId ? (
                     <button className="danger-btn" type="button" onClick={() => void deleteReleaseDraft(selectedReleaseId)}>
                       Delete Draft
                     </button>
                   ) : null}
+                </div>
+              </article>
+            </div>
+          ) : null}
+
+          {activeReleaseStep === "artwork" ? (
+            <div className="release-builder-step-panel release-builder-artwork-panel">
+              <article id="release-artwork-section" className="asset-card distribution-v5-panel release-builder-workflow-card tl-wizard-artwork-card">
+                <div className="tl-artwork-source-grid">
+                  <label className="tl-artwork-source-card tl-artwork-upload-source">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/tiff,image/webp"
+                      onChange={(e) => void handleArtworkFileSelect(e.target.files?.[0] ?? null)}
+                    />
+                    <span>☁</span>
+                    <strong>Upload Artwork</strong>
+                    <small>JPG, PNG, or TIFF</small>
+                  </label>
+                  <button className="tl-artwork-source-card" type="button">
+                    <span>✦</span>
+                    <strong>Gemini</strong>
+                    <small>Generate with Google</small>
+                  </button>
+                  <button className="tl-artwork-source-card" type="button">
+                    <span>●</span>
+                    <strong>DALL-E</strong>
+                    <small>Generate with OpenAI</small>
+                  </button>
+                </div>
+
+                <div className="tl-artwork-guidelines-card">
+                  <h4>Artwork Guidelines</h4>
+                  <div className="tl-artwork-guidelines-grid">
+                    <span>▣ Recommended 3000px, maximum 5000px</span>
+                    <span>⬚ Must be a perfect square</span>
+                    <span>↥ File size under 36MB</span>
+                    <span>◐ No blurriness or uneven borders</span>
+                    <span>⌘ RGB color mode required</span>
+                    <span>⌕ Artwork is manually reviewed before publishing</span>
+                  </div>
+                </div>
+
+                <div className="artwork-upload-section">
+                  <h4>Cover Artwork</h4>
+                  <p className="distribution-empty">Upload the release cover or paste an existing artwork URL. The preview updates immediately and the Cloudinary URL saves into the Too Lost metadata form.</p>
+                  <div className="artwork-upload-layout">
+                    <label className={`artwork-drop-zone${artworkUploading ? " artwork-uploading" : ""}${artworkPreviewUrl ? " artwork-has-preview" : ""}`}>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/tiff,image/webp"
+                        onChange={(e) => void handleArtworkFileSelect(e.target.files?.[0] ?? null)}
+                      />
+                      {artworkPreviewUrl ? (
+                        <img src={artworkPreviewUrl} alt="Cover artwork preview" className="artwork-preview-img" />
+                      ) : (
+                        <div className="artwork-drop-placeholder">
+                          <span className="artwork-drop-icon">🖼</span>
+                          <strong>{artworkUploading ? "Uploading..." : "Drop artwork or click to browse"}</strong>
+                          <small>JPG · PNG · TIFF</small>
+                        </div>
+                      )}
+                      {artworkUploading ? <div className="artwork-uploading-overlay"><span>Uploading...</span></div> : null}
+                    </label>
+                    <div className="artwork-url-fields">
+                      <label>
+                        <span>Cover URL</span>
+                        <input
+                          value={releaseMetadataForm.coverUrl}
+                          onChange={(e) => {
+                            setReleaseMetadataForm((prev) => ({ ...prev, coverUrl: e.target.value }));
+                            if (e.target.value) setArtworkPreviewUrl(e.target.value);
+                          }}
+                          placeholder="https://..."
+                        />
+                      </label>
+                      <label>
+                        <span>Compressed Artwork optional</span>
+                        <input
+                          value={releaseMetadataForm.compressedArtwork}
+                          onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, compressedArtwork: e.target.value }))}
+                          placeholder="Compressed artwork URL if Too Lost provides one"
+                        />
+                      </label>
+                      <InlineError message={artworkUploadError} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tl-motion-art-card">
+                  <div>
+                    <h4>🍎 Apple Motion Art</h4>
+                    <p>Upload animated artwork in ProRes format. This is separate from your cover artwork and only displays on Apple Music.</p>
+                  </div>
+                  <button className="secondary-btn" type="button">☁ Upload Motion Art</button>
+                </div>
+
+                <div className="tl-wizard-bottom-actions">
+                  <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("start")}>← Previous</button>
+                  <button className="primary-btn" type="button" onClick={() => setActiveReleaseStep("info")}>Continue →</button>
                 </div>
               </article>
             </div>
@@ -2211,6 +2462,43 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               </button>
             </article>
           ) : null}
+            </main>
+
+            <aside className="tl-uploader-help-panel">
+              <div className="tl-uploader-help-tabs">
+                <button className="tl-uploader-help-tab-active" type="button">▮ Help</button>
+                <button type="button">☊ Ask Valerie</button>
+              </div>
+              <div className="tl-uploader-help-body">
+                <div className="tl-uploader-help-title-row">
+                  <span className="tl-uploader-help-icon">{activeWizardStep.icon}</span>
+                  <div>
+                    <h3>{currentHelp.title}</h3>
+                    <p>{currentHelp.step}</p>
+                  </div>
+                </div>
+                <p className="tl-uploader-help-copy">{currentHelp.body}</p>
+                <div className="tl-uploader-help-tips">
+                  {currentHelp.tips.map((tip) => (
+                    <div key={tip}><span>✹</span>{tip}</div>
+                  ))}
+                </div>
+                <div className="tl-uploader-formats">
+                  <span>Accepted formats</span>
+                  <div>
+                    {["WAV", "MP3", "M4A", "AIFF", "FLAC"].map((format) => <small key={format}>{format}</small>)}
+                  </div>
+                </div>
+                <div className="tl-uploader-help-articles">
+                  <span>Help Articles</span>
+                  {currentHelp.articles.map((article) => (
+                    <button key={article} type="button"><span>▣</span><strong>{article}</strong><small>toolost.com ↗</small></button>
+                  ))}
+                </div>
+              </div>
+              <button className="tl-uploader-close-help" type="button">× Close</button>
+            </aside>
+          </div>
         </div>
       ) : null}
 
