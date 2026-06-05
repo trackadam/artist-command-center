@@ -1,3 +1,4 @@
+/* Too Lost Distribution v21.2 build fix - metadata helpers restored and Catalog open points to Release Info */
 /* Too Lost Distribution v21.1 schema-correct flow: Start Release / Choose Release / Release Info */
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -277,6 +278,104 @@ function getLookupOptions(value: unknown, valueKeys: string[], labelKeys: string
     seen.add(option.value);
     return true;
   }).slice(0, 300);
+}
+
+
+function getStringValueFromPayload(value: unknown, keys: string[]) {
+  const payload = getPayloadData(value);
+  if (!isRecord(payload)) return "";
+
+  const found = getRecordValue(payload, keys);
+  if (found === null || found === undefined) return "";
+
+  if (typeof found === "string" || typeof found === "number" || typeof found === "boolean") {
+    return String(found);
+  }
+
+  return "";
+}
+
+function getBooleanSelectValue(value: unknown, keys: string[]) {
+  const raw = getStringValueFromPayload(value, keys);
+  if (!raw) return "";
+
+  const normalized = raw.toLowerCase();
+  if (["true", "1", "yes"].includes(normalized)) return "true";
+  if (["false", "0", "no"].includes(normalized)) return "false";
+
+  return "";
+}
+
+function extractReleaseMetadataForm(release: unknown): ReleaseMetadataForm {
+  return {
+    version: getStringValueFromPayload(release, ["version"]),
+    remixTitle: getStringValueFromPayload(release, ["remixTitle", "remix_title"]),
+    primaryGenre: getStringValueFromPayload(release, ["primaryGenre", "primary_genre"]),
+    secondaryGenre: getStringValueFromPayload(release, ["secondaryGenre", "secondary_genre"]),
+    language: getStringValueFromPayload(release, ["language", "language_code"]),
+    releaseDate: getStringValueFromPayload(release, ["releaseDate", "release_date"]),
+    originalReleaseDate: getStringValueFromPayload(release, ["originalReleaseDate", "original_release_date"]),
+    applePreorder: getBooleanSelectValue(release, ["applePreorder", "apple_preorder"]),
+    applePreorderDate: getStringValueFromPayload(release, ["applePreorderDate", "apple_preorder_date"]),
+    licenseType: getStringValueFromPayload(release, ["licenseType", "license_type"]),
+    licenseInfo: getStringValueFromPayload(release, ["licenseInfo", "license_info"]),
+    cYear: getStringValueFromPayload(release, ["cYear", "c_year"]),
+    cLine: getStringValueFromPayload(release, ["cLine", "c_line"]),
+    pYear: getStringValueFromPayload(release, ["pYear", "p_year"]),
+    pLine: getStringValueFromPayload(release, ["pLine", "p_line"]),
+    upc: getStringValueFromPayload(release, ["upc", "barcode"]),
+    coverUrl: getStringValueFromPayload(release, ["coverUrl", "cover_url"]),
+    compressedArtwork: getStringValueFromPayload(release, ["compressedArtwork", "compressed_artwork"]),
+    isAiGenerated: getBooleanSelectValue(release, ["isAiGenerated", "isAiGeneratedArtwork", "is_ai_generated"]),
+    releaseTime: getStringValueFromPayload(release, ["releaseTime", "release_time", "time"]),
+    timeZone: getStringValueFromPayload(release, ["timeZone", "time_zone"]),
+  };
+}
+
+function buildReleaseMetadataPayload(form: ReleaseMetadataForm) {
+  const payload: Record<string, unknown> = {};
+
+  const addString = (key: string, value: string) => {
+    const trimmed = value.trim();
+    if (trimmed) payload[key] = trimmed;
+  };
+
+  const addYear = (key: string, value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+
+    const year = Number(trimmed);
+    if (Number.isInteger(year)) payload[key] = year;
+  };
+
+  const addBoolean = (key: string, value: string) => {
+    if (value === "true") payload[key] = true;
+    if (value === "false") payload[key] = false;
+  };
+
+  addString("version", form.version);
+  addString("remixTitle", form.remixTitle);
+  addString("primaryGenre", form.primaryGenre);
+  addString("secondaryGenre", form.secondaryGenre);
+  addString("language", form.language);
+  addString("releaseDate", form.releaseDate);
+  addString("originalReleaseDate", form.originalReleaseDate);
+  addBoolean("applePreorder", form.applePreorder);
+  addString("applePreorderDate", form.applePreorderDate);
+  addString("licenseType", form.licenseType);
+  addString("licenseInfo", form.licenseInfo);
+  addYear("cYear", form.cYear);
+  addString("cLine", form.cLine);
+  addYear("pYear", form.pYear);
+  addString("pLine", form.pLine);
+  addString("upc", form.upc);
+  addString("coverUrl", form.coverUrl);
+  addString("compressedArtwork", form.compressedArtwork);
+  addBoolean("isAiGenerated", form.isAiGenerated);
+  addString("releaseTime", form.releaseTime);
+  addString("timeZone", form.timeZone);
+
+  return payload;
 }
 
 function DataTable({ data, emptyLabel = "No data returned yet." }: { data: unknown; emptyLabel?: string }) {
@@ -1003,7 +1102,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
               <h3>Catalog List</h3>
               <p className="distribution-empty">These are Too Lost release records from your account. Select one only when you want to inspect or continue editing it in Release Builder.</p>
               <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
-              <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => { setActiveTab("Release Builder"); setActiveReleaseStep("metadata"); }}>
+              <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => { setActiveTab("Release Builder"); setActiveReleaseStep("info"); }}>
                 Open Selected in Release Builder
               </button>
             </article>
