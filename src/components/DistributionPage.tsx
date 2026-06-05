@@ -484,6 +484,37 @@ function getReleaseId(row: Record<string, unknown>) {
   return id === null ? "" : String(id);
 }
 
+function getCreatedReleaseId(value: unknown): string {
+  const seen = new Set<unknown>();
+
+  const scan = (candidate: unknown): string => {
+    if (!candidate || typeof candidate !== "object" || seen.has(candidate)) return "";
+    seen.add(candidate);
+
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) {
+        const found = scan(item);
+        if (found) return found;
+      }
+      return "";
+    }
+
+    if (!isRecord(candidate)) return "";
+
+    const directId = getRecordValue(candidate, ["id", "releaseId", "release_id"]);
+    if (directId !== null) return String(directId);
+
+    for (const key of ["data", "release", "draft", "result", "item"]) {
+      const found = scan(candidate[key]);
+      if (found) return found;
+    }
+
+    return "";
+  };
+
+  return scan(getPayloadData(value)) || scan(value);
+}
+
 function ReleaseTable({
   data,
   selectedReleaseId,
@@ -826,12 +857,17 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       };
 
       const data = await createTooLostReleaseDraft(payload);
+      const createdReleaseId = getCreatedReleaseId(data);
+
       setCreateReleaseState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
       setReleaseDraftForm(emptyReleaseDraftForm);
-      await loadReleasesWithFilters();
 
-      // Auto-advance to Release Information after creating a new draft
-      setActiveReleaseStep("info");   // Jump straight to Release Information
+      // Keep the live release flow moving forward without showing a separate selector/list.
+      if (createdReleaseId) {
+        await loadReleaseDetails(createdReleaseId);
+      }
+
+      setActiveReleaseStep("info");
     } catch (draftError) {
       setCreateReleaseState((current) => ({
         loading: false,
@@ -1189,7 +1225,6 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
   const canLoad = connected && !expired && !actionLoading;
   const releaseDraftReady = Boolean(createReleaseState.data);
-  const releasesReady = Boolean(releasesResult);
   const selectedReleaseReady = Boolean(selectedReleaseId && releaseDetailState.data);
   const metadataSaved = Boolean(metadataUpdateState.data);
   const tracksReady = Boolean(putTracksState.data) || Boolean(releaseTracksState.data);
@@ -1210,7 +1245,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       number: "01",
       label: "Basic Information",
       icon: "◆",
-      complete: releaseDraftReady || releasesReady || selectedReleaseReady,
+      complete: releaseDraftReady || selectedReleaseReady,
       helper: "Type, title, artist, label, and working draft.",
     },
     {
@@ -1245,7 +1280,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     "start";
   const activeWizardStep = releaseWizardSteps.find((step) => step.key === activeTierKey) ?? releaseWizardSteps[0];
   const issueCount = [
-    !(releaseDraftReady || releasesReady || selectedReleaseReady),
+    !(releaseDraftReady || selectedReleaseReady),
     !Boolean(releaseMetadataForm.coverUrl || artworkPreviewUrl),
     !(releaseMetadataForm.cLine.trim() && releaseMetadataForm.pLine.trim()),
   ].filter(Boolean).length;
@@ -1253,8 +1288,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     start: {
       title: "Basic Information",
       step: "Tier 1 of 4",
-      body: "Create the release shell, choose the release type, attach the primary artist, or load an existing draft to keep building.",
-      tips: ["Keep title capitalization exactly how it should appear", "Use the same artist spelling across stores", "Load existing drafts before editing metadata"],
+      body: "Create the release shell, choose the release type, and attach the primary artist. After the shell is created, Track Adam OS moves straight into Release Information.",
+      tips: ["Keep title capitalization exactly how it should appear", "Use the same artist spelling across stores", "Create the shell once, then continue forward through the four tiers"],
       articles: ["Release shell checklist", "Artist and label setup"],
     },
     artwork: {
@@ -1522,8 +1557,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <h3>{activeWizardStep.label}</h3>
               <p>{activeWizardStep.helper}</p>
             </div>
-            <button className="secondary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
-              {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
+            <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupGenres", "lookupLanguages", "lookupPlatforms", "lookupCountries"])}>
+              {actionLoading ? "Syncing..." : "Sync Setup"}
             </button>
           </div>
 
@@ -1594,7 +1629,11 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 </div>
 
                 <InlineError message={createReleaseState.error} />
-                {createReleaseState.data ? <DataTable data={createReleaseState.data} emptyLabel="Draft created." /> : null}
+                {createReleaseState.data ? (
+                  <div className="ta-release-flow-note">
+                    Release shell created. Track Adam OS is carrying this draft forward into Release Information.
+                  </div>
+                ) : null}
                 <div className="ta-wizard-bottom-actions">
                   <button className="primary-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
                     {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
@@ -1603,73 +1642,6 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 </div>
               </article>
 
-              <article className="asset-card distribution-v5-panel release-builder-side-card">
-                <span className="asset-type-pill">Clean Flow</span>
-                <h3>Why This Step Is Short</h3>
-                <p>Start Release creates the release shell only. Full release details live in Release Info using distributor-ready metadata field names.</p>
-                <div className="release-builder-mini-checklist">
-                  <label><input type="checkbox" checked={Boolean(createReleaseState.data)} readOnly /> Draft response received</label>
-                  <label><input type="checkbox" checked={releasesReady} readOnly /> Release records loaded</label>
-                  <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release record selected</label>
-                </div>
-                <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => void loadReleasesWithFilters()}>
-                  Load / Choose Existing Release
-                </button>
-              </article>
-            </div>
-          ) : null}
-
-          {activeReleaseStep === "start" ? (
-            <div className="release-builder-step-panel release-builder-catalog-panel">
-              <article id="release-select-section" className="asset-card distribution-v5-panel distribution-roadmap-filter-card release-builder-workflow-card">
-                <div className="distribution-v11-panel-heading">
-                  <div>
-                    <span className="asset-type-pill">Release Selector</span>
-                    <h3>Choose Release</h3>
-                    <p>Find the release record you are actively building. Catalog remains separate for viewing account inventory.</p>
-                  </div>
-                </div>
-                <div className="distribution-form-grid">
-                  <label>
-                    <span>Status</span>
-                    <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
-                      <option value="">Any status</option>
-                      {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Type</span>
-                    <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
-                      <option value="">Any type</option>
-                      {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                  </label>
-                  <label className="distribution-form-wide">
-                    <span>Search</span>
-                    <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search release title" />
-                  </label>
-                </div>
-                <InlineError message={getEndpointState(endpointResults, "releases").error} />
-                <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
-                  {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
-                </button>
-              </article>
-
-              <article className="asset-card distribution-v5-panel distribution-roadmap-list-card release-builder-workflow-card">
-                <h3>Release Record List</h3>
-                <p className="distribution-empty">Select the release record you want to build, then continue to Artwork.</p>
-                <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
-                <div className="release-builder-choose-actions">
-                  <button className="secondary-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("info")}>
-                    Continue to Release Information
-                  </button>
-                  {selectedReleaseId ? (
-                    <button className="danger-btn" type="button" onClick={() => void deleteReleaseDraft(selectedReleaseId)}>
-                      Delete Draft
-                    </button>
-                  ) : null}
-                </div>
-              </article>
             </div>
           ) : null}
 
@@ -1965,7 +1937,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <article className="asset-card distribution-v5-panel release-builder-side-card">
                 <span className="asset-type-pill">Current Release</span>
                 <h3>Loaded Details</h3>
-                <p>Use this as a reference while editing. If the form is blank, go back to Choose Release and choose a release first.</p>
+                <p>Use this as a reference while editing. If the form is blank, create the release shell first so Track Adam OS can load the active draft.</p>
                 <DataTable data={releaseDetailState.data} emptyLabel="No release details loaded yet." />
                 <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("tracks")}>
                   Continue to Tracks & Publish
@@ -2373,8 +2345,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               </div>
 
               <div className="release-builder-review-grid">
-                <label><input type="checkbox" checked={releaseDraftReady || releasesReady} readOnly /> Draft or release list loaded</label>
-                <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release record selected</label>
+                <label><input type="checkbox" checked={releaseDraftReady || selectedReleaseReady} readOnly /> Release shell created</label>
+                <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Active release loaded</label>
                 <label><input type="checkbox" checked={metadataSaved} readOnly /> Release info saved</label>
                 <label><input type="checkbox" checked={tracksReady} readOnly /> Tracks inspected</label>
                 <label><input type="checkbox" checked={deliveryConfirmed} readOnly /> Delivery settings saved</label>
@@ -2410,7 +2382,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 disabled={
                   submitState.loading ||
                   Boolean(submitState.data) ||
-                  !(releaseDraftReady || releasesReady) ||
+                  !(releaseDraftReady || selectedReleaseReady) ||
                   !selectedReleaseReady ||
                   !metadataSaved ||
                   !tracksReady ||

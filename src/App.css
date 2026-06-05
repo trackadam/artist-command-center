@@ -5958,6 +5958,18 @@ section .section-heading {
   margin-top: 6px;
 }
 
+.ta-release-flow-note {
+  border: 1px solid rgba(80, 180, 255, 0.22);
+  border-radius: 16px;
+  padding: 13px 15px;
+  color: rgba(222, 236, 255, 0.9);
+  background:
+    linear-gradient(135deg, rgba(53, 125, 255, 0.12), rgba(216, 170, 69, 0.07)),
+    rgba(255, 255, 255, 0.04);
+  font-size: 13px;
+  font-weight: 850;
+}
+
 @media (max-width: 1100px) {
   .ta-release-tier-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
