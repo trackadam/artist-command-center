@@ -827,11 +827,18 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
       const data = await createTooLostReleaseDraft(payload);
       setCreateReleaseState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
-      setReleaseDraftForm(emptyReleaseDraftForm);
-      await loadReleasesWithFilters();
 
-      // Auto-advance to Release Information after creating a new draft
-      setActiveReleaseStep("info");   // Jump straight to Release Information
+      // Auto-select the new release so downstream steps have a selectedReleaseId
+      const newReleaseId = (data as { id?: string | number })?.id
+        ?? ((data as { data?: { id?: string | number } })?.data?.id);
+      if (newReleaseId) {
+        await loadReleaseDetails(String(newReleaseId));
+      } else {
+        await loadReleasesWithFilters();
+      }
+
+      // Advance to Artwork — matching Too Lost's native flow
+      setActiveReleaseStep("artwork");
     } catch (draftError) {
       setCreateReleaseState((current) => ({
         loading: false,
@@ -1997,8 +2004,11 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <article className="asset-card distribution-v5-panel release-builder-side-card">
                 <span className="asset-type-pill">Current Release</span>
                 <h3>Loaded Details</h3>
-                <p>Use this as a reference while editing. If the form is blank, go back to Choose Release and choose a release first.</p>
+                <p>Use this as a reference while editing. If the form is blank, go back to Start and create or resume a release first.</p>
                 <DataTable data={releaseDetailState.data} emptyLabel="No release details loaded yet." />
+                <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("artwork")}>
+                  ← Back to Artwork
+                </button>
                 <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("tracks")}>
                   Continue to Tracks
                 </button>
