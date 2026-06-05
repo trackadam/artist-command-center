@@ -636,6 +636,49 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   );
 
   const canLoad = connected && !expired && !actionLoading;
+  const releaseDraftReady = Boolean(createReleaseState.data);
+  const releasesReady = Boolean(releasesResult);
+  const selectedReleaseReady = Boolean(selectedReleaseId && releaseDetailState.data);
+  const upcValidated = Boolean(upcValidationState.data);
+
+  const releaseWorkflowSteps = [
+    {
+      id: "release-draft-section",
+      number: "01",
+      label: "Draft",
+      helper: "Create or load a sandbox release draft.",
+      complete: releaseDraftReady || releasesReady,
+    },
+    {
+      id: "release-catalog-section",
+      number: "02",
+      label: "Catalog",
+      helper: "Find the right release record.",
+      complete: releasesReady,
+    },
+    {
+      id: "release-detail-section",
+      number: "03",
+      label: "Details & Tracks",
+      helper: "Inspect metadata and track list.",
+      complete: selectedReleaseReady,
+    },
+    {
+      id: "release-validation-section",
+      number: "04",
+      label: "Validation",
+      helper: "Run UPC checks before submission.",
+      complete: upcValidated,
+    },
+    {
+      id: "release-review-section",
+      number: "05",
+      label: "Review",
+      helper: "Final review and submit tools stay locked for now.",
+      complete: false,
+      locked: true,
+    },
+  ];
   const tabs: DashboardTab[] = ["Overview", "Release Builder", "Analytics", "Sales", "Setup", "Developer"];
 
   return (
@@ -748,20 +791,35 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
           <div className="distribution-v5-section-head">
             <div>
               <h3>Release Builder</h3>
-              <p>Sandbox-first release management: create draft releases, filter your catalog, inspect tracks, and validate UPCs.</p>
+              <p>Guided sandbox workflow for creating drafts, finding releases, inspecting tracks, validating identifiers, and preparing a final review.</p>
             </div>
             <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
               {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
             </button>
           </div>
 
+          <div className="release-builder-stepper" aria-label="Release Builder workflow">
+            {releaseWorkflowSteps.map((step) => (
+              <button
+                key={step.id}
+                type="button"
+                className={`release-builder-step ${step.complete ? "release-builder-step-complete" : ""} ${step.locked ? "release-builder-step-locked" : ""}`}
+                onClick={() => document.getElementById(step.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              >
+                <span>{step.number}</span>
+                <strong>{step.label}</strong>
+                <small>{step.helper}</small>
+              </button>
+            ))}
+          </div>
+
           <div className="distribution-v5-two-col distribution-roadmap-builder-grid">
-            <article className="asset-card distribution-v5-panel distribution-roadmap-form-card">
+            <article id="release-draft-section" className="asset-card distribution-v5-panel distribution-roadmap-form-card release-builder-workflow-card">
               <div className="distribution-v11-panel-heading">
                 <div>
                   <span className="asset-type-pill">Sandbox Draft</span>
                   <h3>Create Release Draft</h3>
-                  <p>Creates a Too Lost draft release. Submit tools stay locked until the draft workflow is fully confirmed.</p>
+                  <p>Start with the minimum required Too Lost draft data. Once the draft exists, use the catalog/detail steps to continue building safely.</p>
                 </div>
               </div>
               <div className="distribution-form-grid">
@@ -795,12 +853,12 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
               </button>
             </article>
 
-            <article className="asset-card distribution-v5-panel distribution-roadmap-filter-card">
+            <article id="release-catalog-section" className="asset-card distribution-v5-panel distribution-roadmap-filter-card release-builder-workflow-card">
               <div className="distribution-v11-panel-heading">
                 <div>
                   <span className="asset-type-pill">Catalog Filter</span>
                   <h3>Find Releases</h3>
-                  <p>Use Too Lost's release filters instead of loading everything at once.</p>
+                  <p>Search and filter Too Lost release records so you can select the exact draft or catalog item you want to inspect.</p>
                 </div>
               </div>
               <div className="distribution-form-grid">
@@ -831,12 +889,12 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
           </div>
 
           <div className="distribution-v5-two-col distribution-roadmap-main-grid">
-            <article className="asset-card distribution-v5-panel distribution-roadmap-list-card">
+            <article className="asset-card distribution-v5-panel distribution-roadmap-list-card release-builder-workflow-card">
               <h3>Release List</h3>
               <p className="distribution-empty">Select a release to load its details and track list.</p>
               <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
             </article>
-            <article className="asset-card distribution-v5-panel distribution-roadmap-detail-card">
+            <article id="release-detail-section" className="asset-card distribution-v5-panel distribution-roadmap-detail-card release-builder-workflow-card">
               <h3>Selected Release</h3>
               <InlineError message={releaseDetailState.error} />
               <DataTable data={releaseDetailState.data} emptyLabel="No release selected yet." />
@@ -846,7 +904,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
             </article>
           </div>
 
-          <article className="asset-card distribution-v5-panel distribution-upc-tool-card">
+          <article id="release-validation-section" className="asset-card distribution-v5-panel distribution-upc-tool-card release-builder-workflow-card">
             <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
               <div>
                 <span className="asset-type-pill">Validation Tool</span>
@@ -863,6 +921,30 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
             </div>
             <InlineError message={upcValidationState.error} />
             <DataTable data={upcValidationState.data} emptyLabel="No UPC validation result yet." />
+          </article>
+
+          <article id="release-review-section" className="asset-card distribution-v5-panel release-builder-review-card">
+            <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
+              <div>
+                <span className="asset-type-pill">Locked Safety Step</span>
+                <h3>Review & Submit</h3>
+                <p>Submission stays locked until draft creation, release details, tracks, validation, metadata, and delivery are all proven in sandbox.</p>
+              </div>
+              <span className="status-pill status-warning">Submit Locked</span>
+            </div>
+
+            <div className="release-builder-review-grid">
+              <label><input type="checkbox" checked={releaseDraftReady || releasesReady} readOnly /> Draft or release list loaded</label>
+              <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release details selected</label>
+              <label><input type="checkbox" checked={Boolean(releaseTracksState.data)} readOnly /> Tracks inspected</label>
+              <label><input type="checkbox" checked={upcValidated} readOnly /> UPC validation checked</label>
+              <label><input type="checkbox" checked={false} readOnly /> Metadata edit workflow confirmed</label>
+              <label><input type="checkbox" checked={false} readOnly /> Delivery settings confirmed</label>
+            </div>
+
+            <button className="secondary-btn distribution-full-width-btn" type="button" disabled>
+              Submit Release Locked Until Full Sandbox Review
+            </button>
           </article>
         </div>
       ) : null}
