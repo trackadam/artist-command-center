@@ -29,6 +29,8 @@ import {
 type DistributionPageProps = {
   oauthStatus?: "success" | "error" | null;
   oauthMessage?: string;
+  activeTab?: "overview" | "catalog" | "releases" | "analytics" | "sales" | "setup" | "developer";
+  onTabChange?: (tab: "overview" | "catalog" | "releases" | "analytics" | "sales" | "setup" | "developer") => void;
 };
 
 type DashboardTab = "Overview" | "Catalog" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
@@ -539,13 +541,40 @@ function findEndpoint(key: TooLostEndpointKey) {
   return endpoint;
 }
 
-export default function DistributionPage({ oauthStatus, oauthMessage }: DistributionPageProps) {
+export default function DistributionPage({ oauthStatus, oauthMessage, activeTab: externalTab, onTabChange }: DistributionPageProps) {
+
+  const subPageToTab: Record<string, DashboardTab> = {
+    overview: "Overview",
+    catalog: "Catalog",
+    releases: "Release Builder",
+    analytics: "Analytics",
+    sales: "Sales",
+    setup: "Setup",
+    developer: "Developer",
+  };
+
+  const tabToSubPage: Record<DashboardTab, string> = {
+    "Overview": "overview",
+    "Catalog": "catalog",
+    "Release Builder": "releases",
+    "Analytics": "analytics",
+    "Sales": "sales",
+    "Setup": "setup",
+    "Developer": "developer",
+  };
+
+  const [internalTab, setInternalTabState] = useState<DashboardTab>("Overview");
+  const activeTab: DashboardTab = externalTab ? (subPageToTab[externalTab] ?? "Overview") : internalTab;
+
+  function setActiveTab(tab: DashboardTab) {
+    setInternalTabState(tab);
+    onTabChange?.(tabToSubPage[tab] as "overview" | "catalog" | "releases" | "analytics" | "sales" | "setup" | "developer");
+  }
   const [connection, setConnection] = useState<TooLostConnection | null>(null);
   const [connectionLoading, setConnectionLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [endpointResults, setEndpointResults] = useState<Partial<Record<TooLostEndpointKey, EndpointState>>>({});
-  const [activeTab, setActiveTab] = useState<DashboardTab>("Overview");
   const [activeReleaseStep, setActiveReleaseStep] = useState<ReleaseBuilderStepKey>("start");
   const [selectedPlatform, setSelectedPlatform] = useState("");
   const [totalStreamsState, setTotalStreamsState] = useState<EndpointState>(defaultEndpointState);

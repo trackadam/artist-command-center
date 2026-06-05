@@ -4493,3 +4493,49 @@ section .section-heading {
   justify-content: space-between;
   gap: 16px;
 }
+
+/* ── Distribution sidebar sub-nav ───────────────────────── */
+.nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-sub {
+  display: flex;
+  flex-direction: column;
+  margin: 2px 0 4px 0;
+  padding-left: 14px;
+  border-left: 2px solid rgba(47, 124, 255, 0.3);
+  margin-left: 22px;
+}
+
+.nav-sub-item {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+  white-space: nowrap;
+}
+
+.nav-sub-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+
+.nav-sub-active {
+  background: rgba(47, 124, 255, 0.16);
+  color: rgba(180, 205, 255, 1);
+}
+
+.sidebar-collapsed .nav-sub {
+  display: none;
+}

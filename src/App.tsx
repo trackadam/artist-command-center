@@ -339,6 +339,8 @@ type AppPage =
   | "Distribution"
   | "Planner";
 
+type DistributionSubPage = "overview" | "catalog" | "releases" | "analytics" | "sales" | "setup" | "developer";
+
 type AppNotice = {
   type: "success" | "error" | "info";
   message: string;
@@ -866,6 +868,7 @@ function App() {
   const [tooLostOauthMessage, setTooLostOauthMessage] = useState("");
   const [tooLostOauthProcessed, setTooLostOauthProcessed] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [distributionSubPage, setDistributionSubPage] = useState<DistributionSubPage>("overview");
   const [plannerTab, setPlannerTab] = useState<PlannerTab>("Tasks");
   const [selectedNotebookId, setSelectedNotebookId] = useState("all");
 
@@ -8117,6 +8120,8 @@ function App() {
         <DistributionPage
           oauthStatus={tooLostOauthStatus}
           oauthMessage={tooLostOauthMessage}
+          activeTab={distributionSubPage}
+          onTabChange={setDistributionSubPage}
         />
       );
     }
@@ -8468,17 +8473,55 @@ function App() {
         </div>
 
         <nav className="nav">
-          {sidebarPages.map((page) => (
-            <button
-              key={page}
-              className={activePage === page ? "nav-active" : ""}
-              onClick={() => setActivePage(page)}
-              title={getSidebarPageLabel(page)}
-            >
-              <span className="nav-icon">{renderSidebarIcon(page)}</span>
-              <span className="nav-label">{getSidebarPageLabel(page)}</span>
-            </button>
-          ))}
+          {sidebarPages.map((page) => {
+            if (page === "Distribution") {
+              const distSubPages: { key: DistributionSubPage; label: string }[] = [
+                { key: "overview", label: "Overview" },
+                { key: "releases", label: "Release Builder" },
+                { key: "catalog", label: "Catalog" },
+                { key: "analytics", label: "Analytics" },
+                { key: "sales", label: "Sales" },
+                { key: "setup", label: "Setup" },
+                { key: "developer", label: "Developer" },
+              ];
+              return (
+                <div key="Distribution" className="nav-group">
+                  <button
+                    className={activePage === "Distribution" ? "nav-active" : ""}
+                    onClick={() => setActivePage("Distribution")}
+                    title="Distribution"
+                  >
+                    <span className="nav-icon">{renderSidebarIcon("Distribution")}</span>
+                    <span className="nav-label">Distribution</span>
+                  </button>
+                  {activePage === "Distribution" && !sidebarCollapsed && (
+                    <div className="nav-sub">
+                      {distSubPages.map(({ key, label }) => (
+                        <button
+                          key={key}
+                          className={`nav-sub-item${distributionSubPage === key ? " nav-sub-active" : ""}`}
+                          onClick={() => setDistributionSubPage(key)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return (
+              <button
+                key={page}
+                className={activePage === page ? "nav-active" : ""}
+                onClick={() => setActivePage(page)}
+                title={getSidebarPageLabel(page)}
+              >
+                <span className="nav-icon">{renderSidebarIcon(page)}</span>
+                <span className="nav-label">{getSidebarPageLabel(page)}</span>
+              </button>
+            );
+          })}
         </nav>
 
         <div className="sidebar-account">
