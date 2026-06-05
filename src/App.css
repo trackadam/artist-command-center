@@ -5902,3 +5902,269 @@ details[open] .resume-draft-summary::before {
     height: 220px;
   }
 }
+
+/* ── Wizard Step Content Layout ─────────────────────────── */
+.ta-wizard-step-content {
+  padding: 8px 0 40px;
+  max-width: 760px;
+}
+
+.ta-wizard-step-header {
+  margin-bottom: 32px;
+}
+
+.ta-wizard-step-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 8px 0 6px;
+  color: #fff;
+}
+
+.ta-wizard-step-header p {
+  opacity: 0.65;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ── Field groups ───────────────────────────────────────── */
+.ta-wizard-field-group {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.ta-wizard-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.8);
+}
+
+.ta-wizard-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.ta-wizard-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.ta-wizard-input:focus {
+  border-color: #5b8cff;
+}
+
+.ta-wizard-input option {
+  background: #1a1a2e;
+  color: #fff;
+}
+
+/* ── Section blocks ─────────────────────────────────────── */
+.ta-wizard-section-block {
+  margin-bottom: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.ta-wizard-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  margin: 0 0 16px;
+}
+
+.ta-wizard-toggle-row {
+  margin-top: 8px;
+}
+
+.ta-wizard-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ── Optional block ─────────────────────────────────────── */
+.ta-wizard-optional-block {
+  margin: 8px 0 24px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+  overflow: hidden;
+}
+
+.ta-wizard-optional-block > summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.65);
+  list-style: none;
+  user-select: none;
+}
+
+.ta-wizard-optional-block > summary::-webkit-details-marker { display: none; }
+
+.ta-wizard-optional-block > summary::before {
+  content: "▸ ";
+  font-size: 11px;
+}
+
+details[open].ta-wizard-optional-block > summary::before {
+  content: "▾ ";
+}
+
+.ta-wizard-optional-body {
+  padding: 0 16px 16px;
+}
+
+/* ── Nav row ────────────────────────────────────────────── */
+.ta-wizard-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.ta-wizard-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ta-wizard-cta {
+  min-width: 180px;
+}
+
+/* ── Success banner ─────────────────────────────────────── */
+.ta-wizard-success-banner {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(39,174,96,0.18), rgba(39,174,96,0.08));
+  border: 1px solid rgba(39,174,96,0.3);
+  color: #6ee89f;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 16px 0 0;
+}
+
+/* ── Upload zone ────────────────────────────────────────── */
+.ta-wizard-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 24px;
+  border-radius: 16px;
+  border: 2px dashed rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.02);
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.ta-wizard-upload-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(91,140,255,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #5b8cff;
+  margin-bottom: 4px;
+}
+
+.ta-wizard-upload-zone strong {
+  font-size: 16px;
+}
+
+.ta-wizard-upload-zone p {
+  opacity: 0.55;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ── Step done state ────────────────────────────────────── */
+.ta-wizard-step.ta-wizard-step-done .ta-wizard-step-icon {
+  opacity: 0.5;
+}
+
+/* ── Issues card ────────────────────────────────────────── */
+.ta-wizard-issues-card {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 196, 87, 0.28);
+  background: rgba(255, 196, 87, 0.06);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.ta-wizard-issues-card-clean {
+  border-color: rgba(39,174,96,0.25);
+  background: rgba(39,174,96,0.06);
+}
+
+.ta-wizard-issues-head {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.ta-wizard-issue-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.ta-wizard-issue-list button {
+  display: grid;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: rgba(255,255,255,0.7);
+  transition: background 0.15s;
+}
+
+.ta-wizard-issue-list button:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.ta-wizard-issue-list button strong {
+  font-size: 12px;
+  display: block;
+}
+
+.ta-wizard-issue-list button small {
+  font-size: 11px;
+  opacity: 0.6;
+  display: block;
+}
+
+@media (max-width: 700px) {
+  .ta-wizard-field-row {
+    grid-template-columns: 1fr;
+  }
+  .ta-wizard-nav-right {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

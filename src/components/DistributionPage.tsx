@@ -1504,18 +1504,21 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
       {activeTab === "Release Builder" ? (
         <div className="ta-wizard-shell">
+          {/* ── Top bar ── */}
           <header className="ta-wizard-topbar">
             <div className="ta-wizard-brand-lockup">
               <span className="ta-wizard-logo">TA</span>
               <button className="ta-wizard-exit" type="button" onClick={() => setActiveTab("Overview")}>← Exit</button>
             </div>
             <div className="ta-wizard-top-actions">
-              <button className="ta-wizard-icon-btn" type="button" aria-label="Refresh release data" disabled={!canLoad || actionLoading} onClick={() => void loadReleasesWithFilters()}>↻</button>
               <span className={connected && !expired ? "ta-wizard-avatar ta-wizard-avatar-live" : "ta-wizard-avatar"}>{profileRecord ? "✓" : "SWU"}</span>
             </div>
           </header>
 
+          {/* ── Wizard grid: left rail + main ── */}
           <div className="ta-wizard-grid">
+
+            {/* ── Left rail: step list ── */}
             <aside className="ta-wizard-left-rail">
               <p className="ta-wizard-rail-title">Steps</p>
               <nav className="ta-wizard-step-list" aria-label="Release creator steps">
@@ -1523,421 +1526,252 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   <button
                     key={step.key}
                     type="button"
-                    className={`ta-wizard-step ${activeReleaseStep === step.key ? "ta-wizard-step-active" : ""}`}
+                    className={`ta-wizard-step ${activeReleaseStep === step.key ? "ta-wizard-step-active" : ""} ${step.complete ? "ta-wizard-step-done" : ""}`}
                     onClick={() => setActiveReleaseStep(step.key)}
                   >
                     <span className="ta-wizard-step-icon">{step.icon}</span>
-                    <span>{step.label}</span>
+                    <span className="ta-wizard-step-label">{step.label}</span>
                     {step.complete ? <span className="ta-wizard-step-check">✓</span> : null}
                   </button>
                 ))}
               </nav>
 
               <div className="ta-wizard-rail-bottom">
-                <div className={issueCount ? "ta-wizard-issues-card" : "ta-wizard-issues-card ta-wizard-issues-card-clean"}>
-                  <button type="button" className="ta-wizard-issues-head">
-                    <span>⚠ {issueCount} issues</span>
-                    <span>⌄</span>
-                  </button>
-                  <div className="ta-wizard-issue-list">
-                    <button type="button" onClick={() => setActiveReleaseStep("tracks")}>
-                      <strong>Release Format</strong>
-                      <small>{trackForms.length ? "Track count in progress" : "Add more tracks or confirm format"}</small>
-                    </button>
-                    <button type="button" onClick={() => setActiveReleaseStep("artwork")}>
-                      <strong>Artwork</strong>
-                      <small>{releaseMetadataForm.coverUrl || artworkPreviewUrl ? "Artwork attached" : "Upload valid artwork"}</small>
-                    </button>
-                    <button type="button" onClick={() => setActiveReleaseStep("info")}>
-                      <strong>C & P Line</strong>
-                      <small>{releaseMetadataForm.cLine && releaseMetadataForm.pLine ? "Copyright lines started" : "Invalid copyright line(s)"}</small>
-                    </button>
+                {issueCount > 0 ? (
+                  <div className="ta-wizard-issues-card">
+                    <p className="ta-wizard-issues-head">⚠ {issueCount} issue{issueCount !== 1 ? "s" : ""}</p>
+                    <div className="ta-wizard-issue-list">
+                      {!Boolean(releaseMetadataForm.coverUrl || artworkPreviewUrl) && (
+                        <button type="button" onClick={() => setActiveReleaseStep("artwork")}>
+                          <strong>Artwork</strong><small>Upload valid artwork</small>
+                        </button>
+                      )}
+                      {!(releaseMetadataForm.cLine.trim() && releaseMetadataForm.pLine.trim()) && (
+                        <button type="button" onClick={() => setActiveReleaseStep("info")}>
+                          <strong>C &amp; P Line</strong><small>Invalid copyright line(s)</small>
+                        </button>
+                      )}
+                      {!(releaseDraftReady || selectedReleaseReady) && (
+                        <button type="button" onClick={() => setActiveReleaseStep("start")}>
+                          <strong>Draft</strong><small>No release draft created yet</small>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-
-                <button className="ta-wizard-rail-action ta-wizard-preview-action" type="button" onClick={() => setActiveReleaseStep("review")}>
-                  <span className="ta-wizard-mini-cover">▧</span>
-                  Preview Release
-                  <span>◉</span>
+                ) : (
+                  <div className="ta-wizard-issues-card ta-wizard-issues-card-clean">
+                    <p className="ta-wizard-issues-head">✓ Looking good</p>
+                  </div>
+                )}
+                <button
+                  className="ta-wizard-publish-btn"
+                  type="button"
+                  disabled={!selectedReleaseId}
+                  onClick={() => setActiveReleaseStep("review")}
+                >
+                  ↑ Publish ›
                 </button>
-                <button className="ta-wizard-rail-action" type="button" disabled={!selectedReleaseId || metadataUpdateState.loading} onClick={() => void saveReleaseMetadata()}>▣ Save Changes</button>
-                <button className="ta-wizard-publish-btn" type="button" onClick={() => setActiveReleaseStep("review")}>↑ Publish ›</button>
               </div>
             </aside>
 
+            {/* ── Main content ── */}
             <main className="ta-wizard-main">
-          <div className="distribution-v5-section-head">
-            <div>
-              <h3>Release Creator</h3>
-              <p>Build the active draft in the right order: create the release shell, add artwork, complete release metadata, then move to tracks, delivery, validation, and review.</p>
-            </div>
-            <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
-              {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
-            </button>
-          </div>
 
-          <div className="release-builder-stepper release-builder-stepper-compact" aria-label="Release Creator workflow">
-            {releaseWorkflowSteps.map((step) => (
-              <button
-                key={step.key}
-                type="button"
-                className={`release-builder-step ${activeReleaseStep === step.key ? "release-builder-step-active" : ""} ${step.complete ? "release-builder-step-complete" : ""} ${step.locked ? "release-builder-step-locked" : ""}`}
-                onClick={() => setActiveReleaseStep(step.key)}
-              >
-                <span>{step.number}</span>
-                <strong>{step.label}</strong>
-                <small>{step.helper}</small>
-              </button>
-            ))}
-          </div>
-
-          {activeReleaseStep === "start" ? (
-            <div className="release-builder-step-panel release-builder-draft-panel">
-              <article id="release-start-section" className="asset-card distribution-v5-panel distribution-roadmap-form-card release-builder-workflow-card">
-                <div className="distribution-v11-panel-heading">
-                  <div>
-                    <span className="asset-type-pill">Step 1</span>
-                    <h3>Create Draft Release</h3>
-                    <p>Select a release type, name it, and set the primary artist to create the draft shell.</p>
+              {/* ══ STEP 1: Basic Info ══ */}
+              {activeReleaseStep === "start" ? (
+                <div className="ta-wizard-step-content">
+                  <div className="ta-wizard-step-header">
+                    <span className="asset-type-pill">Step 1 of 7</span>
+                    <h2>Basic Information</h2>
+                    <p>Select the release type, name it, and set the primary artist. This creates the draft shell in the distributor.</p>
                   </div>
-                </div>
 
-                {/* Release type cards */}
-                <div className="release-type-grid">
-                  {[
-                    { type: "Single", desc: "1–3 tracks", icon: "♪" },
-                    { type: "EP", desc: "4–6 tracks", icon: "◈" },
-                    { type: "Album", desc: "7+ tracks", icon: "◉" },
-                    { type: "Compilation", desc: "Various artists", icon: "◫" },
-                  ].map(({ type, desc, icon }) => (
-                    <button
-                      key={type}
-                      type="button"
-                      className={`release-type-card${releaseDraftForm.type === type ? " release-type-card-active" : ""}`}
-                      onClick={() => setReleaseDraftForm((prev) => ({ ...prev, type }))}
-                    >
-                      <span className="release-type-icon">{icon}</span>
-                      <strong>{type}</strong>
-                      <small>{desc}</small>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="distribution-form-grid">
-                  <label className="distribution-form-wide">
-                    <span>Release Title</span>
-                    <input value={releaseDraftForm.title} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, title: event.target.value }))} placeholder="Better Late" />
-                  </label>
-                  <label>
-                    <span>Primary Artist</span>
-                    <input value={releaseDraftForm.artistName} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Natasha Storm" />
-                  </label>
-                  <label>
-                    <span>Distributor Artist ID optional</span>
-                    <input value={releaseDraftForm.artistId} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistId: event.target.value }))} placeholder="123" inputMode="numeric" />
-                  </label>
-                  <label className="distribution-form-wide">
-                    <span>Label optional</span>
-                    <input value={releaseDraftForm.label} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, label: event.target.value }))} placeholder="Track Adam / SWU" />
-                  </label>
-                </div>
-
-                <InlineError message={createReleaseState.error} />
-                {createReleaseState.data ? <DataTable data={createReleaseState.data} emptyLabel="Draft created." /> : null}
-                <div className="ta-wizard-bottom-actions">
-                  <button className="primary-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
-                    {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
-                  </button>
-                  {(releaseDraftReady || selectedReleaseReady) && (
-                    <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("artwork")}>Continue to Artwork →</button>
-                  )}
-                </div>
-              </article>
-
-              <article className="asset-card distribution-v5-panel release-builder-side-card">
-                <span className="asset-type-pill">Clean Flow</span>
-                <h3>Why This Step Is Short</h3>
-                <p>Start Release creates the release shell only. Full release details live in Release Info using distributor-ready metadata field names.</p>
-                <div className="release-builder-mini-checklist">
-                  <label><input type="checkbox" checked={Boolean(createReleaseState.data)} readOnly /> Draft response received</label>
-                  <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release record selected</label>
-                </div>
-
-                <details className="resume-draft-details">
-                  <summary className="resume-draft-summary">Resume an Existing Draft</summary>
-                  <div className="resume-draft-body">
-                    <p className="distribution-empty">Already have a draft? Load it here and pick up where you left off. This skips creating a new one.</p>
-                    <div className="distribution-form-grid">
-                      <label>
-                        <span>Status</span>
-                        <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
-                          <option value="">Any status</option>
-                          {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
-                        </select>
-                      </label>
-                      <label>
-                        <span>Type</span>
-                        <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
-                          <option value="">Any type</option>
-                          {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
-                        </select>
-                      </label>
-                      <label className="distribution-form-wide">
-                        <span>Search</span>
-                        <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search release title" />
-                      </label>
+                  {/* Release type */}
+                  <div className="ta-wizard-field-group">
+                    <label className="ta-wizard-field-label">Release Type</label>
+                    <div className="release-type-grid">
+                      {[
+                        { type: "Single", desc: "1–3 tracks", icon: "♪" },
+                        { type: "EP", desc: "4–6 tracks", icon: "◈" },
+                        { type: "Album", desc: "7+ tracks", icon: "◉" },
+                        { type: "Compilation", desc: "Various artists", icon: "◫" },
+                      ].map(({ type, desc, icon }) => (
+                        <button
+                          key={type}
+                          type="button"
+                          className={`release-type-card${releaseDraftForm.type === type ? " release-type-card-active" : ""}`}
+                          onClick={() => setReleaseDraftForm((prev) => ({ ...prev, type }))}
+                        >
+                          <span className="release-type-icon">{icon}</span>
+                          <strong>{type}</strong>
+                          <small>{desc}</small>
+                        </button>
+                      ))}
                     </div>
-                    <InlineError message={getEndpointState(endpointResults, "releases").error} />
-                    <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
-                      {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Drafts"}
-                    </button>
-                    {releasesResult ? (
-                      <>
-                        <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
-                        <div className="release-builder-choose-actions">
-                          <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("artwork")}>
-                            Resume — Continue to Artwork →
+                  </div>
+
+                  {/* Release title */}
+                  <div className="ta-wizard-field-group">
+                    <label className="ta-wizard-field-label">Release Title</label>
+                    <input
+                      className="ta-wizard-input"
+                      value={releaseDraftForm.title}
+                      onChange={(e) => setReleaseDraftForm((prev) => ({ ...prev, title: e.target.value }))}
+                      placeholder="Better Late"
+                    />
+                  </div>
+
+                  {/* Primary artist */}
+                  <div className="ta-wizard-field-row">
+                    <div className="ta-wizard-field-group">
+                      <label className="ta-wizard-field-label">Primary Artist</label>
+                      <input
+                        className="ta-wizard-input"
+                        value={releaseDraftForm.artistName}
+                        onChange={(e) => setReleaseDraftForm((prev) => ({ ...prev, artistName: e.target.value }))}
+                        placeholder="Natasha Storm"
+                      />
+                    </div>
+                    <div className="ta-wizard-field-group">
+                      <label className="ta-wizard-field-label">Artist ID <small style={{ opacity: 0.6 }}>optional</small></label>
+                      <input
+                        className="ta-wizard-input"
+                        value={releaseDraftForm.artistId}
+                        onChange={(e) => setReleaseDraftForm((prev) => ({ ...prev, artistId: e.target.value }))}
+                        placeholder="123"
+                        inputMode="numeric"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Label */}
+                  <div className="ta-wizard-field-group">
+                    <label className="ta-wizard-field-label">Label <small style={{ opacity: 0.6 }}>optional</small></label>
+                    <input
+                      className="ta-wizard-input"
+                      value={releaseDraftForm.label}
+                      onChange={(e) => setReleaseDraftForm((prev) => ({ ...prev, label: e.target.value }))}
+                      placeholder="Track Adam / SWU"
+                    />
+                  </div>
+
+                  <InlineError message={createReleaseState.error} />
+
+                  {createReleaseState.data ? (
+                    <div className="ta-wizard-success-banner">
+                      ✓ Draft created — {releaseDraftForm.type || "release"} is ready to build
+                    </div>
+                  ) : null}
+
+                  <div className="ta-wizard-nav-row">
+                    <span />
+                    <div className="ta-wizard-nav-right">
+                      {/* Resume existing draft — collapsed */}
+                      <details className="resume-draft-details">
+                        <summary className="resume-draft-summary">Resume existing draft instead</summary>
+                        <div className="resume-draft-body">
+                          <div className="distribution-form-grid">
+                            <label>
+                              <span>Status</span>
+                              <select value={releaseFilters.status} onChange={(e) => setReleaseFilters((prev) => ({ ...prev, status: e.target.value }))}>
+                                <option value="">Any status</option>
+                                {releaseStatusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            </label>
+                            <label>
+                              <span>Type</span>
+                              <select value={releaseFilters.type} onChange={(e) => setReleaseFilters((prev) => ({ ...prev, type: e.target.value }))}>
+                                <option value="">Any type</option>
+                                {releaseTypeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                            </label>
+                            <label className="distribution-form-wide">
+                              <span>Search title</span>
+                              <input value={releaseFilters.search} onChange={(e) => setReleaseFilters((prev) => ({ ...prev, search: e.target.value }))} placeholder="Better Late" />
+                            </label>
+                          </div>
+                          <InlineError message={getEndpointState(endpointResults, "releases").error} />
+                          <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
+                            {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Drafts"}
                           </button>
-                          {selectedReleaseId ? (
-                            <button className="danger-btn" type="button" onClick={() => void deleteReleaseDraft(selectedReleaseId)}>
-                              Delete Draft
-                            </button>
+                          {releasesResult ? (
+                            <>
+                              <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(id) => void loadReleaseDetails(id)} />
+                              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                                <button className="primary-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("artwork")}>
+                                  Resume → Continue to Artwork
+                                </button>
+                                {selectedReleaseId ? (
+                                  <button className="danger-btn" type="button" onClick={() => void deleteReleaseDraft(selectedReleaseId)}>
+                                    Delete Draft
+                                  </button>
+                                ) : null}
+                              </div>
+                            </>
                           ) : null}
                         </div>
-                      </>
-                    ) : null}
-                  </div>
-                </details>
-              </article>
-            </div>
-          ) : null}
+                      </details>
 
-          {activeReleaseStep === "artwork" ? (
-            <div className="release-builder-step-panel release-builder-artwork-panel">
-              <article id="release-artwork-section" className="asset-card distribution-v5-panel release-builder-workflow-card ta-wizard-artwork-card">
-                <div className="ta-artwork-source-grid">
-                  <label className="ta-artwork-source-card ta-artwork-upload-source">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/tiff,image/webp"
-                      onChange={(e) => void handleArtworkFileSelect(e.target.files?.[0] ?? null)}
-                    />
-                    <span>☁</span>
-                    <strong>Upload Artwork</strong>
-                    <small>JPG, PNG, or TIFF</small>
-                  </label>
-                  <button className="ta-artwork-source-card" type="button">
-                    <span>✦</span>
-                    <strong>Gemini</strong>
-                    <small>Generate with Google</small>
-                  </button>
-                  <button className="ta-artwork-source-card" type="button">
-                    <span>●</span>
-                    <strong>DALL-E</strong>
-                    <small>Generate with OpenAI</small>
-                  </button>
-                </div>
-
-                <div className="ta-artwork-guidelines-card">
-                  <h4>Artwork Guidelines</h4>
-                  <div className="ta-artwork-guidelines-grid">
-                    <span>▣ Recommended 3000px, maximum 5000px</span>
-                    <span>⬚ Must be a perfect square</span>
-                    <span>↥ File size under 36MB</span>
-                    <span>◐ No blurriness or uneven borders</span>
-                    <span>⌘ RGB color mode required</span>
-                    <span>⌕ Artwork is manually reviewed before publishing</span>
+                      <button
+                        className="primary-btn ta-wizard-cta"
+                        type="button"
+                        disabled={!canLoad || createReleaseState.loading || !releaseDraftForm.title.trim() || !releaseDraftForm.artistName.trim()}
+                        onClick={createReleaseDraft}
+                      >
+                        {createReleaseState.loading ? "Creating..." : "Create Draft → Continue to Artwork"}
+                      </button>
+                    </div>
                   </div>
                 </div>
+              ) : null}
 
-                <div className="artwork-upload-section">
-                  <h4>Cover Artwork</h4>
-                  <p className="distribution-empty">Upload the release cover or paste an existing artwork URL. The preview updates immediately and the Cloudinary URL saves into the release metadata form.</p>
-                  <div className="artwork-upload-layout">
-                    <label className={`artwork-drop-zone${artworkUploading ? " artwork-uploading" : ""}${artworkPreviewUrl ? " artwork-has-preview" : ""}`}>
+              {/* ══ STEP 2: Artwork ══ */}
+              {activeReleaseStep === "artwork" ? (
+                <div className="ta-wizard-step-content">
+                  <div className="ta-wizard-step-header">
+                    <span className="asset-type-pill">Step 2 of 7</span>
+                    <h2>Cover Artwork</h2>
+                    <p>Upload your cover art. This is the first thing listeners see — make it count. Minimum 3000×3000px square, JPG/PNG/TIFF.</p>
+                  </div>
+
+                  {/* Upload sources */}
+                  <div className="ta-artwork-source-grid">
+                    <label className="ta-artwork-source-card ta-artwork-upload-source">
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/tiff,image/webp"
                         onChange={(e) => void handleArtworkFileSelect(e.target.files?.[0] ?? null)}
                       />
-                      {artworkPreviewUrl ? (
-                        <img src={artworkPreviewUrl} alt="Cover artwork preview" className="artwork-preview-img" />
-                      ) : (
-                        <div className="artwork-drop-placeholder">
-                          <span className="artwork-drop-icon">🖼</span>
-                          <strong>{artworkUploading ? "Uploading..." : "Drop artwork or click to browse"}</strong>
-                          <small>JPG · PNG · TIFF</small>
-                        </div>
-                      )}
-                      {artworkUploading ? <div className="artwork-uploading-overlay"><span>Uploading...</span></div> : null}
+                      <span>☁</span>
+                      <strong>Upload Artwork</strong>
+                      <small>JPG, PNG, or TIFF</small>
                     </label>
-                    <div className="artwork-url-fields">
-                      <label>
-                        <span>Cover URL</span>
-                        <input
-                          value={releaseMetadataForm.coverUrl}
-                          onChange={(e) => {
-                            setReleaseMetadataForm((prev) => ({ ...prev, coverUrl: e.target.value }));
-                            if (e.target.value) setArtworkPreviewUrl(e.target.value);
-                          }}
-                          placeholder="https://..."
-                        />
-                      </label>
-                      <label>
-                        <span>Compressed Artwork optional</span>
-                        <input
-                          value={releaseMetadataForm.compressedArtwork}
-                          onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, compressedArtwork: e.target.value }))}
-                          placeholder="Optional compressed artwork URL"
-                        />
-                      </label>
-                      <InlineError message={artworkUploadError} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="ta-motion-art-card">
-                  <div>
-                    <h4>🍎 Apple Motion Art</h4>
-                    <p>Upload animated artwork in ProRes format. This is separate from your cover artwork and only displays on Apple Music.</p>
-                  </div>
-                  <button className="secondary-btn" type="button">☁ Upload Motion Art</button>
-                </div>
-
-                <div className="ta-wizard-bottom-actions">
-                  <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("start")}>← Previous</button>
-                  <button className="primary-btn" type="button" onClick={() => setActiveReleaseStep("info")}>Continue →</button>
-                </div>
-              </article>
-            </div>
-          ) : null}
-
-          {activeReleaseStep === "info" ? (
-            <div className="release-builder-step-panel release-builder-metadata-panel">
-              <article id="release-info-section" className="asset-card distribution-v5-panel release-builder-metadata-card release-builder-workflow-card">
-                <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
-                  <div>
-                    <span className="asset-type-pill">Release Info</span>
-                    <h3>Release Metadata</h3>
-                    <p>Complete release-level metadata using store-ready field names. Start Release fields are not repeated here.</p>
-                  </div>
-                  {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
-                </div>
-
-                {(genreOptions.length === 0 || languageOptions.length === 0) ? (
-                  <div className="distribution-v5-muted-warning release-info-setup-warning">
-                    Load Setup Data first so genre and language dropdowns use the connected distributor options.
-                    <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupGenres", "lookupLanguages", "lookupPlatforms", "lookupCountries"])}>
-                      Load Setup Data
+                    <button className="ta-artwork-source-card" type="button">
+                      <span>✦</span>
+                      <strong>Gemini</strong>
+                      <small>Generate with Google</small>
+                    </button>
+                    <button className="ta-artwork-source-card" type="button">
+                      <span>●</span>
+                      <strong>DALL-E</strong>
+                      <small>Generate with OpenAI</small>
                     </button>
                   </div>
-                ) : null}
 
-                <InlineError message={releaseDetailState.error} />
-                <div className="distribution-form-grid release-metadata-grid">
-                  <label>
-                    <span>Version</span>
-                    <input value={releaseMetadataForm.version} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, version: event.target.value }))} placeholder="Deluxe, Radio Edit, etc." />
-                  </label>
-                  <label>
-                    <span>Remix Title</span>
-                    <input value={releaseMetadataForm.remixTitle} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, remixTitle: event.target.value }))} placeholder="Nova Waves Remix" />
-                  </label>
-                  <label>
-                    <span>Label</span>
-                    <input 
-                      value={releaseMetadataForm.label} 
-                      onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, label: event.target.value }))} 
-                      placeholder="Track Adam / SWU" 
-                    />
-                  </label>
-                  <label>
-                    <span>Primary Genre</span>
-                    <select value={releaseMetadataForm.primaryGenre} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, primaryGenre: event.target.value }))}>
-                      <option value="">Choose genre</option>
-                      {genreOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Secondary Genre</span>
-                    <select value={releaseMetadataForm.secondaryGenre} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, secondaryGenre: event.target.value }))}>
-                      <option value="">Choose genre</option>
-                      {genreOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Language</span>
-                    <select value={releaseMetadataForm.language} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, language: event.target.value }))}>
-                      <option value="">Choose language</option>
-                      {languageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Release Date</span>
-                    <input type="date" value={releaseMetadataForm.releaseDate} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, releaseDate: event.target.value }))} />
-                  </label>
-                  <label>
-                    <span>Original Release Date</span>
-                    <input type="date" value={releaseMetadataForm.originalReleaseDate} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, originalReleaseDate: event.target.value }))} />
-                  </label>
-                  <label>
-                    <span>Apple Preorder</span>
-                    <select value={releaseMetadataForm.applePreorder} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, applePreorder: event.target.value }))}>
-                      <option value="">Keep current / not set</option>
-                      <option value="false">No</option>
-                      <option value="true">Yes</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Apple Preorder Date</span>
-                    <input type="date" value={releaseMetadataForm.applePreorderDate} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, applePreorderDate: event.target.value }))} />
-                  </label>
-                  <label>
-                    <span>License Type</span>
-                    <select value={releaseMetadataForm.licenseType} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, licenseType: event.target.value }))}>
-                      <option value="">Keep current / not set</option>
-                      {licenseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                  </label>
-                  <label className="distribution-form-wide">
-                    <span>License Info</span>
-                    <input value={releaseMetadataForm.licenseInfo} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, licenseInfo: event.target.value }))} placeholder="Owned by artist and label." />
-                  </label>
-                  <label>
-                    <span>C Year</span>
-                    <input value={releaseMetadataForm.cYear} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, cYear: event.target.value }))} placeholder="2026" inputMode="numeric" />
-                  </label>
-                  <label>
-                    <span>C Line</span>
-                    <input value={releaseMetadataForm.cLine} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, cLine: event.target.value }))} placeholder="2026 Track Adam" />
-                  </label>
-                  <label>
-                    <span>P Year</span>
-                    <input value={releaseMetadataForm.pYear} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, pYear: event.target.value }))} placeholder="2026" inputMode="numeric" />
-                  </label>
-                  <label>
-                    <span>P Line</span>
-                    <input value={releaseMetadataForm.pLine} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, pLine: event.target.value }))} placeholder="2026 Track Adam" />
-                  </label>
-                  <label>
-                    <span>UPC</span>
-                    <input value={releaseMetadataForm.upc} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, upc: event.target.value }))} placeholder="123456789012" inputMode="numeric" />
-                  </label>
-                  <label>
-                    <span>AI Generated Artwork</span>
-                    <select value={releaseMetadataForm.isAiGenerated} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, isAiGenerated: event.target.value }))}>
-                      <option value="">Keep current / not set</option>
-                      <option value="false">No</option>
-                      <option value="true">Yes</option>
-                    </select>
-                  </label>
-                </div>
+                  {/* Guidelines */}
+                  <div className="ta-artwork-guidelines-card">
+                    <strong>Artwork Guidelines</strong>
+                    <div className="ta-artwork-guidelines-grid">
+                      <span>✕ Recommended 3000px, max 5000px</span>
+                      <span>⊞ Must be a perfect square</span>
+                      <span>⊡ File size under 36MB</span>
+                      <span>◎ No blurriness or uneven borders</span>
+                      <span>⊛ RGB color mode required</span>
+                      <span>◉ Artwork is manually reviewed</span>
+                    </div>
+                  </div>
 
-                {/* Artwork upload section */}
-                <div className="artwork-upload-section">
-                  <h4>Cover Artwork</h4>
-                  <p className="distribution-empty">3000×3000px minimum, square format, JPG/PNG/TIFF. Uploaded to Cloudinary, URL saved to the release metadata.</p>
-
+                  {/* Upload area + URL fields */}
                   <div className="artwork-upload-layout">
                     <label className={`artwork-drop-zone${artworkUploading ? " artwork-uploading" : ""}${artworkPreviewUrl ? " artwork-has-preview" : ""}`}>
                       <input
@@ -1970,540 +1804,656 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                         />
                       </label>
                       <label>
-                        <span>Compressed Artwork URL</span>
+                        <span>Compressed Artwork URL <small style={{ opacity: 0.6 }}>optional</small></span>
                         <input
                           value={releaseMetadataForm.compressedArtwork}
                           onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, compressedArtwork: e.target.value }))}
-                          placeholder="Optional smaller version URL"
+                          placeholder="Optional smaller version"
                         />
                       </label>
-                      {artworkUploadError ? <p className="distribution-v5-error">{artworkUploadError}</p> : null}
+                      <InlineError message={artworkUploadError} />
+                    </div>
+                  </div>
+
+                  {/* Apple Motion Art */}
+                  <div className="ta-wizard-field-group" style={{ marginTop: "24px", padding: "16px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <strong>Apple Motion Art</strong>
+                        <p style={{ opacity: 0.6, margin: "4px 0 0", fontSize: "13px" }}>Animated album artwork for Apple Music. ProRes format, separate from cover art.</p>
+                      </div>
+                      <button className="secondary-btn" type="button">Upload Motion Art</button>
+                    </div>
+                  </div>
+
+                  <div className="ta-wizard-nav-row">
+                    <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("start")}>← Previous</button>
+                    <button className="primary-btn ta-wizard-cta" type="button" onClick={() => setActiveReleaseStep("info")}>Continue →</button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* ══ STEP 3: Release Information ══ */}
+              {activeReleaseStep === "info" ? (
+                <div className="ta-wizard-step-content">
+                  <div className="ta-wizard-step-header">
+                    <span className="asset-type-pill">Step 3 of 7</span>
+                    <h2>Release Information</h2>
+                    <p>Complete store-ready metadata. Genre and language dropdowns populate from Setup data.</p>
+                    {selectedReleaseId ? <span className="status-pill" style={{ marginTop: "8px", display: "inline-block" }}>Release ID {selectedReleaseId}</span> : (
+                      <div className="distribution-v5-muted-warning" style={{ marginTop: "10px" }}>No release selected — go back to Step 1 and create or resume a draft first.</div>
+                    )}
+                  </div>
+
+                  {(genreOptions.length === 0 || languageOptions.length === 0) ? (
+                    <div className="distribution-v5-muted-warning release-info-setup-warning">
+                      Load Setup Data so genre and language dropdowns use real distributor options.
+                      <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupGenres", "lookupLanguages", "lookupPlatforms", "lookupCountries"])}>
+                        Load Setup Data
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {/* Release Date */}
+                  <div className="ta-wizard-section-block">
+                    <h4 className="ta-wizard-section-title">Release Date</h4>
+                    <div className="ta-wizard-field-row">
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">Release Date</label>
+                        <input type="date" className="ta-wizard-input" value={releaseMetadataForm.releaseDate} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, releaseDate: e.target.value }))} />
+                      </div>
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">Original Release Date <small style={{ opacity: 0.6 }}>optional</small></label>
+                        <input type="date" className="ta-wizard-input" value={releaseMetadataForm.originalReleaseDate} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, originalReleaseDate: e.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="ta-wizard-field-row">
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">Release Time <small style={{ opacity: 0.6 }}>optional</small></label>
+                        <input className="ta-wizard-input" value={releaseMetadataForm.releaseTime} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, releaseTime: e.target.value }))} placeholder="05:55" />
+                      </div>
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">Time Zone <small style={{ opacity: 0.6 }}>optional</small></label>
+                        <input className="ta-wizard-input" value={releaseMetadataForm.timeZone} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, timeZone: e.target.value }))} placeholder="Pacific/Niue" />
+                      </div>
+                    </div>
+                    <div className="ta-wizard-toggle-row">
+                      <label className="ta-wizard-toggle-label">
+                        <input type="checkbox" checked={releaseMetadataForm.applePreorder === "true"} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, applePreorder: e.target.checked ? "true" : "false" }))} />
+                        Apple Pre-order
+                      </label>
+                      {releaseMetadataForm.applePreorder === "true" && (
+                        <div className="ta-wizard-field-group" style={{ marginTop: "10px" }}>
+                          <label className="ta-wizard-field-label">Pre-order Date</label>
+                          <input type="date" className="ta-wizard-input" value={releaseMetadataForm.applePreorderDate} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, applePreorderDate: e.target.value }))} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Genre & Language */}
+                  <div className="ta-wizard-section-block">
+                    <h4 className="ta-wizard-section-title">Genre &amp; Language</h4>
+                    <div className="ta-wizard-field-row">
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">Primary Genre</label>
+                        <select className="ta-wizard-input" value={releaseMetadataForm.primaryGenre} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, primaryGenre: e.target.value }))}>
+                          <option value="">Choose genre</option>
+                          {genreOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">Secondary Genre <small style={{ opacity: 0.6 }}>optional</small></label>
+                        <select className="ta-wizard-input" value={releaseMetadataForm.secondaryGenre} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, secondaryGenre: e.target.value }))}>
+                          <option value="">Choose genre</option>
+                          {genreOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="ta-wizard-field-row">
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">Language</label>
+                        <select className="ta-wizard-input" value={releaseMetadataForm.language} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, language: e.target.value }))}>
+                          <option value="">Choose language</option>
+                          {languageOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">Label</label>
+                        <input className="ta-wizard-input" value={releaseMetadataForm.label} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, label: e.target.value }))} placeholder="Shock WAV Union" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Copyright */}
+                  <div className="ta-wizard-section-block">
+                    <h4 className="ta-wizard-section-title">Copyright Line</h4>
+                    <p style={{ opacity: 0.6, fontSize: "13px", marginBottom: "12px" }}>The owner of publishing and sound recording rights. Typically your name, label, or publisher.</p>
+                    <div className="ta-wizard-field-row">
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">C Year</label>
+                        <input className="ta-wizard-input" value={releaseMetadataForm.cYear} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, cYear: e.target.value }))} placeholder="2026" inputMode="numeric" />
+                      </div>
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">C Line</label>
+                        <input className="ta-wizard-input" value={releaseMetadataForm.cLine} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, cLine: e.target.value }))} placeholder="2026 Track Adam" />
+                      </div>
+                    </div>
+                    <div className="ta-wizard-field-row">
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">P Year</label>
+                        <input className="ta-wizard-input" value={releaseMetadataForm.pYear} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, pYear: e.target.value }))} placeholder="2026" inputMode="numeric" />
+                      </div>
+                      <div className="ta-wizard-field-group">
+                        <label className="ta-wizard-field-label">P Line</label>
+                        <input className="ta-wizard-input" value={releaseMetadataForm.pLine} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, pLine: e.target.value }))} placeholder="2026 Track Adam" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Optional metadata */}
+                  <details className="ta-wizard-optional-block">
+                    <summary>Optional Information</summary>
+                    <div className="ta-wizard-optional-body">
+                      <div className="ta-wizard-field-row">
+                        <div className="ta-wizard-field-group">
+                          <label className="ta-wizard-field-label">Version</label>
+                          <input className="ta-wizard-input" value={releaseMetadataForm.version} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, version: e.target.value }))} placeholder="Deluxe, Radio Edit, etc." />
+                        </div>
+                        <div className="ta-wizard-field-group">
+                          <label className="ta-wizard-field-label">Remix Title</label>
+                          <input className="ta-wizard-input" value={releaseMetadataForm.remixTitle} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, remixTitle: e.target.value }))} placeholder="Nova Waves Remix" />
+                        </div>
+                      </div>
+                      <div className="ta-wizard-field-row">
+                        <div className="ta-wizard-field-group">
+                          <label className="ta-wizard-field-label">License Type</label>
+                          <select className="ta-wizard-input" value={releaseMetadataForm.licenseType} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, licenseType: e.target.value }))}>
+                            <option value="">Keep current / not set</option>
+                            {licenseTypeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                        <div className="ta-wizard-field-group">
+                          <label className="ta-wizard-field-label">License Info</label>
+                          <input className="ta-wizard-input" value={releaseMetadataForm.licenseInfo} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, licenseInfo: e.target.value }))} placeholder="Owned by artist and label." />
+                        </div>
+                      </div>
+                      <div className="ta-wizard-field-row">
+                        <div className="ta-wizard-field-group">
+                          <label className="ta-wizard-field-label">UPC <small style={{ opacity: 0.6 }}>optional</small></label>
+                          <input className="ta-wizard-input" value={releaseMetadataForm.upc} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, upc: e.target.value }))} placeholder="123456789012" inputMode="numeric" />
+                        </div>
+                        <div className="ta-wizard-field-group">
+                          <label className="ta-wizard-field-label">AI Generated Artwork</label>
+                          <select className="ta-wizard-input" value={releaseMetadataForm.isAiGenerated} onChange={(e) => setReleaseMetadataForm((prev) => ({ ...prev, isAiGenerated: e.target.value }))}>
+                            <option value="">Keep current / not set</option>
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+
+                  <InlineError message={metadataUpdateState.error} />
+                  {metadataUpdateState.data ? (
+                    <div className="ta-wizard-success-banner">✓ Release info saved</div>
+                  ) : null}
+
+                  <div className="ta-wizard-nav-row">
+                    <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("artwork")}>← Previous</button>
+                    <div className="ta-wizard-nav-right">
+                      <button className="secondary-btn" type="button" disabled={!canLoad || metadataUpdateState.loading || !selectedReleaseId} onClick={saveReleaseMetadata}>
+                        {metadataUpdateState.loading ? "Saving..." : "Save Release Info"}
+                      </button>
+                      <button className="primary-btn ta-wizard-cta" type="button" onClick={() => setActiveReleaseStep("tracks")}>Continue →</button>
                     </div>
                   </div>
                 </div>
+              ) : null}
 
-                <div className="distribution-form-grid release-metadata-grid">
-                  <label>
-                    <span>Release Time</span>
-                    <input value={releaseMetadataForm.releaseTime} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, releaseTime: event.target.value }))} placeholder="05:55" />
-                  </label>
-                  <label>
-                    <span>Time Zone</span>
-                    <input value={releaseMetadataForm.timeZone} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, timeZone: event.target.value }))} placeholder="Pacific/Niue" />
-                  </label>
-                </div>
-
-                <InlineError message={metadataUpdateState.error} />
-                {metadataUpdateState.data ? <DataTable data={metadataUpdateState.data} emptyLabel="No metadata response yet." /> : null}
-
-                <button className="primary-btn distribution-full-width-btn" type="button" disabled={!canLoad || metadataUpdateState.loading || !selectedReleaseId} onClick={saveReleaseMetadata}>
-                  {metadataUpdateState.loading ? "Saving Release Info..." : "Save Release Info to Sandbox"}
-                </button>
-              </article>
-
-              <article className="asset-card distribution-v5-panel release-builder-side-card">
-                <span className="asset-type-pill">Current Release</span>
-                <h3>Loaded Details</h3>
-                <p>Use this as a reference while editing. If the form is blank, go back to Start and create or resume a release first.</p>
-                <DataTable data={releaseDetailState.data} emptyLabel="No release details loaded yet." />
-                <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("artwork")}>
-                  ← Back to Artwork
-                </button>
-                <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("tracks")}>
-                  Continue to Tracks
-                </button>
-              </article>
-            </div>
-          ) : null}
-
-          {activeReleaseStep === "tracks" ? (
-            <div className="release-builder-step-panel release-builder-details-panel">
-              <article id="release-tracks-section" className="asset-card distribution-v5-panel release-builder-workflow-card">
-                <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
-                  <div>
-                    <span className="asset-type-pill">Manage Tracks</span>
-                    <h3>Tracklist</h3>
-                    <p>Upload FLAC audio files and set track metadata. All tracks are saved together in one PUT call.</p>
+              {/* ══ STEP 4: Manage Tracks ══ */}
+              {activeReleaseStep === "tracks" ? (
+                <div className="ta-wizard-step-content">
+                  <div className="ta-wizard-step-header">
+                    <span className="asset-type-pill">Step 4 of 7</span>
+                    <h2>Manage Tracks</h2>
+                    <p>Upload FLAC audio files and set track metadata. WAV files are recommended for best quality. All tracks save together in one call.</p>
+                    {putTracksState.data
+                      ? <span className="status-pill status-live" style={{ marginTop: "8px", display: "inline-block" }}>Tracklist Saved</span>
+                      : <span className="status-pill status-warning" style={{ marginTop: "8px", display: "inline-block" }}>Unsaved</span>}
                   </div>
-                  {putTracksState.data
-                    ? <span className="status-pill status-live">Tracklist Saved</span>
-                    : <span className="status-pill status-warning">Unsaved</span>}
-                </div>
 
-                {/* Existing tracks from API */}
-                {releaseTracksState.data && Array.isArray((releaseTracksState.data as { data?: unknown[] }).data) && (releaseTracksState.data as { data?: unknown[] }).data!.length > 0 ? (
-                  <div className="track-existing-list">
-                    <h4>Existing Tracks on Release</h4>
-                    <DataTable data={releaseTracksState.data} emptyLabel="No tracks yet." />
+                  {/* Existing tracks */}
+                  {releaseTracksState.data && Array.isArray((releaseTracksState.data as { data?: unknown[] }).data) && (releaseTracksState.data as { data?: unknown[] }).data!.length > 0 ? (
+                    <div className="track-existing-list">
+                      <h4>Existing Tracks on Release</h4>
+                      <DataTable data={releaseTracksState.data} emptyLabel="No tracks yet." />
+                    </div>
+                  ) : null}
+
+                  {/* Upload zone */}
+                  <div className="ta-wizard-upload-zone">
+                    <div className="ta-wizard-upload-icon">↑</div>
+                    <strong>Upload tracks</strong>
+                    <p>Click to browse audio files from your device</p>
+                    <label className="secondary-btn" style={{ cursor: "pointer", marginTop: "8px" }}>
+                      Browse Files
+                      <input
+                        type="file"
+                        accept=".flac,audio/flac"
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                          setTrackUploadFile(e.target.files?.[0] ?? null);
+                          setTrackUploadPhase("idle");
+                          setTrackUploadError("");
+                          if (trackForms.length === 0) addBlankTrack();
+                          setActiveTrackIndex(0);
+                        }}
+                      />
+                    </label>
+                    <p style={{ opacity: 0.5, fontSize: "12px", marginTop: "6px" }}>or select from existing tracks</p>
                   </div>
-                ) : null}
 
-                {/* Track form list */}
-                <div className="track-form-list">
-                  {trackForms.map((track, idx) => (
-                    <div key={idx} className={`track-form-card${activeTrackIndex === idx ? " track-form-card-active" : ""}`}>
-                      <div className="track-form-card-header">
-                        <button className="track-form-card-toggle" type="button" onClick={() => setActiveTrackIndex(activeTrackIndex === idx ? null : idx)}>
-                          <strong>{track.title || `Track ${idx + 1}`}</strong>
-                          <span>{track.audioFileKey ? "Audio ready" : "No audio"}</span>
-                        </button>
-                        <button className="mini-action-btn mini-action-btn-danger" type="button" onClick={() => removeTrack(idx)}>Remove</button>
-                      </div>
+                  {/* Track form list */}
+                  <div className="track-form-list" style={{ marginTop: "16px" }}>
+                    {trackForms.map((track, idx) => (
+                      <div key={idx} className={`track-form-card${activeTrackIndex === idx ? " track-form-card-active" : ""}`}>
+                        <div className="track-form-card-header">
+                          <button className="track-form-card-toggle" type="button" onClick={() => setActiveTrackIndex(activeTrackIndex === idx ? null : idx)}>
+                            <strong>{track.title || `Track ${idx + 1}`}</strong>
+                            <span>{track.audioFileKey ? "Audio ready" : "No audio"}</span>
+                          </button>
+                          <button className="mini-action-btn mini-action-btn-danger" type="button" onClick={() => removeTrack(idx)}>Remove</button>
+                        </div>
 
-                      {activeTrackIndex === idx ? (
-                        <div className="track-form-fields">
-                          <div className="distribution-form-grid">
-                            <label>
-                              <span>Track Title *</span>
-                              <input value={track.title} onChange={(e) => updateTrackField(idx, "title", e.target.value)} placeholder="Track title" />
-                            </label>
-                            <label>
-                              <span>Language</span>
-                              <select value={track.language ?? "en"} onChange={(e) => updateTrackField(idx, "language", e.target.value)}>
-                                <option value="en">English</option>
-                                <option value="es">Spanish</option>
-                                <option value="fr">French</option>
-                                <option value="de">German</option>
-                                <option value="pt">Portuguese</option>
-                                <option value="ja">Japanese</option>
-                                <option value="ko">Korean</option>
-                                <option value="zh">Chinese</option>
-                                <option value="zxx">No lyrics / Instrumental</option>
-                              </select>
-                            </label>
-                            <label>
-                              <span>ISRC (optional)</span>
-                              <input value={track.isrc ?? ""} onChange={(e) => updateTrackField(idx, "isrc", e.target.value)} placeholder="USABC1234567" />
-                            </label>
-                            <label>
-                              <span>Version (optional)</span>
-                              <input value={track.version ?? ""} onChange={(e) => updateTrackField(idx, "version", e.target.value)} placeholder="Extended Mix" />
-                            </label>
-                            <label>
-                              <span>TikTok Start Time</span>
-                              <input value={track.tiktokStartTime ?? ""} onChange={(e) => updateTrackField(idx, "tiktokStartTime", e.target.value)} placeholder="00:30" />
-                            </label>
-                            <label>
-                              <span>Liner Note</span>
-                              <input value={track.linerNote ?? ""} onChange={(e) => updateTrackField(idx, "linerNote", e.target.value)} placeholder="Recorded in..." />
-                            </label>
-                          </div>
-
-                          <div className="track-credits-grid">
-                            <div>
-                              <h4>Artists</h4>
-                              {(track.artists ?? []).map((artist, ai) => (
-                                <div key={ai} className="track-credit-row">
-                                  <input value={artist.name} onChange={(e) => updateTrackArtist(idx, ai, "name", e.target.value)} placeholder="Artist name" />
-                                  <select value={artist.role[0] ?? "primary"} onChange={(e) => updateTrackArtist(idx, ai, "role", e.target.value)}>
-                                    <option value="primary">Primary</option>
-                                    <option value="featured">Featured</option>
-                                    <option value="remixer">Remixer</option>
-                                    <option value="conductor">Conductor</option>
-                                    <option value="orchestra">Orchestra</option>
-                                  </select>
-                                  <button className="mini-action-btn mini-action-btn-danger" type="button" onClick={() => {
-                                    const artists = (track.artists ?? []).filter((_, i) => i !== ai);
-                                    updateTrackField(idx, "artists", artists);
-                                  }}>×</button>
-                                </div>
-                              ))}
-                              <button className="mini-action-btn" type="button" onClick={() => updateTrackField(idx, "artists", [...(track.artists ?? []), { name: "", role: ["primary"] }])}>+ Artist</button>
-                            </div>
-
-                            <div>
-                              <h4>Writers</h4>
-                              {(track.writers ?? []).map((writer, wi) => (
-                                <div key={wi} className="track-credit-row">
-                                  <input value={writer.name} onChange={(e) => updateTrackWriter(idx, wi, "name", e.target.value)} placeholder="Writer name" />
-                                  <select value={writer.role[0] ?? "composer"} onChange={(e) => updateTrackWriter(idx, wi, "role", e.target.value)}>
-                                    <option value="composer">Composer</option>
-                                    <option value="lyricist">Lyricist</option>
-                                    <option value="composer_lyricist">Composer & Lyricist</option>
-                                    <option value="arranger">Arranger</option>
-                                    <option value="translator">Translator</option>
-                                  </select>
-                                  <button className="mini-action-btn mini-action-btn-danger" type="button" onClick={() => {
-                                    const writers = (track.writers ?? []).filter((_, i) => i !== wi);
-                                    updateTrackField(idx, "writers", writers);
-                                  }}>×</button>
-                                </div>
-                              ))}
-                              <button className="mini-action-btn" type="button" onClick={() => updateTrackField(idx, "writers", [...(track.writers ?? []), { name: "", role: ["composer"] }])}>+ Writer</button>
-                            </div>
-                          </div>
-
-                          {/* File upload for this track */}
-                          <div className="track-upload-section">
-                            <h4>Audio File</h4>
-                            {track.audioFileKey ? (
-                              <div className="track-upload-done">
-                                <span className="status-pill status-live">Audio Uploaded</span>
-                                <small>{track.audioFileKey.split("/").pop()}</small>
-                              </div>
-                            ) : null}
-
-                            <div className="track-upload-controls">
-                              <select value={trackUploadKind} onChange={(e) => setTrackUploadKind(e.target.value as "audio" | "instrumental" | "dolby")}>
-                                <option value="audio">Audio (Main)</option>
-                                <option value="instrumental">Instrumental</option>
-                                <option value="dolby">Dolby Atmos</option>
-                              </select>
-
-                              <label className="track-file-picker">
-                                <input
-                                  type="file"
-                                  accept=".flac,audio/flac"
-                                  onChange={(e) => {
-                                    setTrackUploadFile(e.target.files?.[0] ?? null);
-                                    setTrackUploadPhase("idle");
-                                    setTrackUploadError("");
-                                    setActiveTrackIndex(idx);
-                                  }}
-                                />
-                                {trackUploadFile && activeTrackIndex === idx ? trackUploadFile.name : "Choose FLAC file"}
+                        {activeTrackIndex === idx ? (
+                          <div className="track-form-fields">
+                            <div className="distribution-form-grid">
+                              <label><span>Track Title *</span><input value={track.title} onChange={(e) => updateTrackField(idx, "title", e.target.value)} placeholder="Track title" /></label>
+                              <label>
+                                <span>Language</span>
+                                <select value={track.language ?? "en"} onChange={(e) => updateTrackField(idx, "language", e.target.value)}>
+                                  <option value="en">English</option>
+                                  <option value="es">Spanish</option>
+                                  <option value="fr">French</option>
+                                  <option value="de">German</option>
+                                  <option value="pt">Portuguese</option>
+                                  <option value="ja">Japanese</option>
+                                  <option value="ko">Korean</option>
+                                  <option value="zh">Chinese</option>
+                                  <option value="zxx">No lyrics / Instrumental</option>
+                                </select>
                               </label>
+                              <label><span>ISRC optional</span><input value={track.isrc ?? ""} onChange={(e) => updateTrackField(idx, "isrc", e.target.value)} placeholder="USABC1234567" /></label>
+                              <label><span>Version optional</span><input value={track.version ?? ""} onChange={(e) => updateTrackField(idx, "version", e.target.value)} placeholder="Extended Mix" /></label>
+                              <label><span>TikTok Start Time</span><input value={track.tiktokStartTime ?? ""} onChange={(e) => updateTrackField(idx, "tiktokStartTime", e.target.value)} placeholder="00:30" /></label>
+                              <label><span>Liner Note</span><input value={track.linerNote ?? ""} onChange={(e) => updateTrackField(idx, "linerNote", e.target.value)} placeholder="Recorded in..." /></label>
+                            </div>
 
-                              {trackUploadFile && activeTrackIndex === idx ? (
-                                <button
-                                  className="secondary-btn"
-                                  type="button"
-                                  disabled={trackUploadPhase === "url" || trackUploadPhase === "s3"}
-                                  onClick={() => void uploadTrackFile()}
-                                >
-                                  {trackUploadPhase === "url" ? "Getting URL..." :
-                                   trackUploadPhase === "s3" ? `Uploading ${trackUploadProgress}%...` :
-                                   trackUploadPhase === "done" ? "Uploaded ✓" : "Upload to S3"}
-                                </button>
+                            <div className="track-credits-grid">
+                              <div>
+                                <h4>Artists</h4>
+                                {(track.artists ?? []).map((artist, ai) => (
+                                  <div key={ai} className="track-credit-row">
+                                    <input value={artist.name} onChange={(e) => updateTrackArtist(idx, ai, "name", e.target.value)} placeholder="Artist name" />
+                                    <select value={artist.role[0] ?? "primary"} onChange={(e) => updateTrackArtist(idx, ai, "role", e.target.value)}>
+                                      <option value="primary">Primary</option>
+                                      <option value="featured">Featured</option>
+                                      <option value="remixer">Remixer</option>
+                                      <option value="conductor">Conductor</option>
+                                      <option value="orchestra">Orchestra</option>
+                                    </select>
+                                    <button className="mini-action-btn mini-action-btn-danger" type="button" onClick={() => {
+                                      const artists = (track.artists ?? []).filter((_, i) => i !== ai);
+                                      updateTrackField(idx, "artists", artists);
+                                    }}>×</button>
+                                  </div>
+                                ))}
+                                <button className="mini-action-btn" type="button" onClick={() => updateTrackField(idx, "artists", [...(track.artists ?? []), { name: "", role: ["primary"] }])}>+ Artist</button>
+                              </div>
+                              <div>
+                                <h4>Writers</h4>
+                                {(track.writers ?? []).map((writer, wi) => (
+                                  <div key={wi} className="track-credit-row">
+                                    <input value={writer.name} onChange={(e) => updateTrackWriter(idx, wi, "name", e.target.value)} placeholder="Writer name" />
+                                    <select value={writer.role[0] ?? "composer"} onChange={(e) => updateTrackWriter(idx, wi, "role", e.target.value)}>
+                                      <option value="composer">Composer</option>
+                                      <option value="lyricist">Lyricist</option>
+                                      <option value="composer_lyricist">Composer & Lyricist</option>
+                                      <option value="arranger">Arranger</option>
+                                      <option value="translator">Translator</option>
+                                    </select>
+                                    <button className="mini-action-btn mini-action-btn-danger" type="button" onClick={() => {
+                                      const writers = (track.writers ?? []).filter((_, i) => i !== wi);
+                                      updateTrackField(idx, "writers", writers);
+                                    }}>×</button>
+                                  </div>
+                                ))}
+                                <button className="mini-action-btn" type="button" onClick={() => updateTrackField(idx, "writers", [...(track.writers ?? []), { name: "", role: ["composer"] }])}>+ Writer</button>
+                              </div>
+                            </div>
+
+                            {/* File upload for this track */}
+                            <div className="track-upload-section">
+                              <h4>Audio File</h4>
+                              {track.audioFileKey ? (
+                                <div className="track-upload-done">
+                                  <span className="status-pill status-live">Audio Uploaded</span>
+                                  <small>{track.audioFileKey.split("/").pop()}</small>
+                                </div>
+                              ) : null}
+                              <div className="track-upload-controls">
+                                <select value={trackUploadKind} onChange={(e) => setTrackUploadKind(e.target.value as "audio" | "instrumental" | "dolby")}>
+                                  <option value="audio">Audio (Main)</option>
+                                  <option value="instrumental">Instrumental</option>
+                                  <option value="dolby">Dolby Atmos</option>
+                                </select>
+                                <label className="track-file-picker">
+                                  <input
+                                    type="file"
+                                    accept=".flac,audio/flac"
+                                    onChange={(e) => {
+                                      setTrackUploadFile(e.target.files?.[0] ?? null);
+                                      setTrackUploadPhase("idle");
+                                      setTrackUploadError("");
+                                      setActiveTrackIndex(idx);
+                                    }}
+                                  />
+                                  {trackUploadFile && activeTrackIndex === idx ? trackUploadFile.name : "Choose FLAC file"}
+                                </label>
+                                {trackUploadFile && activeTrackIndex === idx ? (
+                                  <button
+                                    className="secondary-btn"
+                                    type="button"
+                                    disabled={trackUploadPhase === "url" || trackUploadPhase === "s3"}
+                                    onClick={() => void uploadTrackFile()}
+                                  >
+                                    {trackUploadPhase === "url" ? "Getting URL..." :
+                                     trackUploadPhase === "s3" ? `Uploading ${trackUploadProgress}%...` :
+                                     trackUploadPhase === "done" ? "Uploaded ✓" : "Upload to S3"}
+                                  </button>
+                                ) : null}
+                              </div>
+                              {trackUploadPhase === "s3" && activeTrackIndex === idx ? (
+                                <div className="track-upload-progress">
+                                  <div className="track-upload-progress-bar" style={{ width: `${trackUploadProgress}%` }} />
+                                </div>
+                              ) : null}
+                              {trackUploadError && activeTrackIndex === idx ? (
+                                <p className="distribution-v5-error">{trackUploadError}</p>
                               ) : null}
                             </div>
-
-                            {trackUploadPhase === "s3" && activeTrackIndex === idx ? (
-                              <div className="track-upload-progress">
-                                <div className="track-upload-progress-bar" style={{ width: `${trackUploadProgress}%` }} />
-                              </div>
-                            ) : null}
-
-                            {trackUploadError && activeTrackIndex === idx ? (
-                              <p className="distribution-v5-error">{trackUploadError}</p>
-                            ) : null}
                           </div>
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+
+                  <button className="secondary-btn" type="button" style={{ marginTop: "12px" }} onClick={addBlankTrack}>+ Add Track</button>
+
+                  <InlineError message={putTracksState.error} />
+
+                  <div className="ta-wizard-nav-row" style={{ marginTop: "24px" }}>
+                    <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("info")}>← Previous</button>
+                    <div className="ta-wizard-nav-right">
+                      <button
+                        className="secondary-btn"
+                        type="button"
+                        disabled={putTracksState.loading || trackForms.filter((t) => t.title && t.audioFileKey).length === 0}
+                        onClick={() => void saveTracklist()}
+                      >
+                        {putTracksState.loading ? "Saving Tracklist..." : "Save Tracklist"}
+                      </button>
+                      <button className="primary-btn ta-wizard-cta" type="button" onClick={() => setActiveReleaseStep("delivery")}>Continue →</button>
                     </div>
-                  ))}
-                </div>
-
-                <button className="secondary-btn" type="button" onClick={addBlankTrack}>
-                  + Add Track
-                </button>
-
-                <InlineError message={putTracksState.error} />
-
-                {putTracksState.data ? (
-                  <div className="distribution-v5-kv-list release-delivery-summary">
-                    <div><span>Tracks saved</span><strong>{trackForms.filter(t => t.audioFileKey).length}</strong></div>
-                    <div><span>Saved at</span><strong>{putTracksState.loadedAt ? new Date(putTracksState.loadedAt).toLocaleTimeString() : "—"}</strong></div>
                   </div>
-                ) : null}
-
-                <button
-                  className="primary-btn distribution-full-width-btn"
-                  type="button"
-                  disabled={putTracksState.loading || trackForms.filter(t => t.title && t.audioFileKey).length === 0}
-                  onClick={() => void saveTracklist()}
-                >
-                  {putTracksState.loading ? "Saving Tracklist..." : "Save Tracklist"}
-                </button>
-
-                <button className="secondary-btn distribution-full-width-btn release-builder-next-btn" type="button" onClick={() => setActiveReleaseStep("delivery")}>
-                  Continue to Delivery
-                </button>
-              </article>
-
-              <article className="asset-card distribution-v5-panel release-builder-side-card">
-                <span className="asset-type-pill">Upload Guide</span>
-                <h3>Track Upload Flow</h3>
-                <p>Each track goes through a 3-step pipeline: get a pre-signed S3 URL, upload the FLAC directly to S3, then save the full tracklist to the release.</p>
-                <div className="release-builder-mini-checklist">
-                  <label><input type="checkbox" checked={trackForms.length > 0} readOnly /> At least one track added</label>
-                  <label><input type="checkbox" checked={trackForms.some(t => Boolean(t.audioFileKey))} readOnly /> Audio uploaded to S3</label>
-                  <label><input type="checkbox" checked={trackForms.every(t => Boolean(t.title))} readOnly /> All tracks titled</label>
-                  <label><input type="checkbox" checked={Boolean(putTracksState.data)} readOnly /> Tracklist saved to release</label>
-                </div>
-                <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("delivery")}>
-                  Continue to Delivery
-                </button>
-              </article>
-            </div>
-          ) : null}
-
-          {activeReleaseStep === "delivery" ? (
-            <article id="release-delivery-section" className="asset-card distribution-v5-panel release-builder-review-card release-builder-delivery-card">
-              <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
-                <div>
-                  <span className="asset-type-pill">Delivery</span>
-                  <h3>Platforms & Territories</h3>
-                  <p>Choose where this release will be delivered. Requires platform and territory lookup data from Setup.</p>
-                </div>
-                {deliveryConfirmed
-                  ? <span className="status-pill status-live">Delivery Saved</span>
-                  : <span className="status-pill status-warning">Not Saved</span>}
-              </div>
-
-              {(deliveryPlatformOptions.length === 0 || territoryOptions.length === 0) ? (
-                <div className="distribution-v5-muted-warning release-info-setup-warning">
-                  Load Setup Data to populate platform and territory options.
-                  <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupPlatforms", "lookupCountries"])}>
-                    Load Platform / Country Data
-                  </button>
                 </div>
               ) : null}
 
-              <div className="release-delivery-preview-grid">
-                <div>
-                  <h4>Platforms</h4>
-                  <p className="distribution-empty">Select every store this release should reach.</p>
-                  <div className="release-delivery-select-actions">
-                    <button className="mini-action-btn" type="button" onClick={() => setSelectedDeliveryPlatforms(deliveryPlatformOptions.map((o) => o.value))}>All</button>
-                    <button className="mini-action-btn" type="button" onClick={() => setSelectedDeliveryPlatforms([])}>None</button>
+              {/* ══ STEP 5: Delivery ══ */}
+              {activeReleaseStep === "delivery" ? (
+                <div className="ta-wizard-step-content">
+                  <div className="ta-wizard-step-header">
+                    <span className="asset-type-pill">Step 5 of 7</span>
+                    <h2>Platforms &amp; Territories</h2>
+                    <p>Choose where this release will be delivered. Load setup data first to see real platform and territory options.</p>
+                    {deliveryConfirmed
+                      ? <span className="status-pill status-live" style={{ marginTop: "8px", display: "inline-block" }}>Delivery Saved</span>
+                      : <span className="status-pill status-warning" style={{ marginTop: "8px", display: "inline-block" }}>Not Saved</span>}
                   </div>
-                  <div className="release-option-chip-grid release-delivery-checkbox-grid">
-                    {deliveryPlatformOptions.map((option) => (
-                      <label key={option.value} className="release-delivery-checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedDeliveryPlatforms.includes(option.value)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedDeliveryPlatforms((prev) => [...prev, option.value]);
-                            } else {
-                              setSelectedDeliveryPlatforms((prev) => prev.filter((p) => p !== option.value));
-                            }
-                          }}
-                        />
-                        {option.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
 
-                <div>
-                  <h4>Territories</h4>
-                  <p className="distribution-empty">Select every country/territory for distribution.</p>
-                  <div className="release-delivery-select-actions">
-                    <button className="mini-action-btn" type="button" onClick={() => setSelectedTerritories(territoryOptions.map((o) => o.value))}>All</button>
-                    <button className="mini-action-btn" type="button" onClick={() => setSelectedTerritories([])}>None</button>
-                  </div>
-                  <div className="release-option-chip-grid release-delivery-checkbox-grid">
-                    {territoryOptions.map((option) => (
-                      <label key={option.value} className="release-delivery-checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedTerritories.includes(option.value)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedTerritories((prev) => [...prev, option.value]);
-                            } else {
-                              setSelectedTerritories((prev) => prev.filter((t) => t !== option.value));
-                            }
-                          }}
-                        />
-                        {option.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
+                  {(deliveryPlatformOptions.length === 0 || territoryOptions.length === 0) ? (
+                    <div className="distribution-v5-muted-warning release-info-setup-warning">
+                      Load platform and territory data from Setup first.
+                      <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupPlatforms", "lookupCountries"])}>
+                        Load Platform / Country Data
+                      </button>
+                    </div>
+                  ) : null}
 
-              <div className="release-delivery-additional">
-                <h4>Additional Options</h4>
-                <label className="release-delivery-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={deliveryYoutube}
-                    onChange={(e) => setDeliveryYoutube(e.target.checked)}
-                  />
-                  Enable YouTube Content ID
-                </label>
-              </div>
+                  <div className="release-delivery-preview-grid">
+                    <div>
+                      <h4>Platforms</h4>
+                      <div className="release-delivery-select-actions">
+                        <button className="mini-action-btn" type="button" onClick={() => setSelectedDeliveryPlatforms(deliveryPlatformOptions.map((o) => o.value))}>All</button>
+                        <button className="mini-action-btn" type="button" onClick={() => setSelectedDeliveryPlatforms([])}>None</button>
+                      </div>
+                      <div className="release-option-chip-grid release-delivery-checkbox-grid">
+                        {deliveryPlatformOptions.map((option) => (
+                          <label key={option.value} className="release-delivery-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedDeliveryPlatforms.includes(option.value)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedDeliveryPlatforms((prev) => [...prev, option.value]);
+                                } else {
+                                  setSelectedDeliveryPlatforms((prev) => prev.filter((p) => p !== option.value));
+                                }
+                              }}
+                            />
+                            {option.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h4>Territories</h4>
+                      <div className="release-delivery-select-actions">
+                        <button className="mini-action-btn" type="button" onClick={() => setSelectedTerritories(territoryOptions.map((o) => o.value))}>All</button>
+                        <button className="mini-action-btn" type="button" onClick={() => setSelectedTerritories([])}>None</button>
+                      </div>
+                      <div className="release-option-chip-grid release-delivery-checkbox-grid">
+                        {territoryOptions.map((option) => (
+                          <label key={option.value} className="release-delivery-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedTerritories.includes(option.value)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedTerritories((prev) => [...prev, option.value]);
+                                } else {
+                                  setSelectedTerritories((prev) => prev.filter((t) => t !== option.value));
+                                }
+                              }}
+                            />
+                            {option.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
 
-              {deliveryUpdateState.data ? (
-                <div className="distribution-v5-kv-list release-delivery-summary">
-                  <div><span>Platforms saved</span><strong>{selectedDeliveryPlatforms.length}</strong></div>
-                  <div><span>Territories saved</span><strong>{selectedTerritories.length}</strong></div>
-                  <div><span>YouTube</span><strong>{deliveryYoutube ? "Enabled" : "Disabled"}</strong></div>
-                  <div><span>Saved at</span><strong>{deliveryUpdateState.loadedAt ? new Date(deliveryUpdateState.loadedAt).toLocaleTimeString() : "—"}</strong></div>
+                  <div className="release-delivery-additional">
+                    <h4>Additional Options</h4>
+                    <label className="release-delivery-checkbox-label">
+                      <input type="checkbox" checked={deliveryYoutube} onChange={(e) => setDeliveryYoutube(e.target.checked)} />
+                      Enable YouTube Content ID
+                    </label>
+                  </div>
+
+                  {deliveryUpdateState.data ? (
+                    <div className="ta-wizard-success-banner">
+                      ✓ Saved — {selectedDeliveryPlatforms.length} platforms, {selectedTerritories.length} territories
+                    </div>
+                  ) : null}
+                  <InlineError message={deliveryUpdateState.error} />
+
+                  <div className="ta-wizard-nav-row">
+                    <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("tracks")}>← Previous</button>
+                    <div className="ta-wizard-nav-right">
+                      <button
+                        className="secondary-btn"
+                        type="button"
+                        disabled={!canLoad || deliveryUpdateState.loading || !selectedReleaseId || selectedDeliveryPlatforms.length === 0 || selectedTerritories.length === 0}
+                        onClick={() => void saveDelivery()}
+                      >
+                        {deliveryUpdateState.loading ? "Saving..." : "Save Delivery Settings"}
+                      </button>
+                      <button className="primary-btn ta-wizard-cta" type="button" onClick={() => setActiveReleaseStep("validation")}>Continue →</button>
+                    </div>
+                  </div>
                 </div>
               ) : null}
 
-              <InlineError message={deliveryUpdateState.error} />
+              {/* ══ STEP 6: Validation ══ */}
+              {activeReleaseStep === "validation" ? (
+                <div className="ta-wizard-step-content">
+                  <div className="ta-wizard-step-header">
+                    <span className="asset-type-pill">Step 6 of 7</span>
+                    <h2>UPC &amp; ISRC Checks</h2>
+                    <p>Validate release and track identifiers before final review. Catch issues before they hold up the release.</p>
+                    {selectedReleaseId ? <span className="status-pill" style={{ marginTop: "8px", display: "inline-block" }}>Release ID {selectedReleaseId}</span> : null}
+                  </div>
 
-              <div className="distribution-v5-inline-form">
-                <button
-                  className="primary-btn distribution-full-width-btn"
-                  type="button"
-                  disabled={!canLoad || deliveryUpdateState.loading || !selectedReleaseId || selectedDeliveryPlatforms.length === 0 || selectedTerritories.length === 0}
-                  onClick={() => void saveDelivery()}
-                >
-                  {deliveryUpdateState.loading ? "Saving..." : "Save Delivery Settings"}
-                </button>
-              </div>
+                  <div className="release-validation-grid">
+                    <div>
+                      <h4>UPC Check</h4>
+                      <p className="distribution-empty">A UPC is usually 12 or 13 digits.</p>
+                      <div className="distribution-v5-inline-form distribution-upc-inline-form">
+                        <input value={upcToValidate} onChange={(e) => setUpcToValidate(e.target.value)} placeholder="123456789012" inputMode="numeric" />
+                        <button className="secondary-btn" type="button" disabled={!canLoad || upcValidationState.loading || !upcToValidate.trim()} onClick={validateUpc}>
+                          {upcValidationState.loading ? "Checking..." : "Validate UPC"}
+                        </button>
+                      </div>
+                      <InlineError message={upcValidationState.error} />
+                      <DataTable data={upcValidationState.data} emptyLabel="No UPC validation result yet." />
+                    </div>
+                    <div>
+                      <h4>ISRC Check</h4>
+                      <p className="distribution-empty">An ISRC uses 12 uppercase letters/numbers with no hyphens.</p>
+                      <div className="distribution-v5-inline-form distribution-upc-inline-form">
+                        <input value={isrcToValidate} onChange={(e) => setIsrcToValidate(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder="USABC1234567" maxLength={12} />
+                        <button className="secondary-btn" type="button" disabled={!canLoad || isrcValidationState.loading || !isrcToValidate.trim()} onClick={validateIsrc}>
+                          {isrcValidationState.loading ? "Checking..." : "Validate ISRC"}
+                        </button>
+                      </div>
+                      <InlineError message={isrcValidationState.error} />
+                      <DataTable data={isrcValidationState.data} emptyLabel="No ISRC validation result yet." />
+                    </div>
+                  </div>
 
-              <button className="secondary-btn distribution-full-width-btn release-builder-next-btn" type="button" onClick={() => setActiveReleaseStep("validation")}>
-                Continue to Validation
-              </button>
-            </article>
-          ) : null}
-
-          {activeReleaseStep === "validation" ? (
-            <article id="release-validation-section" className="asset-card distribution-v5-panel distribution-upc-tool-card release-builder-workflow-card">
-              <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
-                <div>
-                  <span className="asset-type-pill">Identifier Validation</span>
-                  <h3>UPC & ISRC Checks</h3>
-                  <p>Validate release and track identifiers before moving toward final review.</p>
+                  <div className="ta-wizard-nav-row">
+                    <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("delivery")}>← Previous</button>
+                    <button className="primary-btn ta-wizard-cta" type="button" onClick={() => setActiveReleaseStep("review")}>Continue →</button>
+                  </div>
                 </div>
-                {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
-              </div>
+              ) : null}
 
-              <div className="release-validation-grid">
-                <div>
-                  <h4>UPC Check</h4>
-                  <p className="distribution-empty">A UPC is usually 12 or 13 digits.</p>
-                  <div className="distribution-v5-inline-form distribution-upc-inline-form">
-                    <input value={upcToValidate} onChange={(event) => setUpcToValidate(event.target.value)} placeholder="123456789012" inputMode="numeric" />
-                    <button className="secondary-btn" type="button" disabled={!canLoad || upcValidationState.loading || !upcToValidate.trim()} onClick={validateUpc}>
-                      {upcValidationState.loading ? "Checking..." : "Validate UPC"}
+              {/* ══ STEP 7: Review & Publish ══ */}
+              {activeReleaseStep === "review" ? (
+                <div className="ta-wizard-step-content">
+                  <div className="ta-wizard-step-header">
+                    <span className="asset-type-pill">Step 7 of 7</span>
+                    <h2>Review &amp; Publish</h2>
+                    <p>All steps must be complete and both confirmations checked before submission unlocks.</p>
+                    {submitState.data
+                      ? <span className="status-pill status-live" style={{ marginTop: "8px", display: "inline-block" }}>Submitted</span>
+                      : <span className="status-pill status-warning" style={{ marginTop: "8px", display: "inline-block" }}>Pending</span>}
+                  </div>
+
+                  <div className="release-builder-review-grid">
+                    <label><input type="checkbox" checked={releaseDraftReady || selectedReleaseReady} readOnly /> Draft or release loaded</label>
+                    <label><input type="checkbox" checked={Boolean(releaseMetadataForm.coverUrl || artworkPreviewUrl)} readOnly /> Artwork attached</label>
+                    <label><input type="checkbox" checked={metadataSaved} readOnly /> Release info saved</label>
+                    <label><input type="checkbox" checked={tracksReady} readOnly /> Tracks inspected</label>
+                    <label><input type="checkbox" checked={deliveryConfirmed} readOnly /> Delivery settings saved</label>
+                    <label><input type="checkbox" checked={upcValidated} readOnly /> UPC validation checked</label>
+                    <label><input type="checkbox" checked={Boolean(isrcValidationState.data)} readOnly /> ISRC validation checked</label>
+                  </div>
+
+                  <div className="release-review-confirmations">
+                    <h4>Confirmations</h4>
+                    <label className="release-delivery-checkbox-label release-review-rights-label">
+                      <input type="checkbox" checked={rightsConfirmed} onChange={(e) => setRightsConfirmed(e.target.checked)} />
+                      I own or control all rights to this release
+                    </label>
+                    <label className="release-delivery-checkbox-label release-review-rights-label">
+                      <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} />
+                      I accept the distribution terms
+                    </label>
+                  </div>
+
+                  {submitState.data ? (
+                    <div className="ta-wizard-success-banner">
+                      ✓ Submitted for review — Release ID {selectedReleaseId}
+                    </div>
+                  ) : null}
+                  <InlineError message={submitState.error} />
+
+                  <div className="ta-wizard-nav-row">
+                    <button className="secondary-btn" type="button" onClick={() => setActiveReleaseStep("validation")}>← Previous</button>
+                    <button
+                      className="primary-btn ta-wizard-cta"
+                      type="button"
+                      disabled={
+                        submitState.loading ||
+                        Boolean(submitState.data) ||
+                        !(releaseDraftReady || selectedReleaseReady) ||
+                        !metadataSaved ||
+                        !deliveryConfirmed ||
+                        !upcValidated ||
+                        !rightsConfirmed ||
+                        !acceptTerms
+                      }
+                      onClick={() => void submitRelease()}
+                    >
+                      {submitState.loading ? "Submitting..." : submitState.data ? "Release Submitted" : "↑ Submit Release for Review"}
                     </button>
                   </div>
-                  <InlineError message={upcValidationState.error} />
-                  <DataTable data={upcValidationState.data} emptyLabel="No UPC validation result yet." />
-                </div>
-
-                <div>
-                  <h4>ISRC Check</h4>
-                  <p className="distribution-empty">An ISRC uses 12 uppercase letters/numbers with no hyphens.</p>
-                  <div className="distribution-v5-inline-form distribution-upc-inline-form">
-                    <input value={isrcToValidate} onChange={(event) => setIsrcToValidate(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder="USABC1234567" maxLength={12} />
-                    <button className="secondary-btn" type="button" disabled={!canLoad || isrcValidationState.loading || !isrcToValidate.trim()} onClick={validateIsrc}>
-                      {isrcValidationState.loading ? "Checking..." : "Validate ISRC"}
-                    </button>
-                  </div>
-                  <InlineError message={isrcValidationState.error} />
-                  <DataTable data={isrcValidationState.data} emptyLabel="No ISRC validation result yet." />
-                </div>
-              </div>
-
-              <button className="secondary-btn distribution-full-width-btn release-builder-next-btn" type="button" onClick={() => setActiveReleaseStep("review")}>
-                Continue to Review
-              </button>
-            </article>
-          ) : null}
-
-          {activeReleaseStep === "review" ? (
-            <article id="release-review-section" className="asset-card distribution-v5-panel release-builder-review-card">
-              <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
-                <div>
-                  <span className="asset-type-pill">Review & Submit</span>
-                  <h3>Final Review</h3>
-                  <p>All steps must be complete and both confirmations checked before submission unlocks.</p>
-                </div>
-                {submitState.data
-                  ? <span className="status-pill status-live">Submitted</span>
-                  : <span className="status-pill status-warning">Pending</span>}
-              </div>
-
-              <div className="release-builder-review-grid">
-                <label><input type="checkbox" checked={releaseDraftReady || releasesReady} readOnly /> Draft or release list loaded</label>
-                <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release record selected</label>
-                <label><input type="checkbox" checked={metadataSaved} readOnly /> Release info saved</label>
-                <label><input type="checkbox" checked={tracksReady} readOnly /> Tracks inspected</label>
-                <label><input type="checkbox" checked={deliveryConfirmed} readOnly /> Delivery settings saved</label>
-                <label><input type="checkbox" checked={upcValidated} readOnly /> UPC validation checked</label>
-                <label><input type="checkbox" checked={Boolean(isrcValidationState.data)} readOnly /> ISRC validation checked</label>
-              </div>
-
-              <div className="release-review-confirmations">
-                <h4>Confirmations</h4>
-                <label className="release-delivery-checkbox-label release-review-rights-label">
-                  <input type="checkbox" checked={rightsConfirmed} onChange={(e) => setRightsConfirmed(e.target.checked)} />
-                  I own or control all rights to this release
-                </label>
-                <label className="release-delivery-checkbox-label release-review-rights-label">
-                  <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} />
-                  I accept the distribution terms
-                </label>
-              </div>
-
-              {submitState.data ? (
-                <div className="distribution-v5-kv-list release-delivery-summary">
-                  <div><span>Status</span><strong>Submitted for review</strong></div>
-                  <div><span>Release ID</span><strong>{selectedReleaseId}</strong></div>
-                  <div><span>Submitted at</span><strong>{submitState.loadedAt ? new Date(submitState.loadedAt).toLocaleTimeString() : "—"}</strong></div>
                 </div>
               ) : null}
 
-              <InlineError message={submitState.error} />
-
-              <button
-                className="primary-btn distribution-full-width-btn"
-                type="button"
-                disabled={
-                  submitState.loading ||
-                  Boolean(submitState.data) ||
-                  !(releaseDraftReady || releasesReady) ||
-                  !selectedReleaseReady ||
-                  !metadataSaved ||
-                  !tracksReady ||
-                  !deliveryConfirmed ||
-                  !upcValidated ||
-                  !rightsConfirmed ||
-                  !acceptTerms
-                }
-                onClick={() => void submitRelease()}
-              >
-                {submitState.loading
-                  ? "Submitting..."
-                  : submitState.data
-                    ? "Release Submitted"
-                    : "Submit Release for Review"}
-              </button>
-            </article>
-          ) : null}
             </main>
 
+            {/* ── Right help panel ── */}
             <aside className="ta-wizard-help-panel">
               <div className="ta-wizard-help-tabs">
                 <button className="ta-wizard-help-tab-active" type="button">▮ Help</button>
-                <button type="button">☊ Ask Command Center</button>
               </div>
               <div className="ta-wizard-help-body">
                 <div className="ta-wizard-help-title-row">
                   <span className="ta-wizard-help-icon">{activeWizardStep.icon}</span>
                   <div>
                     <h3>{currentHelp.title}</h3>
-                    <p>{currentHelp.step}</p>
+                    <span className="asset-type-pill">{currentHelp.step}</span>
                   </div>
                 </div>
-                <p className="ta-wizard-help-copy">{currentHelp.body}</p>
-                <div className="ta-wizard-help-tips">
-                  {currentHelp.tips.map((tip) => (
-                    <div key={tip}><span>✹</span>{tip}</div>
-                  ))}
-                </div>
-                <div className="ta-wizard-formats">
-                  <span>Accepted formats</span>
-                  <div>
-                    {["WAV", "MP3", "M4A", "AIFF", "FLAC"].map((format) => <small key={format}>{format}</small>)}
+                <p>{currentHelp.body}</p>
+                {currentHelp.tips.length > 0 && (
+                  <ul className="ta-wizard-help-tips">
+                    {currentHelp.tips.map((tip) => <li key={tip}>💡 {tip}</li>)}
+                  </ul>
+                )}
+                {currentHelp.articles.length > 0 && (
+                  <div className="ta-wizard-help-articles">
+                    <p className="ta-wizard-help-articles-label">HELP ARTICLES</p>
+                    {currentHelp.articles.map((article) => (
+                      <div key={article} className="ta-wizard-help-article-link">{article}</div>
+                    ))}
                   </div>
-                </div>
-                <div className="ta-wizard-help-articles">
-                  <span>Help Articles</span>
-                  {currentHelp.articles.map((article) => (
-                    <button key={article} type="button"><span>▣</span><strong>{article}</strong><small>Guide ↗</small></button>
-                  ))}
-                </div>
+                )}
               </div>
               <button className="ta-wizard-close-help" type="button">× Close</button>
             </aside>
