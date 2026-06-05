@@ -830,8 +830,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       setReleaseDraftForm(emptyReleaseDraftForm);
       await loadReleasesWithFilters();
 
-      // Auto-advance to Artwork after creating a new draft (makes new release flow smoother)
-      setActiveReleaseStep("artwork");
+      // Auto-advance to Release Information after creating a new draft
+      setActiveReleaseStep("info");   // Jump straight to Release Information
     } catch (draftError) {
       setCreateReleaseState((current) => ({
         loading: false,
