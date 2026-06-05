@@ -4478,3 +4478,95 @@ section .section-heading {
   }
 }
 
+
+
+/* Too Lost Distribution v15 opened/collapsed sidebar balance */
+.distribution-v5-page {
+  width: min(100%, 1440px) !important;
+  max-width: 1440px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-right: 0 !important;
+}
+
+.distribution-v5-hero,
+.distribution-v5-status-row,
+.distribution-v5-tabs,
+.distribution-overview-panel,
+.distribution-v5-section,
+.distribution-v5-section-head,
+.distribution-roadmap-builder-grid,
+.distribution-roadmap-main-grid,
+.distribution-v5-two-col {
+  max-width: 100% !important;
+}
+
+.sidebar-collapsed .distribution-v5-page {
+  width: min(100%, 1400px) !important;
+  max-width: 1400px !important;
+}
+
+.app-shell.sidebar-collapsed .main {
+  padding-left: clamp(32px, 3.5vw, 58px) !important;
+  padding-right: clamp(32px, 4vw, 72px) !important;
+}
+
+.app-shell:not(.sidebar-collapsed) .main {
+  padding-left: clamp(28px, 2.25vw, 42px);
+  padding-right: clamp(28px, 2.75vw, 54px);
+}
+
+.distribution-v5-hero {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.distribution-v5-hero .distribution-hero-actions {
+  justify-content: flex-end;
+}
+
+.distribution-v5-status-row {
+  grid-template-columns: minmax(280px, 1.1fr) minmax(320px, 1fr) minmax(280px, 0.95fr);
+}
+
+.distribution-v5-tabs {
+  justify-content: flex-start;
+}
+
+.distribution-v5-metrics {
+  grid-template-columns: repeat(6, minmax(135px, 1fr));
+}
+
+.distribution-v5-command-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (min-width: 1500px) {
+  .sidebar-collapsed .distribution-v5-page {
+    width: min(100%, 1460px) !important;
+    max-width: 1460px !important;
+  }
+}
+
+@media (max-width: 1240px) {
+  .app-shell.sidebar-collapsed .main,
+  .app-shell:not(.sidebar-collapsed) .main {
+    padding-left: 28px !important;
+    padding-right: 28px !important;
+  }
+
+  .distribution-v5-metrics {
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+  }
+
+  .distribution-v5-command-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .distribution-v5-page {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
