@@ -6584,3 +6584,218 @@ body {
     flex: 1 1 180px;
   }
 }
+
+/* ==========================================================
+   v22.5.1 — Tracks & Publish spacing rescue
+   Tightens the final tier so the track form, validation, and review panels
+   use the canvas cleanly without stretched empty cards or cramped controls.
+   ========================================================== */
+.ta-wizard-main > .release-builder-details-panel,
+.ta-wizard-main > #release-validation-section,
+.ta-wizard-main > #release-review-section {
+  align-self: start;
+}
+
+.ta-wizard-main > .release-builder-details-panel .release-builder-workflow-card {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.ta-wizard-main > #release-validation-section .release-validation-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.ta-wizard-main > #release-validation-section .release-validation-grid > div {
+  padding: 14px;
+  border-radius: 18px;
+}
+
+.ta-wizard-main > #release-validation-section .distribution-upc-inline-form {
+  grid-template-columns: 1fr;
+  gap: 9px;
+  margin: 10px 0 10px;
+}
+
+.ta-wizard-main > #release-validation-section .distribution-upc-inline-form .secondary-btn {
+  width: 100%;
+  min-height: 40px;
+  padding-inline: 14px;
+}
+
+.ta-wizard-main > #release-validation-section .distribution-v5-kv-list {
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.ta-wizard-main > #release-review-section .release-builder-review-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ta-wizard-main > #release-review-section .release-builder-review-grid label {
+  min-height: 54px;
+  padding: 12px;
+}
+
+.ta-wizard-main > #release-review-section .release-review-confirmations {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 16px;
+}
+
+.ta-wizard-main > #release-review-section .primary-btn {
+  margin-top: 12px;
+}
+
+#release-tracks-section .track-form-list {
+  margin-bottom: 12px;
+}
+
+#release-tracks-section .track-form-card {
+  border-radius: 20px;
+}
+
+#release-tracks-section .track-form-fields {
+  gap: 14px;
+  padding-bottom: 14px;
+}
+
+#release-tracks-section .track-upload-section {
+  padding-top: 2px;
+}
+
+#release-tracks-section .track-upload-controls {
+  grid-template-columns: minmax(145px, 0.26fr) minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+
+#release-tracks-section .track-file-picker {
+  min-width: 0;
+}
+
+#release-tracks-section > .secondary-btn:not(.release-builder-next-btn) {
+  width: 100%;
+  min-height: 42px;
+}
+
+#release-tracks-section > .primary-btn.distribution-full-width-btn {
+  width: min(220px, 100%);
+  margin-left: auto;
+}
+
+#release-tracks-section > .release-builder-next-btn {
+  width: min(260px, 100%);
+  margin-left: auto;
+}
+
+@media (min-width: 1380px) {
+  .ta-wizard-main {
+    grid-template-columns: minmax(680px, 1.42fr) minmax(400px, 0.58fr);
+    column-gap: 20px;
+    align-items: start;
+  }
+
+  .ta-active-release-bar {
+    grid-column: 1 / -1;
+    margin: 0 0 2px;
+  }
+
+  .ta-wizard-main > .release-builder-details-panel {
+    grid-column: 1 / 2;
+    grid-row: 4;
+  }
+
+  .ta-wizard-main > #release-validation-section {
+    grid-column: 2 / 3;
+    grid-row: 4;
+  }
+
+  .ta-wizard-main > #release-review-section {
+    grid-column: 2 / 3;
+    grid-row: 5;
+  }
+
+  .ta-wizard-main > #release-validation-section,
+  .ta-wizard-main > #release-review-section,
+  .ta-wizard-main > .release-builder-details-panel,
+  .ta-wizard-main > .release-builder-details-panel .release-builder-workflow-card {
+    margin-top: 0 !important;
+  }
+}
+
+@media (min-width: 1620px) {
+  .ta-wizard-main {
+    grid-template-columns: minmax(740px, 1.36fr) minmax(430px, 0.64fr);
+    column-gap: 22px;
+  }
+}
+
+@media (max-width: 1379px) {
+  .ta-wizard-main > #release-validation-section .release-validation-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ta-wizard-main > #release-validation-section .distribution-upc-inline-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (max-width: 920px) {
+  .ta-wizard-main > #release-validation-section .release-validation-grid,
+  .ta-wizard-main > #release-review-section .release-builder-review-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #release-tracks-section .track-upload-controls {
+    grid-template-columns: 1fr;
+  }
+
+  #release-tracks-section > .primary-btn.distribution-full-width-btn,
+  #release-tracks-section > .release-builder-next-btn {
+    width: 100%;
+  }
+}
+
+/* ==========================================================
+   v22.5.2 — Identifier validation visibility fix
+   Keeps UPC/ISRC checks from squeezing into two tiny columns inside
+   the Tracks & Publish right rail, and guarantees both validation
+   buttons remain visible and clickable.
+   ========================================================== */
+.ta-wizard-main > #release-validation-section .release-validation-grid {
+  grid-template-columns: 1fr !important;
+  gap: 12px !important;
+}
+
+.ta-wizard-main > #release-validation-section .distribution-upc-inline-form {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 9px !important;
+  max-width: 100% !important;
+}
+
+.ta-wizard-main > #release-validation-section .distribution-upc-inline-form input {
+  width: 100% !important;
+}
+
+.ta-wizard-main > #release-validation-section .distribution-upc-inline-form .secondary-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 100% !important;
+  min-height: 42px !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  position: static !important;
+  transform: none !important;
+}
+
+@media (max-width: 1379px) {
+  .ta-wizard-main > #release-validation-section .release-validation-grid,
+  .ta-wizard-main > #release-validation-section .distribution-upc-inline-form {
+    grid-template-columns: 1fr !important;
+  }
+}
