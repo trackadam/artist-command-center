@@ -10,6 +10,9 @@ import {
   updateTooLostReleaseMetadata,
   updateTooLostReleaseDelivery,
   submitTooLostRelease,
+  createTooLostTrackUploadUrl,
+  uploadFlacToS3,
+  putTooLostReleaseTracks,
   validateTooLostUpc,
   validateTooLostIsrc,
   connectionHasScope,
@@ -24,6 +27,7 @@ import {
   type TooLostConnection,
   type TooLostEndpointDefinition,
   type TooLostEndpointKey,
+  type TooLostTrackPayload,
 } from "../lib/tooLostApi";
 
 type DistributionPageProps = {
@@ -598,6 +602,16 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [submitState, setSubmitState] = useState<EndpointState>(defaultEndpointState);
 
+  // Track management
+  const [trackForms, setTrackForms] = useState<TooLostTrackPayload[]>([]);
+  const [activeTrackIndex, setActiveTrackIndex] = useState<number | null>(null);
+  const [trackUploadFile, setTrackUploadFile] = useState<File | null>(null);
+  const [trackUploadKind, setTrackUploadKind] = useState<"audio" | "instrumental" | "dolby">("audio");
+  const [trackUploadProgress, setTrackUploadProgress] = useState(0);
+  const [trackUploadPhase, setTrackUploadPhase] = useState<"idle" | "url" | "s3" | "done" | "error">("idle");
+  const [trackUploadError, setTrackUploadError] = useState("");
+  const [putTracksState, setPutTracksState] = useState<EndpointState>(defaultEndpointState);
+
   async function loadConnection() {
     setConnectionLoading(true);
     setError("");
@@ -657,6 +671,13 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     setRightsConfirmed(false);
     setAcceptTerms(false);
     setSubmitState(defaultEndpointState);
+    setTrackForms([]);
+    setActiveTrackIndex(null);
+    setTrackUploadFile(null);
+    setTrackUploadProgress(0);
+    setTrackUploadPhase("idle");
+    setTrackUploadError("");
+    setPutTracksState(defaultEndpointState);
 
     try {
       await disconnectTooLost();
@@ -874,6 +895,117 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     }
   }
 
+  async function uploadTrackFile() {
+    if (!selectedReleaseId || !trackUploadFile) return;
+
+    setTrackUploadPhase("url");
+    setTrackUploadError("");
+    setTrackUploadProgress(0);
+
+    try {
+      // Step 1 — get presigned URL
+      const urlData = await createTooLostTrackUploadUrl(selectedReleaseId, {
+        fileName: trackUploadFile.name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^.]+$/, ".flac"),
+        contentType: "audio/flac",
+        kind: trackUploadKind,
+      });
+
+      // Step 2 — PUT raw binary to S3
+      setTrackUploadPhase("s3");
+      await uploadFlacToS3(urlData.uploadUrl, trackUploadFile, urlData.headers ?? {}, setTrackUploadProgress);
+
+      // Step 3 — store fileKey into the active track form
+      setTrackUploadPhase("done");
+      setTrackForms((prev) => {
+        const updated = [...prev];
+        const idx = activeTrackIndex ?? prev.length - 1;
+        if (updated[idx]) {
+          updated[idx] = {
+            ...updated[idx],
+            ...(trackUploadKind === "audio" ? { audioFileKey: urlData.fileKey } : {}),
+            ...(trackUploadKind === "instrumental" ? { instrumentalFileKey: urlData.fileKey } : {}),
+            ...(trackUploadKind === "dolby" ? { dolbyFileKey: urlData.fileKey } : {}),
+          };
+        }
+        return updated;
+      });
+      setTrackUploadFile(null);
+    } catch (err) {
+      setTrackUploadPhase("error");
+      setTrackUploadError(err instanceof Error ? err.message : "Upload failed.");
+    }
+  }
+
+  function addBlankTrack() {
+    const newTrack: TooLostTrackPayload = {
+      title: "",
+      language: "en",
+      audioFileKey: "",
+      artists: [{ name: "", role: ["primary"] }],
+      writers: [{ name: "", role: ["composer"] }],
+    };
+    setTrackForms((prev) => [...prev, newTrack]);
+    setActiveTrackIndex(trackForms.length);
+    setTrackUploadPhase("idle");
+    setTrackUploadFile(null);
+    setTrackUploadProgress(0);
+    setTrackUploadError("");
+  }
+
+  function removeTrack(index: number) {
+    setTrackForms((prev) => prev.filter((_, i) => i !== index));
+    setActiveTrackIndex(null);
+  }
+
+  function updateTrackField(index: number, field: keyof TooLostTrackPayload, value: unknown) {
+    setTrackForms((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
+  function updateTrackArtist(trackIdx: number, artistIdx: number, field: "name" | "role", value: string) {
+    setTrackForms((prev) => {
+      const updated = [...prev];
+      const artists = [...(updated[trackIdx].artists ?? [])];
+      artists[artistIdx] = { ...artists[artistIdx], [field]: field === "role" ? [value] : value };
+      updated[trackIdx] = { ...updated[trackIdx], artists };
+      return updated;
+    });
+  }
+
+  function updateTrackWriter(trackIdx: number, writerIdx: number, field: "name" | "role", value: string) {
+    setTrackForms((prev) => {
+      const updated = [...prev];
+      const writers = [...(updated[trackIdx].writers ?? [])];
+      writers[writerIdx] = { ...writers[writerIdx], [field]: field === "role" ? [value] : value };
+      updated[trackIdx] = { ...updated[trackIdx], writers };
+      return updated;
+    });
+  }
+
+  async function saveTracklist() {
+    if (!selectedReleaseId) return;
+    const validTracks = trackForms.filter((t) => t.title.trim() && t.audioFileKey);
+    if (validTracks.length === 0) {
+      setPutTracksState((prev) => ({ ...prev, error: "Add at least one track with a title and uploaded audio file." }));
+      return;
+    }
+
+    setPutTracksState((prev) => ({ ...prev, loading: true, error: "" }));
+    try {
+      const data = await putTooLostReleaseTracks(selectedReleaseId, validTracks);
+      setPutTracksState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+    } catch (err) {
+      setPutTracksState((prev) => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err.message : "Could not save tracklist.",
+      }));
+    }
+  }
+
   async function submitRelease() {
     setSubmitState((current) => ({ ...current, loading: true, error: "" }));
 
@@ -974,7 +1106,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const releasesReady = Boolean(releasesResult);
   const selectedReleaseReady = Boolean(selectedReleaseId && releaseDetailState.data);
   const metadataSaved = Boolean(metadataUpdateState.data);
-  const tracksReady = Boolean(releaseTracksState.data);
+  const tracksReady = Boolean(putTracksState.data) || Boolean(releaseTracksState.data);
   const upcValidated = Boolean(upcValidationState.data);
   const deliveryConfirmed = Boolean(deliveryUpdateState.data);
 
@@ -1011,8 +1143,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       key: "tracks",
       number: "04",
       label: "Tracks",
-      helper: "Inspect track list and locked track tools.",
-      complete: tracksReady,
+      helper: "Upload FLAC audio and set track metadata.",
+      complete: Boolean(putTracksState.data),
     },
     {
       key: "delivery",
@@ -1492,29 +1624,219 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
           {activeReleaseStep === "tracks" ? (
             <div className="release-builder-step-panel release-builder-details-panel">
-              <article id="release-tracks-section" className="asset-card distribution-v5-panel distribution-roadmap-detail-card release-builder-workflow-card">
-                <div className="distribution-v11-panel-heading">
+              <article id="release-tracks-section" className="asset-card distribution-v5-panel release-builder-workflow-card">
+                <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
                   <div>
-                    <span className="asset-type-pill">Track Tools</span>
-                    <h3>Tracks</h3>
-                    <p>Review the selected release track list and prep locked track-level actions.</p>
+                    <span className="asset-type-pill">Manage Tracks</span>
+                    <h3>Tracklist</h3>
+                    <p>Upload FLAC audio files and set track metadata. All tracks are saved together in one PUT call.</p>
                   </div>
+                  {putTracksState.data
+                    ? <span className="status-pill status-live">Tracklist Saved</span>
+                    : <span className="status-pill status-warning">Unsaved</span>}
                 </div>
 
-                <InlineError message={releaseTracksState.error} />
-                <DataTable data={releaseTracksState.data} emptyLabel="No tracks loaded for this release yet." />
+                {/* Existing tracks from API */}
+                {releaseTracksState.data && Array.isArray((releaseTracksState.data as { data?: unknown[] }).data) && (releaseTracksState.data as { data?: unknown[] }).data!.length > 0 ? (
+                  <div className="track-existing-list">
+                    <h4>Existing Tracks on Release</h4>
+                    <DataTable data={releaseTracksState.data} emptyLabel="No tracks yet." />
+                  </div>
+                ) : null}
 
-                <div className="release-track-locked-actions">
-                  <button className="secondary-btn" type="button" disabled>Add Track Locked</button>
-                  <button className="secondary-btn" type="button" disabled>Audio Upload Locked</button>
-                  <button className="secondary-btn" type="button" disabled>Edit Track Metadata Locked</button>
+                {/* Track form list */}
+                <div className="track-form-list">
+                  {trackForms.map((track, idx) => (
+                    <div key={idx} className={`track-form-card${activeTrackIndex === idx ? " track-form-card-active" : ""}`}>
+                      <div className="track-form-card-header">
+                        <button className="track-form-card-toggle" type="button" onClick={() => setActiveTrackIndex(activeTrackIndex === idx ? null : idx)}>
+                          <strong>{track.title || `Track ${idx + 1}`}</strong>
+                          <span>{track.audioFileKey ? "Audio ready" : "No audio"}</span>
+                        </button>
+                        <button className="mini-action-btn mini-action-btn-danger" type="button" onClick={() => removeTrack(idx)}>Remove</button>
+                      </div>
+
+                      {activeTrackIndex === idx ? (
+                        <div className="track-form-fields">
+                          <div className="distribution-form-grid">
+                            <label>
+                              <span>Track Title *</span>
+                              <input value={track.title} onChange={(e) => updateTrackField(idx, "title", e.target.value)} placeholder="Track title" />
+                            </label>
+                            <label>
+                              <span>Language</span>
+                              <select value={track.language ?? "en"} onChange={(e) => updateTrackField(idx, "language", e.target.value)}>
+                                <option value="en">English</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                                <option value="pt">Portuguese</option>
+                                <option value="ja">Japanese</option>
+                                <option value="ko">Korean</option>
+                                <option value="zh">Chinese</option>
+                                <option value="zxx">No lyrics / Instrumental</option>
+                              </select>
+                            </label>
+                            <label>
+                              <span>ISRC (optional)</span>
+                              <input value={track.isrc ?? ""} onChange={(e) => updateTrackField(idx, "isrc", e.target.value)} placeholder="USABC1234567" />
+                            </label>
+                            <label>
+                              <span>Version (optional)</span>
+                              <input value={track.version ?? ""} onChange={(e) => updateTrackField(idx, "version", e.target.value)} placeholder="Extended Mix" />
+                            </label>
+                            <label>
+                              <span>TikTok Start Time</span>
+                              <input value={track.tiktokStartTime ?? ""} onChange={(e) => updateTrackField(idx, "tiktokStartTime", e.target.value)} placeholder="00:30" />
+                            </label>
+                            <label>
+                              <span>Liner Note</span>
+                              <input value={track.linerNote ?? ""} onChange={(e) => updateTrackField(idx, "linerNote", e.target.value)} placeholder="Recorded in..." />
+                            </label>
+                          </div>
+
+                          <div className="track-credits-grid">
+                            <div>
+                              <h4>Artists</h4>
+                              {(track.artists ?? []).map((artist, ai) => (
+                                <div key={ai} className="track-credit-row">
+                                  <input value={artist.name} onChange={(e) => updateTrackArtist(idx, ai, "name", e.target.value)} placeholder="Artist name" />
+                                  <select value={artist.role[0] ?? "primary"} onChange={(e) => updateTrackArtist(idx, ai, "role", e.target.value)}>
+                                    <option value="primary">Primary</option>
+                                    <option value="featured">Featured</option>
+                                    <option value="remixer">Remixer</option>
+                                    <option value="conductor">Conductor</option>
+                                    <option value="orchestra">Orchestra</option>
+                                  </select>
+                                  <button className="mini-action-btn mini-action-btn-danger" type="button" onClick={() => {
+                                    const artists = (track.artists ?? []).filter((_, i) => i !== ai);
+                                    updateTrackField(idx, "artists", artists);
+                                  }}>×</button>
+                                </div>
+                              ))}
+                              <button className="mini-action-btn" type="button" onClick={() => updateTrackField(idx, "artists", [...(track.artists ?? []), { name: "", role: ["primary"] }])}>+ Artist</button>
+                            </div>
+
+                            <div>
+                              <h4>Writers</h4>
+                              {(track.writers ?? []).map((writer, wi) => (
+                                <div key={wi} className="track-credit-row">
+                                  <input value={writer.name} onChange={(e) => updateTrackWriter(idx, wi, "name", e.target.value)} placeholder="Writer name" />
+                                  <select value={writer.role[0] ?? "composer"} onChange={(e) => updateTrackWriter(idx, wi, "role", e.target.value)}>
+                                    <option value="composer">Composer</option>
+                                    <option value="lyricist">Lyricist</option>
+                                    <option value="composer_lyricist">Composer & Lyricist</option>
+                                    <option value="arranger">Arranger</option>
+                                    <option value="translator">Translator</option>
+                                  </select>
+                                  <button className="mini-action-btn mini-action-btn-danger" type="button" onClick={() => {
+                                    const writers = (track.writers ?? []).filter((_, i) => i !== wi);
+                                    updateTrackField(idx, "writers", writers);
+                                  }}>×</button>
+                                </div>
+                              ))}
+                              <button className="mini-action-btn" type="button" onClick={() => updateTrackField(idx, "writers", [...(track.writers ?? []), { name: "", role: ["composer"] }])}>+ Writer</button>
+                            </div>
+                          </div>
+
+                          {/* File upload for this track */}
+                          <div className="track-upload-section">
+                            <h4>Audio File</h4>
+                            {track.audioFileKey ? (
+                              <div className="track-upload-done">
+                                <span className="status-pill status-live">Audio Uploaded</span>
+                                <small>{track.audioFileKey.split("/").pop()}</small>
+                              </div>
+                            ) : null}
+
+                            <div className="track-upload-controls">
+                              <select value={trackUploadKind} onChange={(e) => setTrackUploadKind(e.target.value as "audio" | "instrumental" | "dolby")}>
+                                <option value="audio">Audio (Main)</option>
+                                <option value="instrumental">Instrumental</option>
+                                <option value="dolby">Dolby Atmos</option>
+                              </select>
+
+                              <label className="track-file-picker">
+                                <input
+                                  type="file"
+                                  accept=".flac,audio/flac"
+                                  onChange={(e) => {
+                                    setTrackUploadFile(e.target.files?.[0] ?? null);
+                                    setTrackUploadPhase("idle");
+                                    setTrackUploadError("");
+                                    setActiveTrackIndex(idx);
+                                  }}
+                                />
+                                {trackUploadFile && activeTrackIndex === idx ? trackUploadFile.name : "Choose FLAC file"}
+                              </label>
+
+                              {trackUploadFile && activeTrackIndex === idx ? (
+                                <button
+                                  className="secondary-btn"
+                                  type="button"
+                                  disabled={trackUploadPhase === "url" || trackUploadPhase === "s3"}
+                                  onClick={() => void uploadTrackFile()}
+                                >
+                                  {trackUploadPhase === "url" ? "Getting URL..." :
+                                   trackUploadPhase === "s3" ? `Uploading ${trackUploadProgress}%...` :
+                                   trackUploadPhase === "done" ? "Uploaded ✓" : "Upload to S3"}
+                                </button>
+                              ) : null}
+                            </div>
+
+                            {trackUploadPhase === "s3" && activeTrackIndex === idx ? (
+                              <div className="track-upload-progress">
+                                <div className="track-upload-progress-bar" style={{ width: `${trackUploadProgress}%` }} />
+                              </div>
+                            ) : null}
+
+                            {trackUploadError && activeTrackIndex === idx ? (
+                              <p className="distribution-v5-error">{trackUploadError}</p>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
+
+                <button className="secondary-btn" type="button" onClick={addBlankTrack}>
+                  + Add Track
+                </button>
+
+                <InlineError message={putTracksState.error} />
+
+                {putTracksState.data ? (
+                  <div className="distribution-v5-kv-list release-delivery-summary">
+                    <div><span>Tracks saved</span><strong>{trackForms.filter(t => t.audioFileKey).length}</strong></div>
+                    <div><span>Saved at</span><strong>{putTracksState.loadedAt ? new Date(putTracksState.loadedAt).toLocaleTimeString() : "—"}</strong></div>
+                  </div>
+                ) : null}
+
+                <button
+                  className="primary-btn distribution-full-width-btn"
+                  type="button"
+                  disabled={putTracksState.loading || trackForms.filter(t => t.title && t.audioFileKey).length === 0}
+                  onClick={() => void saveTracklist()}
+                >
+                  {putTracksState.loading ? "Saving Tracklist..." : "Save Tracklist"}
+                </button>
+
+                <button className="secondary-btn distribution-full-width-btn release-builder-next-btn" type="button" onClick={() => setActiveReleaseStep("delivery")}>
+                  Continue to Delivery
+                </button>
               </article>
 
               <article className="asset-card distribution-v5-panel release-builder-side-card">
-                <span className="asset-type-pill">Track Prep</span>
-                <h3>What We Confirm Next</h3>
-                <p>Too Lost's track upload flow requires an upload URL, a direct S3 PUT for a FLAC file, then the returned fileKey inside the tracklist endpoint.</p>
+                <span className="asset-type-pill">Upload Guide</span>
+                <h3>Track Upload Flow</h3>
+                <p>Each track goes through a 3-step pipeline: get a pre-signed S3 URL, upload the FLAC directly to S3, then save the full tracklist to Too Lost.</p>
+                <div className="release-builder-mini-checklist">
+                  <label><input type="checkbox" checked={trackForms.length > 0} readOnly /> At least one track added</label>
+                  <label><input type="checkbox" checked={trackForms.some(t => Boolean(t.audioFileKey))} readOnly /> Audio uploaded to S3</label>
+                  <label><input type="checkbox" checked={trackForms.every(t => Boolean(t.title))} readOnly /> All tracks titled</label>
+                  <label><input type="checkbox" checked={Boolean(putTracksState.data)} readOnly /> Tracklist saved to Too Lost</label>
+                </div>
                 <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("delivery")}>
                   Continue to Delivery
                 </button>

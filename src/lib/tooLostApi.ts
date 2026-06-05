@@ -603,6 +603,88 @@ export async function testTooLostProfile() {
   return callTooLostEndpoint("/me");
 }
 
+// ── Track upload pipeline ─────────────────────────────────
+
+export type TrackUploadUrlPayload = {
+  fileName: string;
+  contentType: "audio/flac";
+  kind: "audio" | "instrumental" | "dolby";
+};
+
+export type TrackUploadUrlResponse = {
+  uploadUrl: string;
+  fileKey: string;
+  method: string;
+  headers: Record<string, string>;
+  expiresIn: number;
+};
+
+export async function createTooLostTrackUploadUrl(
+  releaseId: string | number,
+  payload: TrackUploadUrlPayload,
+): Promise<TrackUploadUrlResponse> {
+  const data = await callTooLostEndpoint(`/releases/${releaseId}/tracks/upload-url`, {
+    method: "POST",
+    body: payload,
+  });
+  return (data as { data: TrackUploadUrlResponse }).data ?? data;
+}
+
+export async function uploadFlacToS3(
+  uploadUrl: string,
+  file: File,
+  headers: Record<string, string>,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", uploadUrl);
+    xhr.setRequestHeader("Content-Type", "audio/flac");
+    for (const [key, value] of Object.entries(headers)) {
+      try { xhr.setRequestHeader(key, value); } catch { /* skip restricted headers */ }
+    }
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`));
+    };
+    xhr.onerror = () => reject(new Error("S3 upload network error."));
+    xhr.send(file);
+  });
+}
+
+export type TooLostTrackArtist = { name: string; role: string[] };
+export type TooLostTrackWriter = { name: string; role: string[] };
+
+export type TooLostTrackPayload = {
+  title: string;
+  language: string;
+  audioFileKey?: string;
+  instrumentalFileKey?: string;
+  dolbyFileKey?: string;
+  isrc?: string;
+  version?: string;
+  linerNote?: string;
+  tiktokStartTime?: string;
+  artists?: TooLostTrackArtist[];
+  writers?: TooLostTrackWriter[];
+  lyrics?: { explicit?: boolean; cleanVersion?: boolean };
+};
+
+export async function putTooLostReleaseTracks(
+  releaseId: string | number,
+  tracks: TooLostTrackPayload[],
+) {
+  return callTooLostEndpoint(`/releases/${releaseId}/tracks`, {
+    method: "PUT",
+    body: { tracks },
+  });
+}
+
 export async function fetchTooLostEndpoint(endpoint: TooLostEndpointDefinition) {
   return callTooLostEndpoint(endpoint.path);
 }

@@ -4539,3 +4539,208 @@ section .section-heading {
 .sidebar-collapsed .nav-sub {
   display: none;
 }
+
+/* ── Track management ───────────────────────────────────── */
+.track-form-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 14px;
+}
+
+.track-form-card {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035);
+  overflow: hidden;
+  transition: border-color 160ms ease;
+}
+
+.track-form-card-active {
+  border-color: rgba(47, 124, 255, 0.5);
+  background: rgba(47, 124, 255, 0.05);
+}
+
+.track-form-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.track-form-card-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.track-form-card-toggle strong {
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.track-form-card-toggle span {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.track-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 0 16px 18px;
+}
+
+.track-credits-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.track-credits-grid h4 {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+}
+
+.track-credit-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.track-credit-row input,
+.track-credit-row select {
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.065);
+  color: var(--text);
+  padding: 0 10px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  outline: none;
+  min-width: 0;
+}
+
+.track-credit-row input:focus,
+.track-credit-row select:focus {
+  border-color: rgba(47, 124, 255, 0.6);
+}
+
+.track-upload-section {
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.track-upload-section h4 {
+  margin: 0 0 12px;
+  font-size: 0.88rem;
+}
+
+.track-upload-done {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.track-upload-done small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-upload-controls {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.track-upload-controls select {
+  height: 42px;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.065);
+  color: var(--text);
+  padding: 0 10px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.82rem;
+  outline: none;
+  white-space: nowrap;
+}
+
+.track-file-picker {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 13px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(219, 231, 255, 0.8);
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-file-picker:hover {
+  border-color: rgba(47, 124, 255, 0.5);
+  background: rgba(47, 124, 255, 0.08);
+}
+
+.track-file-picker input[type="file"] {
+  display: none;
+}
+
+.track-upload-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.track-upload-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2f7cff, #5ba3ff);
+  transition: width 200ms ease;
+}
+
+.track-existing-list {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.track-existing-list h4 {
+  margin: 0 0 10px;
+}
+
+@media (max-width: 900px) {
+  .track-credits-grid,
+  .track-upload-controls {
+    grid-template-columns: 1fr;
+  }
+}
