@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   callTooLostEndpoint,
   createTooLostReleaseDraft,
-  deleteTooLostRelease,
   getTooLostRelease,
   getTooLostReleaseTracks,
   listTooLostReleases,
@@ -998,22 +997,6 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       setArtworkUploadError(err instanceof Error ? err.message : "Artwork upload failed.");
     } finally {
       setArtworkUploading(false);
-    }
-  }
-
-  async function deleteReleaseDraft(releaseId: string | number) {
-    if (!window.confirm("Delete this draft release? This cannot be undone.")) return;
-
-    try {
-      await deleteTooLostRelease(releaseId);
-      setSelectedReleaseId("");
-      setReleaseDetailState(defaultEndpointState);
-      setReleaseTracksState(defaultEndpointState);
-      setReleaseMetadataForm(emptyReleaseMetadataForm);
-      setArtworkPreviewUrl("");
-      await loadReleasesWithFilters();
-    } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Could not delete release.");
     }
   }
 
