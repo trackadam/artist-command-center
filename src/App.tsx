@@ -8195,6 +8195,7 @@ function App() {
 
   const sidebarPages: AppPage[] = [
     "Dashboard",
+    "Distribution",
     "Songs",
     "Projects",
     "Lyrics",
@@ -8205,11 +8206,11 @@ function App() {
     "EPK Builder",
     "Web Tools",
     "Social Media",
-    "Distribution",
     "Planner",
   ];
 
   function getSidebarPageLabel(page: AppPage) {
+    if (page === "Releases") return "Roadmaps";
     return page;
   }
 
@@ -8265,12 +8266,9 @@ function App() {
       case "Releases":
         return (
           <svg {...iconProps}>
-            <path d="M13.5 4.5C16 2 19 2 21 3c1 2 1 5-1.5 7.5L15 15l-6-6 4.5-4.5Z" />
-            <path d="M9 9l-4 1.5L3 15l6-2" />
-            <path d="M15 15l-2 6 4.5-2 1.5-4" />
-            <circle cx="16.5" cy="7.5" r="1.5" />
-            <path d="M7 17l-3 3" />
-            <path d="M10 18l-2 2" />
+            <path d="M14 18.5 9 16l-5 2.5V5.5L9 3l5 2.5 6-3v13L14 18.5Z" />
+            <path d="M9 3v13" />
+            <path d="M14 5.5v13" />
           </svg>
         );
       case "Visuals":
@@ -8326,10 +8324,13 @@ function App() {
       case "Distribution":
         return (
           <svg {...iconProps}>
-            <path d="M4 7h16" />
-            <path d="M4 12h16" />
-            <path d="M4 17h10" />
-            <circle cx="18" cy="17" r="2" />
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="3" />
+            <circle cx="12" cy="12" r="0.8" fill="currentColor" stroke="none" />
+            <path d="M12 3v3" />
+            <path d="M21 12h-3" />
+            <path d="M12 21v-3" />
+            <path d="M3 12h3" />
           </svg>
         );
       case "Planner":
