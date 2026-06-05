@@ -1839,7 +1839,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               </div>
             </aside>
 
-            <main className="ta-wizard-main">
+            <main className={`ta-wizard-main ${activeReleaseStep === "tracks" ? "ta-wizard-main-tracks" : ""}`}>
           <div className="ta-release-stage-header">
             <div>
               <span className="asset-type-pill">Release Creator v22</span>

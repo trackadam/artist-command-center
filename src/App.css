@@ -6799,3 +6799,101 @@ body {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ==========================================================
+   v22.5.3 — Tracks & Publish balance layout
+   Stops the final review stack from running far down the right side.
+   Tracks use the full canvas first, then validation and review sit in a
+   balanced two-card row underneath on wide screens.
+   ========================================================== */
+.ta-wizard-main-tracks {
+  align-items: start;
+}
+
+.ta-wizard-main-tracks .ta-active-release-bar {
+  margin-bottom: 0;
+}
+
+@media (min-width: 1380px) {
+  .ta-wizard-main-tracks {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: 20px;
+    row-gap: 18px;
+  }
+
+  .ta-wizard-main-tracks .ta-release-stage-header,
+  .ta-wizard-main-tracks .ta-release-tier-strip,
+  .ta-wizard-main-tracks .ta-active-release-bar {
+    grid-column: 1 / -1;
+  }
+
+  .ta-wizard-main-tracks > .release-builder-details-panel {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+
+  .ta-wizard-main-tracks > #release-validation-section {
+    grid-column: 1 / 2 !important;
+    grid-row: auto !important;
+  }
+
+  .ta-wizard-main-tracks > #release-review-section {
+    grid-column: 2 / 3 !important;
+    grid-row: auto !important;
+  }
+
+  .ta-wizard-main-tracks > #release-validation-section,
+  .ta-wizard-main-tracks > #release-review-section,
+  .ta-wizard-main-tracks > .release-builder-details-panel,
+  .ta-wizard-main-tracks > .release-builder-details-panel .release-builder-workflow-card {
+    margin-top: 0 !important;
+    align-self: start;
+  }
+}
+
+@media (min-width: 1620px) {
+  .ta-wizard-main-tracks {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: 22px;
+  }
+}
+
+.ta-wizard-main-tracks > .release-builder-details-panel .release-builder-workflow-card {
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+.ta-wizard-main-tracks #release-tracks-section {
+  min-height: 0;
+}
+
+.ta-wizard-main-tracks #release-tracks-section .track-form-list:empty {
+  display: none;
+}
+
+.ta-wizard-main-tracks #release-tracks-section > .secondary-btn:not(.release-builder-next-btn) {
+  margin-top: 2px;
+}
+
+.ta-wizard-main-tracks #release-validation-section,
+.ta-wizard-main-tracks #release-review-section {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.ta-wizard-main-tracks #release-review-section .release-builder-review-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.ta-wizard-main-tracks #release-review-section .release-review-confirmations {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 1379px) {
+  .ta-wizard-main-tracks > .release-builder-details-panel,
+  .ta-wizard-main-tracks > #release-validation-section,
+  .ta-wizard-main-tracks > #release-review-section {
+    margin-bottom: 18px;
+  }
+}
