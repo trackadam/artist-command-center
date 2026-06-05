@@ -585,6 +585,20 @@ export async function validateTooLostIsrc(isrc: string, releaseId?: string | num
   });
 }
 
+export type TooLostSubmitReleasePayload = {
+  acceptTerms: boolean;
+  confirmRights: boolean;
+  confirmYoutubeRights?: boolean | null;
+  idempotencyKey?: string | null;
+};
+
+export async function submitTooLostRelease(releaseId: string | number, payload: TooLostSubmitReleasePayload) {
+  return callTooLostEndpoint(`/releases/${releaseId}/submit`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
 export async function testTooLostProfile() {
   return callTooLostEndpoint("/me");
 }

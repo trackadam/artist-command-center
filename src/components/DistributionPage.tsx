@@ -9,6 +9,7 @@ import {
   listTooLostReleases,
   updateTooLostReleaseMetadata,
   updateTooLostReleaseDelivery,
+  submitTooLostRelease,
   validateTooLostUpc,
   validateTooLostIsrc,
   connectionHasScope,
@@ -565,6 +566,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const [deliveryYoutube, setDeliveryYoutube] = useState(false);
   const [deliveryUpdateState, setDeliveryUpdateState] = useState<EndpointState>(defaultEndpointState);
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [submitState, setSubmitState] = useState<EndpointState>(defaultEndpointState);
 
   async function loadConnection() {
     setConnectionLoading(true);
@@ -623,6 +626,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     setDeliveryYoutube(false);
     setDeliveryUpdateState(defaultEndpointState);
     setRightsConfirmed(false);
+    setAcceptTerms(false);
+    setSubmitState(defaultEndpointState);
 
     try {
       await disconnectTooLost();
@@ -834,6 +839,34 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
       setDeliveryUpdateState((current) => ({
         loading: false,
         error: deliveryError instanceof Error ? deliveryError.message : "Could not save delivery settings.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
+  async function submitRelease() {
+    setSubmitState((current) => ({ ...current, loading: true, error: "" }));
+
+    try {
+      if (!selectedReleaseId) throw new Error("No release selected.");
+      if (!acceptTerms) throw new Error("You must accept the Too Lost terms.");
+      if (!rightsConfirmed) throw new Error("You must confirm you own or control the rights.");
+
+      const idempotencyKey = `rel-submit-${selectedReleaseId}-${Date.now()}`;
+
+      const data = await submitTooLostRelease(selectedReleaseId, {
+        acceptTerms: true,
+        confirmRights: true,
+        confirmYoutubeRights: deliveryYoutube ? true : null,
+        idempotencyKey,
+      });
+
+      setSubmitState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+    } catch (submitError) {
+      setSubmitState((current) => ({
+        loading: false,
+        error: submitError instanceof Error ? submitError.message : "Could not submit release.",
         data: current.data,
         loadedAt: current.loadedAt,
       }));
@@ -1625,11 +1658,13 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
             <article id="release-review-section" className="asset-card distribution-v5-panel release-builder-review-card">
               <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
                 <div>
-                  <span className="asset-type-pill">Locked Safety Step</span>
-                  <h3>Review & Submit</h3>
-                  <p>Submission stays locked until draft creation, release info, tracks, delivery, validation, and rights confirmations are all proven in sandbox.</p>
+                  <span className="asset-type-pill">Review & Submit</span>
+                  <h3>Final Review</h3>
+                  <p>All steps must be complete and both confirmations checked before submission unlocks.</p>
                 </div>
-                <span className="status-pill status-warning">Submit Locked</span>
+                {submitState.data
+                  ? <span className="status-pill status-live">Submitted</span>
+                  : <span className="status-pill status-warning">Pending</span>}
               </div>
 
               <div className="release-builder-review-grid">
@@ -1640,20 +1675,52 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
                 <label><input type="checkbox" checked={deliveryConfirmed} readOnly /> Delivery settings saved</label>
                 <label><input type="checkbox" checked={upcValidated} readOnly /> UPC validation checked</label>
                 <label><input type="checkbox" checked={Boolean(isrcValidationState.data)} readOnly /> ISRC validation checked</label>
+              </div>
+
+              <div className="release-review-confirmations">
+                <h4>Confirmations</h4>
                 <label className="release-delivery-checkbox-label release-review-rights-label">
                   <input type="checkbox" checked={rightsConfirmed} onChange={(e) => setRightsConfirmed(e.target.checked)} />
                   I own or control all rights to this release
                 </label>
+                <label className="release-delivery-checkbox-label release-review-rights-label">
+                  <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} />
+                  I accept the Too Lost distribution terms
+                </label>
               </div>
 
+              {submitState.data ? (
+                <div className="distribution-v5-kv-list release-delivery-summary">
+                  <div><span>Status</span><strong>Submitted for review</strong></div>
+                  <div><span>Release ID</span><strong>{selectedReleaseId}</strong></div>
+                  <div><span>Submitted at</span><strong>{submitState.loadedAt ? new Date(submitState.loadedAt).toLocaleTimeString() : "—"}</strong></div>
+                </div>
+              ) : null}
+
+              <InlineError message={submitState.error} />
+
               <button
-                className="secondary-btn distribution-full-width-btn"
+                className="primary-btn distribution-full-width-btn"
                 type="button"
-                disabled={!(releaseDraftReady || releasesReady) || !selectedReleaseReady || !metadataSaved || !tracksReady || !deliveryConfirmed || !upcValidated || !rightsConfirmed}
+                disabled={
+                  submitState.loading ||
+                  Boolean(submitState.data) ||
+                  !(releaseDraftReady || releasesReady) ||
+                  !selectedReleaseReady ||
+                  !metadataSaved ||
+                  !tracksReady ||
+                  !deliveryConfirmed ||
+                  !upcValidated ||
+                  !rightsConfirmed ||
+                  !acceptTerms
+                }
+                onClick={() => void submitRelease()}
               >
-                {(releaseDraftReady || releasesReady) && selectedReleaseReady && metadataSaved && tracksReady && deliveryConfirmed && upcValidated && rightsConfirmed
-                  ? "Submit Release"
-                  : "Complete all steps to unlock submission"}
+                {submitState.loading
+                  ? "Submitting..."
+                  : submitState.data
+                    ? "Release Submitted"
+                    : "Submit Release for Review"}
               </button>
             </article>
           ) : null}
