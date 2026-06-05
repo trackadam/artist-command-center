@@ -1684,7 +1684,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                     <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
                       {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Drafts"}
                     </button>
-                    {releasesResult && (
+                    {releasesResult ? (
                       <>
                         <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
                         <div className="release-builder-choose-actions">
@@ -1698,7 +1698,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                           ) : null}
                         </div>
                       </>
-                    )}
+                    ) : null}
                   </div>
                 </details>
               </article>
