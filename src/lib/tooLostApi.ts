@@ -8,8 +8,12 @@ export const TOOLOST_ENVIRONMENT = "sandbox";
 export const TOOLOST_SCOPES = [
   "read:profile",
   "read:catalog",
+  "read:preferences",
+  "read:audience",
   "read:analytics",
+  "read:releases",
   "read:earnings",
+  "read:sales",
 ].join(" ");
 
 export type TooLostTokenResponse = {
@@ -79,7 +83,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/releases",
     section: "Catalog",
     description: "Too Lost release catalog list.",
-    scope: "read:catalog",
+    scope: "read:releases",
   },
   {
     key: "analyticsOverview",
@@ -119,7 +123,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/sales/overview",
     section: "Sales",
     description: "Monthly earnings overview.",
-    scope: "read:earnings",
+    scope: "read:sales",
   },
   {
     key: "salesTracks",
@@ -127,7 +131,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/sales/tracks",
     section: "Sales",
     description: "Track-level royalty and earnings data.",
-    scope: "read:earnings",
+    scope: "read:sales",
   },
   {
     key: "salesReleases",
@@ -135,7 +139,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/sales/releases",
     section: "Sales",
     description: "Release-level royalty and earnings data.",
-    scope: "read:earnings",
+    scope: "read:sales",
   },
   {
     key: "salesChannels",
@@ -143,7 +147,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/sales/channels",
     section: "Sales",
     description: "Earnings by DSP/store/platform.",
-    scope: "read:earnings",
+    scope: "read:sales",
   },
   {
     key: "salesTerritories",
@@ -151,7 +155,7 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     path: "/sales/territories",
     section: "Sales",
     description: "Aggregated earnings by country/territory.",
-    scope: "read:earnings",
+    scope: "read:sales",
   },
   {
     key: "lookupPlatforms",
@@ -430,11 +434,6 @@ export function isTooLostTokenExpired(connection: TooLostConnection | null) {
 
 export function connectionHasScope(connection: TooLostConnection | null, scope: string) {
   const scopes = connection?.scope?.split(/\s+/).filter(Boolean) || [];
-
-  // Too Lost docs have shown both read:earnings and read:sales.
-  // The sandbox app has been granting read:earnings, so treat it as covering sales/royalty panels for the UI.
-  if (scope === "read:sales" && scopes.includes("read:earnings")) return true;
-
   return scopes.includes(scope);
 }
 
