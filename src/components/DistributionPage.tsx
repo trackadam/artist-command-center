@@ -2508,71 +2508,106 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <InlineError message={lookupPlatforms.error} />
               <InlineError message={lookupCountries.error} />
 
-              <div className="release-delivery-preview-grid">
-                <div>
-                  <h4>Platforms</h4>
-                  <p className="distribution-empty">Select every store this release should reach.</p>
+              <div className="release-delivery-modern-grid">
+                <section className="release-delivery-picker-card">
+                  <div className="release-delivery-picker-head">
+                    <div>
+                      <h4>Platforms</h4>
+                      <p>Select the stores and DSPs this release should reach.</p>
+                    </div>
+                    <span className="release-delivery-count-pill">{selectedDeliveryPlatforms.length}/{deliveryPlatformOptions.length}</span>
+                  </div>
                   <div className="release-delivery-select-actions">
-                    <button className="mini-action-btn" type="button" onClick={() => setSelectedDeliveryPlatforms(deliveryPlatformOptions.map((o) => o.value))}>All</button>
-                    <button className="mini-action-btn" type="button" onClick={() => setSelectedDeliveryPlatforms([])}>None</button>
+                    <button className="mini-action-btn" type="button" onClick={() => setSelectedDeliveryPlatforms(deliveryPlatformOptions.map((o) => o.value))}>Select all</button>
+                    <button className="mini-action-btn" type="button" onClick={() => setSelectedDeliveryPlatforms([])}>Clear</button>
                   </div>
-                  <div className="release-option-chip-grid release-delivery-checkbox-grid">
-                    {deliveryPlatformOptions.map((option) => (
-                      <label key={option.value} className="release-delivery-checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedDeliveryPlatforms.includes(option.value)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedDeliveryPlatforms((prev) => [...prev, option.value]);
-                            } else {
-                              setSelectedDeliveryPlatforms((prev) => prev.filter((p) => p !== option.value));
-                            }
-                          }}
-                        />
-                        {option.label}
-                      </label>
-                    ))}
+                  <div className="release-delivery-option-grid" aria-label="Delivery platform options">
+                    {deliveryPlatformOptions.map((option) => {
+                      const checked = selectedDeliveryPlatforms.includes(option.value);
+                      return (
+                        <label
+                          key={option.value}
+                          title={option.label}
+                          className={`release-delivery-option-card${checked ? " release-delivery-option-card-active" : ""}`}
+                        >
+                          <input
+                            className="release-delivery-option-input"
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDeliveryPlatforms((prev) => [...prev, option.value]);
+                              } else {
+                                setSelectedDeliveryPlatforms((prev) => prev.filter((p) => p !== option.value));
+                              }
+                            }}
+                          />
+                          <span className="release-delivery-option-check">✓</span>
+                          <span className="release-delivery-option-name">{option.label}</span>
+                        </label>
+                      );
+                    })}
                   </div>
-                </div>
+                </section>
 
-                <div>
-                  <h4>Territories</h4>
-                  <p className="distribution-empty">Select every country/territory for distribution.</p>
+                <section className="release-delivery-picker-card">
+                  <div className="release-delivery-picker-head">
+                    <div>
+                      <h4>Territories</h4>
+                      <p>Select every country and territory for distribution.</p>
+                    </div>
+                    <span className="release-delivery-count-pill">{selectedTerritories.length}/{territoryOptions.length}</span>
+                  </div>
                   <div className="release-delivery-select-actions">
-                    <button className="mini-action-btn" type="button" onClick={() => setSelectedTerritories(territoryOptions.map((o) => o.value))}>All</button>
-                    <button className="mini-action-btn" type="button" onClick={() => setSelectedTerritories([])}>None</button>
+                    <button className="mini-action-btn" type="button" onClick={() => setSelectedTerritories(territoryOptions.map((o) => o.value))}>Select all</button>
+                    <button className="mini-action-btn" type="button" onClick={() => setSelectedTerritories([])}>Clear</button>
                   </div>
-                  <div className="release-option-chip-grid release-delivery-checkbox-grid">
-                    {territoryOptions.map((option) => (
-                      <label key={option.value} className="release-delivery-checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedTerritories.includes(option.value)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedTerritories((prev) => [...prev, option.value]);
-                            } else {
-                              setSelectedTerritories((prev) => prev.filter((t) => t !== option.value));
-                            }
-                          }}
-                        />
-                        {option.label}
-                      </label>
-                    ))}
+                  <div className="release-delivery-option-grid" aria-label="Delivery territory options">
+                    {territoryOptions.map((option) => {
+                      const checked = selectedTerritories.includes(option.value);
+                      return (
+                        <label
+                          key={option.value}
+                          title={option.label}
+                          className={`release-delivery-option-card${checked ? " release-delivery-option-card-active" : ""}`}
+                        >
+                          <input
+                            className="release-delivery-option-input"
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedTerritories((prev) => [...prev, option.value]);
+                              } else {
+                                setSelectedTerritories((prev) => prev.filter((t) => t !== option.value));
+                              }
+                            }}
+                          />
+                          <span className="release-delivery-option-check">✓</span>
+                          <span className="release-delivery-option-name">{option.label}</span>
+                        </label>
+                      );
+                    })}
                   </div>
-                </div>
+                </section>
               </div>
 
-              <div className="release-delivery-additional">
-                <h4>Additional Options</h4>
-                <label className="release-delivery-checkbox-label">
+              <div className="release-delivery-additional release-delivery-additional-modern">
+                <div>
+                  <h4>Additional Options</h4>
+                  <p>Optional monetization and protection services for this release.</p>
+                </div>
+                <label className={`release-delivery-toggle-card${deliveryYoutube ? " release-delivery-toggle-card-active" : ""}`}>
                   <input
                     type="checkbox"
                     checked={deliveryYoutube}
                     onChange={(e) => setDeliveryYoutube(e.target.checked)}
                   />
-                  Enable YouTube Content ID
+                  <span className="release-delivery-option-check">✓</span>
+                  <span>
+                    <strong>YouTube Content ID</strong>
+                    <small>Enable monetization and fingerprint protection on YouTube.</small>
+                  </span>
                 </label>
               </div>
 
