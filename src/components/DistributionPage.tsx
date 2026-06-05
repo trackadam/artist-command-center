@@ -1,4 +1,3 @@
-/* Too Lost Distribution v17.1 fresh build - ISRC validator import fixed */
 import { useEffect, useMemo, useState } from "react";
 import {
   callTooLostEndpoint,
@@ -28,6 +27,7 @@ type DistributionPageProps = {
 };
 
 type DashboardTab = "Overview" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
+type ReleaseBuilderStepKey = "draft" | "catalog" | "details" | "validation" | "review";
 
 type EndpointState = {
   loading: boolean;
@@ -365,6 +365,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const [error, setError] = useState("");
   const [endpointResults, setEndpointResults] = useState<Partial<Record<TooLostEndpointKey, EndpointState>>>({});
   const [activeTab, setActiveTab] = useState<DashboardTab>("Overview");
+  const [activeReleaseStep, setActiveReleaseStep] = useState<ReleaseBuilderStepKey>("draft");
   const [selectedPlatform, setSelectedPlatform] = useState("");
   const [totalStreamsState, setTotalStreamsState] = useState<EndpointState>(defaultEndpointState);
   const [releaseFilters, setReleaseFilters] = useState<ReleaseFilterForm>(emptyReleaseFilterForm);
@@ -663,37 +664,44 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const selectedReleaseReady = Boolean(selectedReleaseId && releaseDetailState.data);
   const upcValidated = Boolean(upcValidationState.data);
 
-  const releaseWorkflowSteps = [
+  const releaseWorkflowSteps: Array<{
+    key: ReleaseBuilderStepKey;
+    number: string;
+    label: string;
+    helper: string;
+    complete: boolean;
+    locked?: boolean;
+  }> = [
     {
-      id: "release-draft-section",
+      key: "draft",
       number: "01",
       label: "Draft",
       helper: "Create or load a sandbox release draft.",
       complete: releaseDraftReady || releasesReady,
     },
     {
-      id: "release-catalog-section",
+      key: "catalog",
       number: "02",
       label: "Catalog",
       helper: "Find the right release record.",
       complete: releasesReady,
     },
     {
-      id: "release-detail-section",
+      key: "details",
       number: "03",
       label: "Details & Tracks",
       helper: "Inspect metadata, track list, and ISRC tools.",
       complete: selectedReleaseReady,
     },
     {
-      id: "release-validation-section",
+      key: "validation",
       number: "04",
       label: "Validation",
       helper: "Run UPC and ISRC checks before submission.",
-      complete: upcValidated,
+      complete: upcValidated || Boolean(isrcValidationState.data),
     },
     {
-      id: "release-review-section",
+      key: "review",
       number: "05",
       label: "Review",
       helper: "Final review and submit tools stay locked for now.",
@@ -809,7 +817,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
       ) : null}
 
       {activeTab === "Release Builder" ? (
-        <div className="distribution-v5-section distribution-roadmaps-section">
+        <div className="distribution-v5-section distribution-roadmaps-section release-builder-workspace">
           <div className="distribution-v5-section-head">
             <div>
               <h3>Release Builder</h3>
@@ -820,13 +828,13 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
             </button>
           </div>
 
-          <div className="release-builder-stepper" aria-label="Release Builder workflow">
+          <div className="release-builder-stepper release-builder-stepper-compact" aria-label="Release Builder workflow">
             {releaseWorkflowSteps.map((step) => (
               <button
-                key={step.id}
+                key={step.key}
                 type="button"
-                className={`release-builder-step ${step.complete ? "release-builder-step-complete" : ""} ${step.locked ? "release-builder-step-locked" : ""}`}
-                onClick={() => document.getElementById(step.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className={`release-builder-step ${activeReleaseStep === step.key ? "release-builder-step-active" : ""} ${step.complete ? "release-builder-step-complete" : ""} ${step.locked ? "release-builder-step-locked" : ""}`}
+                onClick={() => setActiveReleaseStep(step.key)}
               >
                 <span>{step.number}</span>
                 <strong>{step.label}</strong>
@@ -835,181 +843,224 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
             ))}
           </div>
 
-          <div className="distribution-v5-two-col distribution-roadmap-builder-grid">
-            <article id="release-draft-section" className="asset-card distribution-v5-panel distribution-roadmap-form-card release-builder-workflow-card">
-              <div className="distribution-v11-panel-heading">
+          {activeReleaseStep === "draft" ? (
+            <div className="release-builder-step-panel release-builder-draft-panel">
+              <article id="release-draft-section" className="asset-card distribution-v5-panel distribution-roadmap-form-card release-builder-workflow-card">
+                <div className="distribution-v11-panel-heading">
+                  <div>
+                    <span className="asset-type-pill">Sandbox Draft</span>
+                    <h3>Create Release Draft</h3>
+                    <p>Start with the minimum required Too Lost draft data. Once the draft exists, use the catalog/detail steps to continue building safely.</p>
+                  </div>
+                </div>
+                <div className="distribution-form-grid">
+                  <label>
+                    <span>Release Title</span>
+                    <input value={releaseDraftForm.title} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, title: event.target.value }))} placeholder="Better Late" />
+                  </label>
+                  <label>
+                    <span>Release Type</span>
+                    <select value={releaseDraftForm.type} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, type: event.target.value }))}>
+                      {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Label</span>
+                    <input value={releaseDraftForm.label} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, label: event.target.value }))} placeholder="Track Adam / SWU" />
+                  </label>
+                  <label>
+                    <span>Primary Artist</span>
+                    <input value={releaseDraftForm.artistName} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Artist name" />
+                  </label>
+                  <label>
+                    <span>Too Lost Artist ID optional</span>
+                    <input value={releaseDraftForm.artistId} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistId: event.target.value }))} placeholder="123" inputMode="numeric" />
+                  </label>
+                </div>
+                <InlineError message={createReleaseState.error} />
+                {createReleaseState.data ? <DataTable data={createReleaseState.data} emptyLabel="Draft created." /> : null}
+                <button className="primary-btn distribution-full-width-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
+                  {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
+                </button>
+              </article>
+
+              <article className="asset-card distribution-v5-panel release-builder-side-card">
+                <span className="asset-type-pill">Next Steps</span>
+                <h3>Draft Workflow</h3>
+                <p>Create the draft first, then move to Catalog to pull the Too Lost release list and select the release you want to inspect.</p>
+                <div className="release-builder-mini-checklist">
+                  <label><input type="checkbox" checked={Boolean(createReleaseState.data)} readOnly /> Draft response received</label>
+                  <label><input type="checkbox" checked={releasesReady} readOnly /> Release catalog loaded</label>
+                  <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release selected</label>
+                </div>
+                <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("catalog")}>
+                  Continue to Catalog
+                </button>
+              </article>
+            </div>
+          ) : null}
+
+          {activeReleaseStep === "catalog" ? (
+            <div className="release-builder-step-panel release-builder-catalog-panel">
+              <article id="release-catalog-section" className="asset-card distribution-v5-panel distribution-roadmap-filter-card release-builder-workflow-card">
+                <div className="distribution-v11-panel-heading">
+                  <div>
+                    <span className="asset-type-pill">Catalog Filter</span>
+                    <h3>Find Releases</h3>
+                    <p>Search and filter Too Lost release records so you can select the exact draft or catalog item you want to inspect.</p>
+                  </div>
+                </div>
+                <div className="distribution-form-grid">
+                  <label>
+                    <span>Status</span>
+                    <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
+                      <option value="">Any status</option>
+                      {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Type</span>
+                    <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
+                      <option value="">Any type</option>
+                      {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                  </label>
+                  <label className="distribution-form-wide">
+                    <span>Search</span>
+                    <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search release title" />
+                  </label>
+                </div>
+                <InlineError message={getEndpointState(endpointResults, "releases").error} />
+                <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
+                  {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Apply Filters"}
+                </button>
+              </article>
+
+              <article className="asset-card distribution-v5-panel distribution-roadmap-list-card release-builder-workflow-card">
+                <h3>Release List</h3>
+                <p className="distribution-empty">Select a release to load its details and track list.</p>
+                <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
+                <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("details")}>
+                  Continue to Details & Tracks
+                </button>
+              </article>
+            </div>
+          ) : null}
+
+          {activeReleaseStep === "details" ? (
+            <div className="release-builder-step-panel release-builder-details-panel">
+              <article id="release-detail-section" className="asset-card distribution-v5-panel distribution-roadmap-detail-card release-builder-workflow-card">
+                <div className="distribution-v11-panel-heading">
+                  <div>
+                    <span className="asset-type-pill">Details & Tracks</span>
+                    <h3>Selected Release</h3>
+                    <p>Inspect the selected Too Lost release, review track data, and prep track-level actions.</p>
+                  </div>
+                </div>
+
+                <InlineError message={releaseDetailState.error} />
+                <DataTable data={releaseDetailState.data} emptyLabel="No release selected yet." />
+
+                <div className="release-track-tools-header">
+                  <div>
+                    <h3 className="distribution-v11-subhead">Tracks</h3>
+                    <p className="distribution-empty">Track upload and edit tools stay locked until we confirm Too Lost's exact track payload schema.</p>
+                  </div>
+                  <span className="status-pill">Track tools v1</span>
+                </div>
+
+                <InlineError message={releaseTracksState.error} />
+                <DataTable data={releaseTracksState.data} emptyLabel="No tracks loaded for this release yet." />
+
+                <div className="release-track-locked-actions">
+                  <button className="secondary-btn" type="button" disabled>Add Track Locked</button>
+                  <button className="secondary-btn" type="button" disabled>Audio Upload Locked</button>
+                  <button className="secondary-btn" type="button" disabled>Edit Track Metadata Locked</button>
+                </div>
+              </article>
+
+              <article className="asset-card distribution-v5-panel release-builder-side-card">
+                <span className="asset-type-pill">Track Prep</span>
+                <h3>What We Confirm Next</h3>
+                <p>The next implementation will use Too Lost's track payload schema for add/edit/upload actions. For now, this panel keeps write actions locked and safe.</p>
+                <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("validation")}>
+                  Continue to Validation
+                </button>
+              </article>
+            </div>
+          ) : null}
+
+          {activeReleaseStep === "validation" ? (
+            <article id="release-validation-section" className="asset-card distribution-v5-panel distribution-upc-tool-card release-builder-workflow-card">
+              <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
                 <div>
-                  <span className="asset-type-pill">Sandbox Draft</span>
-                  <h3>Create Release Draft</h3>
-                  <p>Start with the minimum required Too Lost draft data. Once the draft exists, use the catalog/detail steps to continue building safely.</p>
+                  <span className="asset-type-pill">Identifier Validation</span>
+                  <h3>UPC & ISRC Checks</h3>
+                  <p>Validate release and track identifiers against Too Lost sandbox before moving toward metadata, delivery, and submit tools.</p>
+                </div>
+                {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
+              </div>
+
+              <div className="release-validation-grid">
+                <div>
+                  <h4>UPC Check</h4>
+                  <p className="distribution-empty">Use for release UPC format and uniqueness.</p>
+                  <div className="distribution-v5-inline-form distribution-upc-inline-form">
+                    <input value={upcToValidate} onChange={(event) => setUpcToValidate(event.target.value)} placeholder="Enter UPC" inputMode="numeric" />
+                    <button className="secondary-btn" type="button" disabled={!canLoad || upcValidationState.loading || !upcToValidate.trim()} onClick={validateUpc}>
+                      {upcValidationState.loading ? "Checking..." : "Validate UPC"}
+                    </button>
+                  </div>
+                  <InlineError message={upcValidationState.error} />
+                  <DataTable data={upcValidationState.data} emptyLabel="No UPC validation result yet." />
+                </div>
+
+                <div>
+                  <h4>ISRC Check</h4>
+                  <p className="distribution-empty">Use for track ISRC format and uniqueness.</p>
+                  <div className="distribution-v5-inline-form distribution-upc-inline-form">
+                    <input value={isrcToValidate} onChange={(event) => setIsrcToValidate(event.target.value)} placeholder="Enter ISRC" />
+                    <button className="secondary-btn" type="button" disabled={!canLoad || isrcValidationState.loading || !isrcToValidate.trim()} onClick={validateIsrc}>
+                      {isrcValidationState.loading ? "Checking..." : "Validate ISRC"}
+                    </button>
+                  </div>
+                  <InlineError message={isrcValidationState.error} />
+                  <DataTable data={isrcValidationState.data} emptyLabel="No ISRC validation result yet." />
                 </div>
               </div>
-              <div className="distribution-form-grid">
-                <label>
-                  <span>Release Title</span>
-                  <input value={releaseDraftForm.title} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, title: event.target.value }))} placeholder="Better Late" />
-                </label>
-                <label>
-                  <span>Release Type</span>
-                  <select value={releaseDraftForm.type} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, type: event.target.value }))}>
-                    {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
-                  </select>
-                </label>
-                <label>
-                  <span>Label</span>
-                  <input value={releaseDraftForm.label} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, label: event.target.value }))} placeholder="Track Adam / SWU" />
-                </label>
-                <label>
-                  <span>Primary Artist</span>
-                  <input value={releaseDraftForm.artistName} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Artist name" />
-                </label>
-                <label>
-                  <span>Too Lost Artist ID optional</span>
-                  <input value={releaseDraftForm.artistId} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistId: event.target.value }))} placeholder="123" inputMode="numeric" />
-                </label>
-              </div>
-              <InlineError message={createReleaseState.error} />
-              {createReleaseState.data ? <DataTable data={createReleaseState.data} emptyLabel="Draft created." /> : null}
-              <button className="primary-btn distribution-full-width-btn" type="button" disabled={!canLoad || createReleaseState.loading} onClick={createReleaseDraft}>
-                {createReleaseState.loading ? "Creating Draft..." : "Create Draft Release"}
+
+              <button className="secondary-btn distribution-full-width-btn release-builder-next-btn" type="button" onClick={() => setActiveReleaseStep("review")}>
+                Continue to Review
               </button>
             </article>
+          ) : null}
 
-            <article id="release-catalog-section" className="asset-card distribution-v5-panel distribution-roadmap-filter-card release-builder-workflow-card">
-              <div className="distribution-v11-panel-heading">
+          {activeReleaseStep === "review" ? (
+            <article id="release-review-section" className="asset-card distribution-v5-panel release-builder-review-card">
+              <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
                 <div>
-                  <span className="asset-type-pill">Catalog Filter</span>
-                  <h3>Find Releases</h3>
-                  <p>Search and filter Too Lost release records so you can select the exact draft or catalog item you want to inspect.</p>
+                  <span className="asset-type-pill">Locked Safety Step</span>
+                  <h3>Review & Submit</h3>
+                  <p>Submission stays locked until draft creation, release details, tracks, validation, metadata, and delivery are all proven in sandbox.</p>
                 </div>
+                <span className="status-pill status-warning">Submit Locked</span>
               </div>
-              <div className="distribution-form-grid">
-                <label>
-                  <span>Status</span>
-                  <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
-                    <option value="">Any status</option>
-                    {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
-                  </select>
-                </label>
-                <label>
-                  <span>Type</span>
-                  <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
-                    <option value="">Any type</option>
-                    {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
-                  </select>
-                </label>
-                <label className="distribution-form-wide">
-                  <span>Search</span>
-                  <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search release title" />
-                </label>
+
+              <div className="release-builder-review-grid">
+                <label><input type="checkbox" checked={releaseDraftReady || releasesReady} readOnly /> Draft or release list loaded</label>
+                <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release details selected</label>
+                <label><input type="checkbox" checked={Boolean(releaseTracksState.data)} readOnly /> Tracks inspected</label>
+                <label><input type="checkbox" checked={upcValidated} readOnly /> UPC validation checked</label>
+                <label><input type="checkbox" checked={Boolean(isrcValidationState.data)} readOnly /> ISRC validation checked</label>
+                <label><input type="checkbox" checked={false} readOnly /> Metadata edit workflow confirmed</label>
+                <label><input type="checkbox" checked={false} readOnly /> Delivery settings confirmed</label>
               </div>
-              <InlineError message={getEndpointState(endpointResults, "releases").error} />
-              <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
-                {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Apply Filters"}
+
+              <button className="secondary-btn distribution-full-width-btn" type="button" disabled>
+                Submit Release Locked Until Full Sandbox Review
               </button>
             </article>
-          </div>
-
-          <div className="distribution-v5-two-col distribution-roadmap-main-grid">
-            <article className="asset-card distribution-v5-panel distribution-roadmap-list-card release-builder-workflow-card">
-              <h3>Release List</h3>
-              <p className="distribution-empty">Select a release to load its details and track list.</p>
-              <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
-            </article>
-            <article id="release-detail-section" className="asset-card distribution-v5-panel distribution-roadmap-detail-card release-builder-workflow-card">
-              <div className="distribution-v11-panel-heading">
-                <div>
-                  <span className="asset-type-pill">Details & Tracks</span>
-                  <h3>Selected Release</h3>
-                  <p>Inspect the selected Too Lost release, review track data, and prep track-level actions.</p>
-                </div>
-              </div>
-
-              <InlineError message={releaseDetailState.error} />
-              <DataTable data={releaseDetailState.data} emptyLabel="No release selected yet." />
-
-              <div className="release-track-tools-header">
-                <div>
-                  <h3 className="distribution-v11-subhead">Tracks</h3>
-                  <p className="distribution-empty">Track upload and edit tools stay locked until we confirm Too Lost's exact track payload schema.</p>
-                </div>
-                <span className="status-pill">Track tools v1</span>
-              </div>
-
-              <InlineError message={releaseTracksState.error} />
-              <DataTable data={releaseTracksState.data} emptyLabel="No tracks loaded for this release yet." />
-
-              <div className="release-track-locked-actions">
-                <button className="secondary-btn" type="button" disabled>Add Track Locked</button>
-                <button className="secondary-btn" type="button" disabled>Audio Upload Locked</button>
-                <button className="secondary-btn" type="button" disabled>Edit Track Metadata Locked</button>
-              </div>
-            </article>
-          </div>
-
-          <article id="release-validation-section" className="asset-card distribution-v5-panel distribution-upc-tool-card release-builder-workflow-card">
-            <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
-              <div>
-                <span className="asset-type-pill">Identifier Validation</span>
-                <h3>UPC & ISRC Checks</h3>
-                <p>Validate release and track identifiers against Too Lost sandbox before moving toward metadata, delivery, and submit tools.</p>
-              </div>
-              {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
-            </div>
-
-            <div className="release-validation-grid">
-              <div>
-                <h4>UPC Check</h4>
-                <p className="distribution-empty">Use for release UPC format and uniqueness.</p>
-                <div className="distribution-v5-inline-form distribution-upc-inline-form">
-                  <input value={upcToValidate} onChange={(event) => setUpcToValidate(event.target.value)} placeholder="Enter UPC" inputMode="numeric" />
-                  <button className="secondary-btn" type="button" disabled={!canLoad || upcValidationState.loading || !upcToValidate.trim()} onClick={validateUpc}>
-                    {upcValidationState.loading ? "Checking..." : "Validate UPC"}
-                  </button>
-                </div>
-                <InlineError message={upcValidationState.error} />
-                <DataTable data={upcValidationState.data} emptyLabel="No UPC validation result yet." />
-              </div>
-
-              <div>
-                <h4>ISRC Check</h4>
-                <p className="distribution-empty">Use for track ISRC format and uniqueness.</p>
-                <div className="distribution-v5-inline-form distribution-upc-inline-form">
-                  <input value={isrcToValidate} onChange={(event) => setIsrcToValidate(event.target.value)} placeholder="Enter ISRC" />
-                  <button className="secondary-btn" type="button" disabled={!canLoad || isrcValidationState.loading || !isrcToValidate.trim()} onClick={validateIsrc}>
-                    {isrcValidationState.loading ? "Checking..." : "Validate ISRC"}
-                  </button>
-                </div>
-                <InlineError message={isrcValidationState.error} />
-                <DataTable data={isrcValidationState.data} emptyLabel="No ISRC validation result yet." />
-              </div>
-            </div>
-          </article>
-
-          <article id="release-review-section" className="asset-card distribution-v5-panel release-builder-review-card">
-            <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
-              <div>
-                <span className="asset-type-pill">Locked Safety Step</span>
-                <h3>Review & Submit</h3>
-                <p>Submission stays locked until draft creation, release details, tracks, validation, metadata, and delivery are all proven in sandbox.</p>
-              </div>
-              <span className="status-pill status-warning">Submit Locked</span>
-            </div>
-
-            <div className="release-builder-review-grid">
-              <label><input type="checkbox" checked={releaseDraftReady || releasesReady} readOnly /> Draft or release list loaded</label>
-              <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release details selected</label>
-              <label><input type="checkbox" checked={Boolean(releaseTracksState.data)} readOnly /> Tracks inspected</label>
-              <label><input type="checkbox" checked={upcValidated} readOnly /> UPC validation checked</label>
-              <label><input type="checkbox" checked={Boolean(isrcValidationState.data)} readOnly /> ISRC validation checked</label>
-              <label><input type="checkbox" checked={false} readOnly /> Metadata edit workflow confirmed</label>
-              <label><input type="checkbox" checked={false} readOnly /> Delivery settings confirmed</label>
-            </div>
-
-            <button className="secondary-btn distribution-full-width-btn" type="button" disabled>
-              Submit Release Locked Until Full Sandbox Review
-            </button>
-          </article>
+          ) : null}
         </div>
       ) : null}
 

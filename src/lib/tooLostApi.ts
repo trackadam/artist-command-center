@@ -1,4 +1,3 @@
-/* Too Lost API v17.1 fresh build - ISRC validator export fixed */
 import { supabase } from "../supabaseClient";
 
 const TOOLOST_STATE_KEY = "toolost_oauth_state";
