@@ -27,8 +27,8 @@ type DistributionPageProps = {
   oauthMessage?: string;
 };
 
-type DashboardTab = "Overview" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
-type ReleaseBuilderStepKey = "draft" | "catalog" | "metadata" | "tracks" | "validation" | "review";
+type DashboardTab = "Overview" | "Catalog" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
+type ReleaseBuilderStepKey = "draft" | "drafts" | "metadata" | "tracks" | "validation" | "review";
 
 type EndpointState = {
   loading: boolean;
@@ -799,10 +799,10 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
       complete: releaseDraftReady || releasesReady,
     },
     {
-      key: "catalog",
+      key: "drafts",
       number: "02",
-      label: "Catalog",
-      helper: "Find the right release record.",
+      label: "Drafts",
+      helper: "Select the draft/release you are building.",
       complete: releasesReady,
     },
     {
@@ -835,7 +835,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
       locked: true,
     },
   ];
-  const tabs: DashboardTab[] = ["Overview", "Release Builder", "Analytics", "Sales", "Setup", "Developer"];
+  const tabs: DashboardTab[] = ["Overview", "Catalog", "Release Builder", "Analytics", "Sales", "Setup", "Developer"];
 
   return (
     <section className="page-section distribution-page distribution-dashboard-page distribution-v5-page">
@@ -924,8 +924,13 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
 
           <div className="distribution-v5-command-grid">
             <article className="asset-card distribution-v5-command-card">
+              <h3>Catalog</h3>
+              <p>View the releases and songs already in your Too Lost account, separate from the release-building workflow.</p>
+              <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => setActiveTab("Catalog")}>Open Catalog</button>
+            </article>
+            <article className="asset-card distribution-v5-command-card">
               <h3>Release Builder</h3>
-              <p>Create sandbox release drafts, pull release lists, review tracks, and validate UPCs before moving toward submit tools.</p>
+              <p>Create or continue sandbox drafts, edit metadata, inspect tracks, and validate identifiers before delivery tools.</p>
               <button className="secondary-btn" type="button" disabled={!canLoad} onClick={() => setActiveTab("Release Builder")}>Open Release Builder</button>
             </article>
             <article className="asset-card distribution-v5-command-card">
@@ -942,12 +947,71 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
         </div>
       ) : null}
 
+      {activeTab === "Catalog" ? (
+        <div className="distribution-v5-section distribution-catalog-section">
+          <div className="distribution-v5-section-head">
+            <div>
+              <h3>Catalog</h3>
+              <p>View releases and songs already in your Too Lost account. This section is separate from Release Builder drafts and submission prep.</p>
+            </div>
+            <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
+              {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Catalog"}
+            </button>
+          </div>
+
+          <div className="release-builder-step-panel distribution-catalog-workspace">
+            <article className="asset-card distribution-v5-panel distribution-roadmap-filter-card">
+              <div className="distribution-v11-panel-heading">
+                <div>
+                  <span className="asset-type-pill">Catalog Filter</span>
+                  <h3>Find Catalog Items</h3>
+                  <p>Filter releases from your Too Lost account without mixing them into the release-building steps.</p>
+                </div>
+              </div>
+              <div className="distribution-form-grid">
+                <label>
+                  <span>Status</span>
+                  <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
+                    <option value="">Any status</option>
+                    {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Type</span>
+                  <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
+                    <option value="">Any type</option>
+                    {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                  </select>
+                </label>
+                <label className="distribution-form-wide">
+                  <span>Search</span>
+                  <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search release title" />
+                </label>
+              </div>
+              <InlineError message={getEndpointState(endpointResults, "releases").error} />
+              <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
+                {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Apply Catalog Filters"}
+              </button>
+            </article>
+
+            <article className="asset-card distribution-v5-panel distribution-roadmap-list-card">
+              <h3>Catalog List</h3>
+              <p className="distribution-empty">These are Too Lost release records from your account. Select one only when you want to inspect or continue editing it in Release Builder.</p>
+              <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
+              <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => { setActiveTab("Release Builder"); setActiveReleaseStep("metadata"); }}>
+                Open Selected in Release Builder
+              </button>
+            </article>
+          </div>
+        </div>
+      ) : null}
+
       {activeTab === "Release Builder" ? (
         <div className="distribution-v5-section distribution-roadmaps-section release-builder-workspace">
           <div className="distribution-v5-section-head">
             <div>
               <h3>Release Builder</h3>
-              <p>Guided sandbox workflow for creating drafts, finding releases, editing metadata, inspecting tracks, validating identifiers, and preparing a final review.</p>
+              <p>Guided sandbox workflow for creating drafts, selecting the draft you are building, editing metadata, inspecting tracks, validating identifiers, and preparing a final review.</p>
             </div>
             <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
               {getEndpointState(endpointResults, "releases").loading ? "Loading..." : "Load Releases"}
@@ -1019,21 +1083,21 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
                   <label><input type="checkbox" checked={releasesReady} readOnly /> Release catalog loaded</label>
                   <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release selected</label>
                 </div>
-                <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("catalog")}>
+                <button className="secondary-btn distribution-full-width-btn" type="button" onClick={() => setActiveReleaseStep("drafts")}>
                   Continue to Catalog
                 </button>
               </article>
             </div>
           ) : null}
 
-          {activeReleaseStep === "catalog" ? (
+          {activeReleaseStep === "drafts" ? (
             <div className="release-builder-step-panel release-builder-catalog-panel">
               <article id="release-catalog-section" className="asset-card distribution-v5-panel distribution-roadmap-filter-card release-builder-workflow-card">
                 <div className="distribution-v11-panel-heading">
                   <div>
                     <span className="asset-type-pill">Catalog Filter</span>
-                    <h3>Find Releases</h3>
-                    <p>Search and filter Too Lost release records so you can select the exact draft or catalog item you want to edit.</p>
+                    <h3>Find Drafts / Working Releases</h3>
+                    <p>Search and filter Too Lost draft or working release records so you can choose what you are building.</p>
                   </div>
                 </div>
                 <div className="distribution-form-grid">
@@ -1064,7 +1128,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
 
               <article className="asset-card distribution-v5-panel distribution-roadmap-list-card release-builder-workflow-card">
                 <h3>Release List</h3>
-                <p className="distribution-empty">Select a release to load its details and prep the metadata editor.</p>
+                <p className="distribution-empty">Select the draft or working release you want to build, then continue to metadata.</p>
                 <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
                 <button className="secondary-btn distribution-full-width-btn" type="button" disabled={!selectedReleaseId} onClick={() => setActiveReleaseStep("metadata")}>
                   Continue to Metadata

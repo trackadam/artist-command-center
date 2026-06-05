@@ -4942,3 +4942,37 @@ section .section-heading {
   }
 }
 
+
+
+/* Too Lost Distribution v20 flow terminology cleanup */
+.distribution-catalog-workspace {
+  grid-template-columns: minmax(340px, 0.78fr) minmax(0, 1.22fr);
+}
+
+.distribution-catalog-section .distribution-roadmap-list-card,
+.distribution-catalog-section .distribution-roadmap-filter-card {
+  min-height: 430px;
+}
+
+.distribution-catalog-section .distribution-roadmap-list-card .distribution-v5-table-wrap,
+.distribution-catalog-section .distribution-roadmap-list-card .distribution-table-wrap {
+  max-height: 420px;
+}
+
+.distribution-v5-command-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1450px) {
+  .distribution-v5-command-grid {
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .distribution-catalog-workspace,
+  .distribution-v5-command-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
