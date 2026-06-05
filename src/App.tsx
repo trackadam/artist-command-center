@@ -8210,6 +8210,7 @@ function App() {
   ];
 
   function getSidebarPageLabel(page: AppPage) {
+    if (page === "Dashboard") return "Command Hub";
     if (page === "Releases") return "Roadmaps";
     return page;
   }
@@ -8325,12 +8326,12 @@ function App() {
         return (
           <svg {...iconProps}>
             <circle cx="12" cy="12" r="9" />
-            <circle cx="12" cy="12" r="3" />
-            <circle cx="12" cy="12" r="0.8" fill="currentColor" stroke="none" />
-            <path d="M12 3v3" />
-            <path d="M21 12h-3" />
-            <path d="M12 21v-3" />
-            <path d="M3 12h3" />
+            <circle cx="12" cy="12" r="3.2" />
+            <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none" />
+            <path d="M7.2 6.9c1.2-.9 2.7-1.4 4.3-1.4" />
+            <path d="M16.8 17.1c-1.2.9-2.7 1.4-4.3 1.4" />
+            <path d="M15.2 8.3l2.5-2.5" />
+            <path d="M6.3 17.7l2.5-2.5" />
           </svg>
         );
       case "Planner":
