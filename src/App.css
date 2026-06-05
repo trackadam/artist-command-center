@@ -3129,13 +3129,14 @@ section .section-heading {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 6px;
   padding: 22px 24px;
   border-radius: 24px;
   background:
     radial-gradient(circle at 95% 15%, rgba(47, 124, 255, 0.16), transparent 38%),
     linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025));
   border-color: rgba(255, 255, 255, 0.105);
+  min-height: 140px;
 }
 
 .distribution-v5-status-card .status-pill {
@@ -3560,7 +3561,7 @@ section .section-heading {
   text-transform: uppercase;
 }
 
-.distribution-form-grid input,
+.distribution-form-grid input:not([type="checkbox"]):not([type="radio"]),
 .distribution-form-grid select,
 .distribution-upc-inline-form input {
   width: 100%;
@@ -3580,7 +3581,7 @@ section .section-heading {
   color: rgba(219, 231, 255, 0.5);
 }
 
-.distribution-form-grid input:focus,
+.distribution-form-grid input:not([type="checkbox"]):not([type="radio"]):focus,
 .distribution-form-grid select:focus,
 .distribution-upc-inline-form input:focus {
   border-color: rgba(47, 124, 255, 0.7);
@@ -3780,14 +3781,22 @@ section .section-heading {
 }
 
 .release-builder-step strong {
-  font-size: 0.95rem;
-  line-height: 1.1;
+  font-size: 0.92rem;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .release-builder-step small {
   color: rgba(219, 231, 255, 0.68);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .release-builder-step-complete {
@@ -3825,17 +3834,17 @@ section .section-heading {
 .release-builder-step-panel {
   display: grid;
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .release-builder-draft-panel,
 .release-builder-catalog-panel,
 .release-builder-details-panel {
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
 }
 
 .release-builder-metadata-panel {
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
 }
 
 .release-builder-side-card {
@@ -3859,20 +3868,32 @@ section .section-heading {
 
 .release-builder-mini-checklist {
   display: grid;
-  gap: 10px;
-  margin: 18px 0;
+  gap: 8px;
+  margin: 16px 0;
 }
 
 .release-builder-mini-checklist label {
-  min-height: 48px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 13px;
-  border-radius: 15px;
+  padding: 10px 13px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.055);
   border: 1px solid rgba(255, 255, 255, 0.085);
   font-size: 0.82rem;
+  color: rgba(245, 248, 255, 0.85);
+  cursor: default;
+}
+
+.release-builder-mini-checklist input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  flex-shrink: 0;
+  accent-color: #2f7cff;
+  cursor: default;
+  margin: 0;
 }
 
 .release-builder-next-btn {
