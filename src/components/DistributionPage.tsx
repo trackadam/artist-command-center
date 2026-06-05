@@ -829,6 +829,9 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       setCreateReleaseState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
       setReleaseDraftForm(emptyReleaseDraftForm);
       await loadReleasesWithFilters();
+
+      // Auto-advance to Artwork after creating a new draft (makes new release flow smoother)
+      setActiveReleaseStep("artwork");
     } catch (draftError) {
       setCreateReleaseState((current) => ({
         loading: false,
