@@ -6,6 +6,7 @@ import {
   getTooLostReleaseTracks,
   listTooLostReleases,
   validateTooLostUpc,
+  validateTooLostIsrc,
   connectionHasScope,
   disconnectTooLost,
   fetchTooLostEndpoint,
