@@ -373,6 +373,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
   const [createReleaseState, setCreateReleaseState] = useState<EndpointState>(defaultEndpointState);
   const [upcToValidate, setUpcToValidate] = useState("");
   const [upcValidationState, setUpcValidationState] = useState<EndpointState>(defaultEndpointState);
+  const [isrcToValidate, setIsrcToValidate] = useState("");
+  const [isrcValidationState, setIsrcValidationState] = useState<EndpointState>(defaultEndpointState);
 
   async function loadConnection() {
     setConnectionLoading(true);
@@ -423,6 +425,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     setReleaseTracksState(defaultEndpointState);
     setCreateReleaseState(defaultEndpointState);
     setUpcValidationState(defaultEndpointState);
+    setIsrcValidationState(defaultEndpointState);
 
     try {
       await disconnectTooLost();
@@ -576,6 +579,23 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
     }
   }
 
+  async function validateIsrc() {
+    setIsrcValidationState({ loading: true, error: "", data: isrcValidationState.data, loadedAt: isrcValidationState.loadedAt });
+
+    try {
+      if (!isrcToValidate.trim()) throw new Error("Enter an ISRC first.");
+      const data = await validateTooLostIsrc(isrcToValidate.trim(), selectedReleaseId || undefined);
+      setIsrcValidationState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+    } catch (isrcError) {
+      setIsrcValidationState((current) => ({
+        loading: false,
+        error: isrcError instanceof Error ? isrcError.message : "Could not validate ISRC.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
   async function loadMany(keys: TooLostEndpointKey[]) {
     setActionLoading(true);
     setError("");
@@ -660,14 +680,14 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
       id: "release-detail-section",
       number: "03",
       label: "Details & Tracks",
-      helper: "Inspect metadata and track list.",
+      helper: "Inspect metadata, track list, and ISRC tools.",
       complete: selectedReleaseReady,
     },
     {
       id: "release-validation-section",
       number: "04",
       label: "Validation",
-      helper: "Run UPC checks before submission.",
+      helper: "Run UPC and ISRC checks before submission.",
       complete: upcValidated,
     },
     {
@@ -895,32 +915,73 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
               <ReleaseTable data={releasesResult} selectedReleaseId={selectedReleaseId} onSelect={(releaseId) => void loadReleaseDetails(releaseId)} />
             </article>
             <article id="release-detail-section" className="asset-card distribution-v5-panel distribution-roadmap-detail-card release-builder-workflow-card">
-              <h3>Selected Release</h3>
+              <div className="distribution-v11-panel-heading">
+                <div>
+                  <span className="asset-type-pill">Details & Tracks</span>
+                  <h3>Selected Release</h3>
+                  <p>Inspect the selected Too Lost release, review track data, and prep track-level actions.</p>
+                </div>
+              </div>
+
               <InlineError message={releaseDetailState.error} />
               <DataTable data={releaseDetailState.data} emptyLabel="No release selected yet." />
-              <h3 className="distribution-v11-subhead">Tracks</h3>
+
+              <div className="release-track-tools-header">
+                <div>
+                  <h3 className="distribution-v11-subhead">Tracks</h3>
+                  <p className="distribution-empty">Track upload and edit tools stay locked until we confirm Too Lost's exact track payload schema.</p>
+                </div>
+                <span className="status-pill">Track tools v1</span>
+              </div>
+
               <InlineError message={releaseTracksState.error} />
               <DataTable data={releaseTracksState.data} emptyLabel="No tracks loaded for this release yet." />
+
+              <div className="release-track-locked-actions">
+                <button className="secondary-btn" type="button" disabled>Add Track Locked</button>
+                <button className="secondary-btn" type="button" disabled>Audio Upload Locked</button>
+                <button className="secondary-btn" type="button" disabled>Edit Track Metadata Locked</button>
+              </div>
             </article>
           </div>
 
           <article id="release-validation-section" className="asset-card distribution-v5-panel distribution-upc-tool-card release-builder-workflow-card">
             <div className="distribution-v11-panel-heading distribution-v11-inline-heading">
               <div>
-                <span className="asset-type-pill">Validation Tool</span>
-                <h3>UPC Check</h3>
-                <p>Validates UPC format and uniqueness against Too Lost sandbox. If a release is selected, its ID is sent with the check.</p>
+                <span className="asset-type-pill">Identifier Validation</span>
+                <h3>UPC & ISRC Checks</h3>
+                <p>Validate release and track identifiers against Too Lost sandbox before moving toward metadata, delivery, and submit tools.</p>
               </div>
               {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
             </div>
-            <div className="distribution-v5-inline-form distribution-upc-inline-form">
-              <input value={upcToValidate} onChange={(event) => setUpcToValidate(event.target.value)} placeholder="Enter UPC" inputMode="numeric" />
-              <button className="secondary-btn" type="button" disabled={!canLoad || upcValidationState.loading || !upcToValidate.trim()} onClick={validateUpc}>
-                {upcValidationState.loading ? "Checking..." : "Validate UPC"}
-              </button>
+
+            <div className="release-validation-grid">
+              <div>
+                <h4>UPC Check</h4>
+                <p className="distribution-empty">Use for release UPC format and uniqueness.</p>
+                <div className="distribution-v5-inline-form distribution-upc-inline-form">
+                  <input value={upcToValidate} onChange={(event) => setUpcToValidate(event.target.value)} placeholder="Enter UPC" inputMode="numeric" />
+                  <button className="secondary-btn" type="button" disabled={!canLoad || upcValidationState.loading || !upcToValidate.trim()} onClick={validateUpc}>
+                    {upcValidationState.loading ? "Checking..." : "Validate UPC"}
+                  </button>
+                </div>
+                <InlineError message={upcValidationState.error} />
+                <DataTable data={upcValidationState.data} emptyLabel="No UPC validation result yet." />
+              </div>
+
+              <div>
+                <h4>ISRC Check</h4>
+                <p className="distribution-empty">Use for track ISRC format and uniqueness.</p>
+                <div className="distribution-v5-inline-form distribution-upc-inline-form">
+                  <input value={isrcToValidate} onChange={(event) => setIsrcToValidate(event.target.value)} placeholder="Enter ISRC" />
+                  <button className="secondary-btn" type="button" disabled={!canLoad || isrcValidationState.loading || !isrcToValidate.trim()} onClick={validateIsrc}>
+                    {isrcValidationState.loading ? "Checking..." : "Validate ISRC"}
+                  </button>
+                </div>
+                <InlineError message={isrcValidationState.error} />
+                <DataTable data={isrcValidationState.data} emptyLabel="No ISRC validation result yet." />
+              </div>
             </div>
-            <InlineError message={upcValidationState.error} />
-            <DataTable data={upcValidationState.data} emptyLabel="No UPC validation result yet." />
           </article>
 
           <article id="release-review-section" className="asset-card distribution-v5-panel release-builder-review-card">
@@ -938,6 +999,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage }: Distribu
               <label><input type="checkbox" checked={selectedReleaseReady} readOnly /> Release details selected</label>
               <label><input type="checkbox" checked={Boolean(releaseTracksState.data)} readOnly /> Tracks inspected</label>
               <label><input type="checkbox" checked={upcValidated} readOnly /> UPC validation checked</label>
+              <label><input type="checkbox" checked={Boolean(isrcValidationState.data)} readOnly /> ISRC validation checked</label>
               <label><input type="checkbox" checked={false} readOnly /> Metadata edit workflow confirmed</label>
               <label><input type="checkbox" checked={false} readOnly /> Delivery settings confirmed</label>
             </div>

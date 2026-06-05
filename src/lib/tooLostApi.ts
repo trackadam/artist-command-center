@@ -551,6 +551,16 @@ export async function validateTooLostUpc(upc: string, releaseId?: string | numbe
   });
 }
 
+export async function validateTooLostIsrc(isrc: string, releaseId?: string | number) {
+  return callTooLostEndpoint("/releases/validate/isrc", {
+    method: "POST",
+    body: {
+      isrc,
+      ...(releaseId ? { releaseId: Number(releaseId) } : {}),
+    },
+  });
+}
+
 export async function testTooLostProfile() {
   return callTooLostEndpoint("/me");
 }
