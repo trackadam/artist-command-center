@@ -1,5 +1,5 @@
 /* Distribution v22 four-tier Release Creator - simplified Track Adam OS wizard */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   callTooLostEndpoint,
   createTooLostReleaseDraft,
@@ -140,6 +140,49 @@ const emptyReleaseMetadataForm: ReleaseMetadataForm = {
 const releaseStatusOptions = ["draft", "in_review", "live", "takedown_pending", "takedown_complete"];
 const releaseTypeOptions = ["Single", "EP", "Album", "Compilation", "MusicVideo", "Music Video"];
 const licenseTypeOptions = ["Copyright", "Public Domain", "Creative Commons"];
+const releaseSetupLookupKeys: TooLostEndpointKey[] = ["lookupGenres", "lookupLanguages", "lookupPlatforms", "lookupCountries"];
+
+const fallbackGenreOptions: SelectOption[] = [
+  "R&B/Soul",
+  "Hip-Hop/Rap",
+  "Pop",
+  "Alternative/Gothic",
+  "Alternative/Grunge",
+  "Singer/Songwriter",
+  "Electronic",
+  "Rock",
+].map((genre) => ({ value: genre, label: genre }));
+
+const fallbackLanguageOptions: SelectOption[] = [
+  { value: "en", label: "English" },
+  { value: "es", label: "Spanish" },
+  { value: "fr", label: "French" },
+  { value: "zxx", label: "Instrumental / No linguistic content" },
+];
+
+const fallbackDeliveryPlatformOptions: SelectOption[] = [
+  "Spotify",
+  "Apple Music",
+  "Amazon Music",
+  "YouTube Music",
+  "TikTok",
+  "Instagram/Facebook",
+  "Pandora",
+  "Deezer",
+  "Tidal",
+  "SoundCloud",
+].map((platform) => ({ value: platform, label: platform }));
+
+const fallbackTerritoryOptions: SelectOption[] = [
+  { value: "US", label: "United States" },
+  { value: "CA", label: "Canada" },
+  { value: "GB", label: "United Kingdom" },
+  { value: "AU", label: "Australia" },
+  { value: "DE", label: "Germany" },
+  { value: "FR", label: "France" },
+  { value: "JP", label: "Japan" },
+  { value: "BR", label: "Brazil" },
+];
 
 type SelectOption = {
   value: string;
@@ -257,21 +300,43 @@ function getRows(value: unknown) {
 }
 
 function getPlatformOptions(platforms: unknown) {
-  const rows = getRows(platforms);
-  const options = rows
-    .map((row) => getRecordValue(row, ["platform", "channel", "service", "slug", "code", "name", "id"]))
-    .filter((value): value is string | number => typeof value === "string" || typeof value === "number")
-    .map(String);
+  const items = asArray(platforms);
+  const options = items
+    .map((item) => {
+      if (typeof item === "string" || typeof item === "number") return String(item);
+      if (!isRecord(item)) return "";
+      const value = getRecordValue(item, ["platform", "channel", "service", "slug", "code", "name", "id"]);
+      return typeof value === "string" || typeof value === "number" ? String(value) : "";
+    })
+    .filter(Boolean);
 
   return Array.from(new Set(options)).slice(0, 50);
 }
 
+function dedupeOptions(options: SelectOption[]) {
+  const seen = new Set<string>();
+  return options.filter((option) => {
+    if (!option.value || seen.has(option.value)) return false;
+    seen.add(option.value);
+    return true;
+  }).slice(0, 300);
+}
+
 function getLookupOptions(value: unknown, valueKeys: string[], labelKeys: string[] = valueKeys): SelectOption[] {
-  const rows = getRows(value);
-  const options = rows
-    .map((row) => {
-      const value = getRecordValue(row, valueKeys);
-      const label = getRecordValue(row, labelKeys) || value;
+  const items = asArray(value);
+  const options = items
+    .map((item) => {
+      if (typeof item === "string" || typeof item === "number") {
+        return {
+          value: String(item),
+          label: String(item),
+        };
+      }
+
+      if (!isRecord(item)) return null;
+
+      const value = getRecordValue(item, valueKeys);
+      const label = getRecordValue(item, labelKeys) || value;
 
       if (typeof value !== "string" && typeof value !== "number") return null;
 
@@ -282,12 +347,15 @@ function getLookupOptions(value: unknown, valueKeys: string[], labelKeys: string
     })
     .filter((option): option is SelectOption => Boolean(option));
 
-  const seen = new Set<string>();
-  return options.filter((option) => {
-    if (seen.has(option.value)) return false;
-    seen.add(option.value);
-    return true;
-  }).slice(0, 300);
+  return dedupeOptions(options);
+}
+
+function withFallbackOptions(options: SelectOption[], fallback: SelectOption[]) {
+  return options.length ? options : fallback;
+}
+
+function hasLookupData(state: EndpointState) {
+  return Boolean(state.data) && !state.error;
 }
 
 
@@ -660,6 +728,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [artworkPreviewUrl, setArtworkPreviewUrl] = useState("");
   const [artworkUploading, setArtworkUploading] = useState(false);
   const [artworkUploadError, setArtworkUploadError] = useState("");
+  const releaseSetupAutoLoadedRef = useRef(false);
 
   async function loadConnection() {
     setConnectionLoading(true);
@@ -1198,16 +1267,45 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const salesOverview = getEndpointState(endpointResults, "salesOverview").data;
   const profileRecord = getProfileRecord(profileResult);
   const platformOptions = useMemo(() => getPlatformOptions(analyticsPlatforms.data), [analyticsPlatforms.data]);
-  const genreOptions = useMemo(() => getLookupOptions(lookupGenres.data, ["name", "genre", "value", "label", "id"], ["name", "label", "genre", "value"]), [lookupGenres.data]);
-  const languageOptions = useMemo(() => getLookupOptions(lookupLanguages.data, ["code", "value", "id", "name"], ["name", "label", "code", "value"]), [lookupLanguages.data]);
-  const deliveryPlatformOptions = useMemo(() => getLookupOptions(lookupPlatforms.data, ["name", "platform", "value", "code", "id"], ["name", "label", "platform", "value"]), [lookupPlatforms.data]);
-  const territoryOptions = useMemo(() => getLookupOptions(lookupCountries.data, ["code", "value", "id", "name"], ["name", "label", "code", "value"]), [lookupCountries.data]);
+  const genreOptions = useMemo(
+    () => withFallbackOptions(getLookupOptions(lookupGenres.data, ["name", "genre", "value", "label", "id"], ["name", "label", "genre", "value"]), fallbackGenreOptions),
+    [lookupGenres.data],
+  );
+  const languageOptions = useMemo(
+    () => withFallbackOptions(getLookupOptions(lookupLanguages.data, ["code", "value", "id", "name"], ["name", "label", "code", "value"]), fallbackLanguageOptions),
+    [lookupLanguages.data],
+  );
+  const deliveryPlatformOptions = useMemo(
+    () => withFallbackOptions(getLookupOptions(lookupPlatforms.data, ["name", "platform", "value", "code", "id"], ["name", "label", "platform", "value"]), fallbackDeliveryPlatformOptions),
+    [lookupPlatforms.data],
+  );
+  const territoryOptions = useMemo(
+    () => withFallbackOptions(getLookupOptions(lookupCountries.data, ["code", "value", "id", "name"], ["name", "label", "code", "value"]), fallbackTerritoryOptions),
+    [lookupCountries.data],
+  );
   const metrics = useMemo(
     () => getOverviewMetrics(connection, profileResult, releasesResult, analyticsOverview, salesOverview),
     [connection, profileResult, releasesResult, analyticsOverview, salesOverview],
   );
 
   const canLoad = connected && !expired && !actionLoading;
+  const setupDataLoaded =
+    hasLookupData(lookupGenres) &&
+    hasLookupData(lookupLanguages) &&
+    hasLookupData(lookupPlatforms) &&
+    hasLookupData(lookupCountries);
+  const setupDataLoading = lookupGenres.loading || lookupLanguages.loading || lookupPlatforms.loading || lookupCountries.loading;
+  const setupDataHasErrors = Boolean(lookupGenres.error || lookupLanguages.error || lookupPlatforms.error || lookupCountries.error);
+  const setupDataNeedsLoad = !setupDataLoaded && !setupDataLoading;
+
+  useEffect(() => {
+    if (activeTab !== "Release Builder") return;
+    if (!canLoad || actionLoading || !setupDataNeedsLoad || releaseSetupAutoLoadedRef.current) return;
+
+    releaseSetupAutoLoadedRef.current = true;
+    void loadMany(releaseSetupLookupKeys);
+  }, [activeTab, canLoad, actionLoading, setupDataNeedsLoad]);
+
   const releaseDraftReady = Boolean(createReleaseState.data);
   const selectedReleaseReady = Boolean(selectedReleaseId && releaseDetailState.data);
   const metadataSaved = Boolean(metadataUpdateState.data);
@@ -1541,8 +1639,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <h3>{activeWizardStep.label}</h3>
               <p>{activeWizardStep.helper}</p>
             </div>
-            <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupGenres", "lookupLanguages", "lookupPlatforms", "lookupCountries"])}>
-              {actionLoading ? "Syncing..." : "Sync Setup"}
+            <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(releaseSetupLookupKeys)}>
+              {actionLoading || setupDataLoading ? "Syncing..." : setupDataLoaded ? "Setup Ready" : "Sync Setup"}
             </button>
           </div>
 
@@ -1741,15 +1839,21 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   {selectedReleaseId ? <span className="status-pill">Release ID {selectedReleaseId}</span> : null}
                 </div>
 
-                {(genreOptions.length === 0 || languageOptions.length === 0) ? (
+                {!setupDataLoaded || setupDataHasErrors ? (
                   <div className="distribution-v5-muted-warning release-info-setup-warning">
-                    Load Setup Data first so genre and language dropdowns use the connected distributor options.
-                    <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupGenres", "lookupLanguages", "lookupPlatforms", "lookupCountries"])}>
-                      Load Setup Data
+                    {setupDataLoading
+                      ? "Syncing setup data from the distributor..."
+                      : setupDataHasErrors
+                        ? "Some setup data did not load. Starter options are available so the release flow can keep moving."
+                        : "Using starter options while Track Adam OS syncs distributor genres, languages, stores, and territories."}
+                    <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading || setupDataLoading} onClick={() => void loadMany(releaseSetupLookupKeys)}>
+                      {setupDataLoading ? "Loading..." : "Sync Setup Data"}
                     </button>
                   </div>
                 ) : null}
 
+                <InlineError message={lookupGenres.error} />
+                <InlineError message={lookupLanguages.error} />
                 <InlineError message={releaseDetailState.error} />
                 <div className="distribution-form-grid release-metadata-grid">
                   <label>
@@ -1771,21 +1875,21 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   <label>
                     <span>Primary Genre</span>
                     <select value={releaseMetadataForm.primaryGenre} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, primaryGenre: event.target.value }))}>
-                      <option value="">Choose genre</option>
+                      <option value="">{lookupGenres.loading ? "Loading genres..." : "Choose genre"}</option>
                       {genreOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </label>
                   <label>
                     <span>Secondary Genre</span>
                     <select value={releaseMetadataForm.secondaryGenre} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, secondaryGenre: event.target.value }))}>
-                      <option value="">Choose genre</option>
+                      <option value="">{lookupGenres.loading ? "Loading genres..." : "Choose genre"}</option>
                       {genreOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </label>
                   <label>
                     <span>Language</span>
                     <select value={releaseMetadataForm.language} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, language: event.target.value }))}>
-                      <option value="">Choose language</option>
+                      <option value="">{lookupLanguages.loading ? "Loading languages..." : "Choose language"}</option>
                       {languageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </label>
@@ -2165,14 +2269,21 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   : <span className="status-pill status-warning">Not Saved</span>}
               </div>
 
-              {(deliveryPlatformOptions.length === 0 || territoryOptions.length === 0) ? (
+              {(!hasLookupData(lookupPlatforms) || !hasLookupData(lookupCountries) || lookupPlatforms.error || lookupCountries.error) ? (
                 <div className="distribution-v5-muted-warning release-info-setup-warning">
-                  Load Setup Data to populate platform and territory options.
-                  <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupPlatforms", "lookupCountries"])}>
-                    Load Platform / Country Data
+                  {lookupPlatforms.loading || lookupCountries.loading
+                    ? "Syncing platform and territory data from the distributor..."
+                    : lookupPlatforms.error || lookupCountries.error
+                      ? "Some delivery setup data did not load. Starter platform and territory options are available until the sync succeeds."
+                      : "Using starter platform and territory options while Track Adam OS syncs distributor setup data."}
+                  <button className="secondary-btn" type="button" disabled={!canLoad || actionLoading || lookupPlatforms.loading || lookupCountries.loading} onClick={() => void loadMany(["lookupPlatforms", "lookupCountries"])}>
+                    {lookupPlatforms.loading || lookupCountries.loading ? "Loading..." : "Sync Platform / Country Data"}
                   </button>
                 </div>
               ) : null}
+
+              <InlineError message={lookupPlatforms.error} />
+              <InlineError message={lookupCountries.error} />
 
               <div className="release-delivery-preview-grid">
                 <div>
