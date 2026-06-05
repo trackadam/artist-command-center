@@ -5973,3 +5973,211 @@ section .section-heading {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================
+   v22.1 Space Intelligence Pass
+   Keeps the 4-tier Track Adam OS flow, but uses the canvas smarter.
+   ========================================================== */
+.ta-wizard-left-rail {
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 18px 12px 14px;
+}
+
+.ta-wizard-rail-title {
+  margin-bottom: 8px;
+}
+
+.ta-wizard-step-list {
+  gap: 8px;
+}
+
+.ta-wizard-step {
+  min-height: 42px;
+  padding: 0 10px;
+}
+
+.ta-wizard-rail-bottom {
+  margin-top: auto;
+}
+
+.ta-wizard-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  row-gap: 18px;
+  padding: clamp(20px, 2.2vw, 34px) clamp(20px, 2.8vw, 42px) 42px;
+}
+
+.ta-wizard-main > * {
+  min-width: 0;
+}
+
+.ta-release-stage-header,
+.ta-release-tier-strip,
+.ta-wizard-main > .release-builder-step-panel,
+.ta-wizard-main > .release-builder-metadata-panel,
+.ta-wizard-main > #release-delivery-section,
+.ta-wizard-main > #release-validation-section,
+.ta-wizard-main > #release-review-section {
+  grid-column: 1 / -1;
+}
+
+.ta-release-stage-header {
+  margin-bottom: 0;
+  padding: 16px 18px;
+  min-height: 96px;
+  align-items: center;
+}
+
+.ta-release-stage-header h3 {
+  margin: 6px 0 3px;
+  font-size: clamp(22px, 2.2vw, 30px);
+}
+
+.ta-release-stage-header p {
+  max-width: 760px;
+}
+
+.ta-release-tier-strip {
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.ta-release-tier {
+  min-height: 76px;
+  padding: 12px 13px;
+  gap: 5px;
+}
+
+.ta-release-tier strong {
+  font-size: 13px;
+}
+
+.ta-release-tier small {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ta-wizard-shell .distribution-v5-panel,
+.ta-wizard-shell .release-builder-workflow-card,
+.ta-wizard-shell .release-builder-review-card {
+  padding: 20px;
+}
+
+.ta-wizard-shell .distribution-v11-panel-heading,
+.ta-wizard-shell .distribution-v11-inline-heading {
+  padding-bottom: 14px;
+}
+
+.ta-wizard-shell .distribution-form-grid {
+  gap: 16px;
+}
+
+.ta-wizard-shell .track-form-card {
+  padding: 18px;
+}
+
+.ta-wizard-shell .track-credits-grid,
+.ta-wizard-shell .release-validation-grid,
+.ta-wizard-shell .release-builder-review-grid {
+  gap: 12px;
+}
+
+.ta-wizard-shell .release-builder-review-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ta-wizard-shell .release-review-confirmations {
+  padding: 16px;
+}
+
+@media (min-width: 1301px) {
+  .ta-wizard-shell {
+    min-height: calc(100vh - 34px);
+    border-radius: 24px;
+  }
+
+  .ta-wizard-topbar {
+    height: 62px;
+    padding: 0 18px;
+  }
+
+  .ta-wizard-grid {
+    grid-template-columns: 226px minmax(0, 1fr) 286px;
+    min-height: calc(100vh - 96px);
+  }
+
+  .ta-wizard-help-body {
+    padding: 18px 15px;
+    gap: 14px;
+  }
+
+  .ta-wizard-help-tabs {
+    min-height: 48px;
+  }
+
+  .ta-wizard-help-tips div {
+    padding: 9px 0;
+  }
+}
+
+@media (min-width: 1380px) {
+  .ta-wizard-main {
+    grid-template-columns: minmax(580px, 1.28fr) minmax(330px, 0.72fr);
+    column-gap: 22px;
+  }
+
+  .ta-wizard-main > .release-builder-details-panel {
+    grid-column: 1 / 2;
+    grid-row: 3 / span 3;
+  }
+
+  .ta-wizard-main > #release-validation-section {
+    grid-column: 2 / 3;
+    grid-row: 3;
+  }
+
+  .ta-wizard-main > #release-review-section {
+    grid-column: 2 / 3;
+    grid-row: 4;
+  }
+
+  .ta-wizard-main > #release-validation-section,
+  .ta-wizard-main > #release-review-section,
+  .ta-wizard-main > .release-builder-details-panel,
+  .ta-wizard-main > .release-builder-details-panel .release-builder-workflow-card {
+    margin-top: 0 !important;
+  }
+
+  .ta-wizard-main > .release-builder-details-panel .release-builder-workflow-card {
+    height: 100%;
+  }
+}
+
+@media (min-width: 1620px) {
+  .ta-wizard-grid {
+    grid-template-columns: 236px minmax(0, 1fr) 300px;
+  }
+
+  .ta-wizard-main {
+    padding-left: 40px;
+    padding-right: 40px;
+    grid-template-columns: minmax(650px, 1.35fr) minmax(360px, 0.65fr);
+  }
+}
+
+@media (max-width: 1300px) {
+  .ta-wizard-main {
+    display: block;
+  }
+
+  .ta-release-stage-header,
+  .ta-release-tier-strip,
+  .ta-wizard-main .release-builder-step-panel,
+  .ta-wizard-main > article {
+    margin-bottom: 18px;
+  }
+}
