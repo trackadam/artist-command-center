@@ -10869,3 +10869,355 @@ body {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* =========================
+   v22.11 Setup Command Center — horizontal featured card system
+   Each section is a wide horizontal strip: meta left, form right.
+   No equal-height sibling stretching possible.
+   ========================= */
+
+/* Featured card — horizontal strip */
+.scc-featured-card {
+  display: grid !important;
+  grid-template-columns: 220px minmax(0, 1fr) !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  border-radius: 22px !important;
+  overflow: hidden !important;
+  align-items: stretch !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+/* Left meta column */
+.scc-featured-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 22px 20px;
+  background:
+    radial-gradient(circle at top left, rgba(47, 124, 255, 0.18), transparent 60%),
+    rgba(255, 255, 255, 0.03);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  min-width: 0;
+}
+
+.scc-featured-meta .asset-type-pill {
+  width: fit-content;
+}
+
+.scc-featured-meta h3 {
+  margin: 4px 0 2px !important;
+  font-size: 1rem !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.2 !important;
+  color: var(--text) !important;
+}
+
+.scc-featured-meta p {
+  margin: 0 !important;
+  font-size: 0.76rem !important;
+  color: var(--muted) !important;
+  line-height: 1.45 !important;
+  font-weight: 700 !important;
+}
+
+.scc-featured-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.scc-featured-actions .primary-btn,
+.scc-featured-actions .secondary-btn {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 14px !important;
+  font-size: 0.78rem !important;
+  border-radius: 10px !important;
+  width: 100% !important;
+  justify-content: center !important;
+}
+
+/* Right form body */
+.scc-featured-body {
+  padding: 18px 20px;
+  min-width: 0;
+}
+
+/* Field grid — 2-col default */
+.scc-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* 3-col variant for roster artist */
+.scc-field-grid.scc-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.scc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.scc-field span {
+  font-size: 0.64rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.09em !important;
+  text-transform: uppercase !important;
+  color: rgba(185, 200, 230, 0.72) !important;
+}
+
+.scc-field input,
+.scc-field select {
+  width: 100% !important;
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 9px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text) !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  outline: none !important;
+}
+
+.scc-field input:focus,
+.scc-field select:focus {
+  border-color: rgba(47, 124, 255, 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(47, 124, 255, 0.14) !important;
+}
+
+.scc-field textarea {
+  width: 100% !important;
+  min-height: 52px !important;
+  padding: 8px 10px !important;
+  border-radius: 9px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text) !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  resize: vertical !important;
+  outline: none !important;
+  line-height: 1.5 !important;
+}
+
+.scc-field textarea:focus {
+  border-color: rgba(47, 124, 255, 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(47, 124, 255, 0.14) !important;
+}
+
+.scc-span2 { grid-column: span 2 !important; }
+.scc-span3 { grid-column: span 3 !important; }
+
+/* Half-row for Roster + Platform Match side by side */
+.scc-half-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.scc-half-card {
+  padding: 18px 20px !important;
+  border-radius: 22px !important;
+  min-height: 0 !important;
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.scc-half-head {
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.scc-half-head h3 {
+  margin: 4px 0 3px !important;
+  font-size: 0.95rem !important;
+  letter-spacing: -0.02em !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.scc-half-head p {
+  margin: 0 !important;
+  font-size: 0.76rem !important;
+  color: var(--muted) !important;
+  font-weight: 700 !important;
+}
+
+/* Search row — inline 3-col */
+.scc-search-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.scc-search-row select,
+.scc-search-row input {
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 9px !important;
+  font-size: 0.8rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text) !important;
+  outline: none !important;
+}
+
+.scc-search-row .primary-btn {
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 0 14px !important;
+  font-size: 0.78rem !important;
+  border-radius: 9px !important;
+  white-space: nowrap !important;
+}
+
+/* Empty state — minimal */
+.scc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 18px;
+  text-align: center;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.scc-empty strong {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.scc-empty p {
+  margin: 0 !important;
+  font-size: 0.72rem !important;
+  color: var(--muted-2) !important;
+}
+
+/* URL strip — single horizontal row */
+.scc-url-strip {
+  display: grid !important;
+  grid-template-columns: 220px minmax(0, 1fr) !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+  align-items: center !important;
+  min-height: 0 !important;
+}
+
+.scc-url-meta {
+  padding: 16px 18px;
+  background:
+    radial-gradient(circle at top left, rgba(47, 124, 255, 0.14), transparent 60%),
+    rgba(255, 255, 255, 0.03);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.scc-url-meta h3 {
+  margin: 3px 0 2px !important;
+  font-size: 0.9rem !important;
+  letter-spacing: -0.02em !important;
+}
+
+.scc-url-meta p {
+  margin: 0 !important;
+  font-size: 0.72rem !important;
+  color: var(--muted) !important;
+  line-height: 1.4 !important;
+  font-weight: 700 !important;
+}
+
+.scc-url-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 16px 18px;
+}
+
+.scc-url-controls input {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  border-radius: 10px !important;
+  font-size: 0.82rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text) !important;
+  outline: none !important;
+}
+
+.scc-url-controls .primary-btn {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 0.82rem !important;
+  border-radius: 10px !important;
+  white-space: nowrap !important;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .scc-featured-card,
+  .scc-url-strip {
+    grid-template-columns: 1fr !important;
+  }
+
+  .scc-featured-meta,
+  .scc-url-meta {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .scc-featured-actions {
+    flex-direction: row;
+  }
+
+  .scc-featured-actions .primary-btn,
+  .scc-featured-actions .secondary-btn {
+    width: auto !important;
+  }
+
+  .scc-half-row {
+    grid-template-columns: 1fr;
+  }
+
+  .scc-url-controls {
+    padding: 14px 16px;
+  }
+}
+
+@media (max-width: 760px) {
+  .scc-field-grid,
+  .scc-field-grid.scc-grid-3,
+  .scc-search-row,
+  .scc-url-controls {
+    grid-template-columns: 1fr !important;
+  }
+
+  .scc-span2,
+  .scc-span3 {
+    grid-column: span 1 !important;
+  }
+}

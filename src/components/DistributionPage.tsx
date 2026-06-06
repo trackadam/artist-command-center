@@ -4597,87 +4597,86 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             </div>
           ) : null}
 
-          <div className="setup-manual-grid">
-            <article className="asset-card setup-panel setup-form-card">
-              <div className="analytics-panel-head">
-                <div>
-                  <span className="asset-type-pill">Label Profile</span>
-                  <h3>Label Preferences</h3>
-                  <p>Save the label identity and public links used across releases and roster setup.</p>
-                </div>
-              </div>
-              <div className="setup-form-grid">
-                <label className="setup-form-wide"><span>Label Name</span><input value={manualLabelPreferenceForm.name} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, name: event.target.value }))} placeholder="Label name" /></label>
-                <label className="setup-form-wide"><span>About Label</span><textarea value={manualLabelPreferenceForm.about} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Independent label description" /></label>
-                <label><span>Website</span><input value={manualLabelPreferenceForm.website} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." /></label>
-                <label><span>Image URL</span><input value={manualLabelPreferenceForm.image} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, image: event.target.value }))} placeholder="https://..." /></label>
-                <label><span>Facebook</span><input value={manualLabelPreferenceForm.facebook} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, facebook: event.target.value }))} placeholder="https://facebook.com/..." /></label>
-                <label><span>Instagram</span><input value={manualLabelPreferenceForm.instagram} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, instagram: event.target.value }))} placeholder="https://instagram.com/..." /></label>
-                <label><span>X / Twitter</span><input value={manualLabelPreferenceForm.twitter} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, twitter: event.target.value }))} placeholder="https://x.com/..." /></label>
-                <label><span>YouTube</span><input value={manualLabelPreferenceForm.youtube} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, youtube: event.target.value }))} placeholder="https://youtube.com/..." /></label>
-              </div>
-              <div className="setup-action-row">
+          {/* Label Profile — horizontal featured card */}
+          <article className="asset-card scc-featured-card">
+            <div className="scc-featured-meta">
+              <span className="asset-type-pill">Label Profile</span>
+              <h3>Label Preferences</h3>
+              <p>Save the label identity and public links used across releases and roster setup.</p>
+              <div className="scc-featured-actions">
                 <button className="primary-btn" type="button" disabled={!canLoad || preferenceLabelSubmitState.loading} onClick={() => void submitManualLabelPreferences()}>
-                  {preferenceLabelSubmitState.loading ? "Saving Label..." : "Save Label Preferences"}
+                  {preferenceLabelSubmitState.loading ? "Saving..." : "Save Label"}
                 </button>
-                <button className="secondary-btn" type="button" disabled={!canLoad || preferenceLabelSubmitState.loading || !preferencesLabel.data} onClick={() => void submitCurrentLabelPreferenceSnapshot()}>Submit Synced Snapshot</button>
+                <button className="secondary-btn" type="button" disabled={!canLoad || preferenceLabelSubmitState.loading || !preferencesLabel.data} onClick={() => void submitCurrentLabelPreferenceSnapshot()}>Sync Snapshot</button>
               </div>
-            </article>
+            </div>
+            <div className="scc-featured-body">
+              <div className="scc-field-grid">
+                <label className="scc-field scc-span2"><span>Label name</span><input value={manualLabelPreferenceForm.name} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, name: event.target.value }))} placeholder="Label name" /></label>
+                <label className="scc-field scc-span2"><span>About label</span><textarea value={manualLabelPreferenceForm.about} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Independent label description" /></label>
+                <label className="scc-field"><span>Website</span><input value={manualLabelPreferenceForm.website} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." /></label>
+                <label className="scc-field"><span>Image URL</span><input value={manualLabelPreferenceForm.image} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, image: event.target.value }))} placeholder="https://..." /></label>
+                <label className="scc-field"><span>Facebook</span><input value={manualLabelPreferenceForm.facebook} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, facebook: event.target.value }))} placeholder="https://facebook.com/..." /></label>
+                <label className="scc-field"><span>Instagram</span><input value={manualLabelPreferenceForm.instagram} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, instagram: event.target.value }))} placeholder="https://instagram.com/..." /></label>
+                <label className="scc-field"><span>X / Twitter</span><input value={manualLabelPreferenceForm.twitter} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, twitter: event.target.value }))} placeholder="https://x.com/..." /></label>
+                <label className="scc-field"><span>YouTube</span><input value={manualLabelPreferenceForm.youtube} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, youtube: event.target.value }))} placeholder="https://youtube.com/..." /></label>
+              </div>
+            </div>
+          </article>
 
-            <article className="asset-card setup-panel setup-form-card">
-              <div className="analytics-panel-head">
-                <div>
-                  <span className="asset-type-pill">Roster Artist</span>
-                  <h3>Add Artist to Label Roster</h3>
-                  <p>Create or update an artist profile under your label roster. Leave the form blank until you are adding a specific artist.</p>
-                </div>
-              </div>
-              <div className="setup-form-grid">
-                <label><span>Artist Name</span><input value={manualArtistPreferenceForm.artistName} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Artist name" /></label>
-                <label><span>Artist ID optional</span><input value={manualArtistPreferenceForm.id} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, id: event.target.value.replace(/[^0-9]/g, "") }))} placeholder="123" inputMode="numeric" /></label>
-                <label><span>Primary Genre</span><input value={manualArtistPreferenceForm.primaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, primaryGenre: event.target.value }))} placeholder="Primary genre" /></label>
-                <label><span>Secondary Genre</span><input value={manualArtistPreferenceForm.secondaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, secondaryGenre: event.target.value }))} placeholder="Secondary genre" /></label>
-                <label><span>Language</span><input value={manualArtistPreferenceForm.language} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, language: event.target.value }))} placeholder="English" /></label>
-                <label><span>Label</span><input value={manualArtistPreferenceForm.label} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, label: event.target.value }))} placeholder="Label name" /></label>
-                <label><span>C Line</span><input value={manualArtistPreferenceForm.cLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, cLine: event.target.value }))} placeholder="2026 Label Name" /></label>
-                <label><span>P Line</span><input value={manualArtistPreferenceForm.pLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, pLine: event.target.value }))} placeholder="2026 Label Name" /></label>
-                <label><span>Release Time</span><input value={manualArtistPreferenceForm.releaseTime} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, releaseTime: event.target.value }))} placeholder="00:00" /></label>
-                <label><span>Time Zone</span><input value={manualArtistPreferenceForm.timeZone} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, timeZone: event.target.value }))} placeholder="America/New_York" /></label>
-                <label className="setup-form-wide"><span>About Artist</span><textarea value={manualArtistPreferenceForm.about} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Artist bio / description" /></label>
-                <label><span>Spotify</span><input value={manualArtistPreferenceForm.spotify} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, spotify: event.target.value }))} placeholder="https://open.spotify.com/artist/..." /></label>
-                <label><span>Apple Music</span><input value={manualArtistPreferenceForm.appleMusic} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, appleMusic: event.target.value }))} placeholder="https://music.apple.com/..." /></label>
-                <label><span>YouTube Channel</span><input value={manualArtistPreferenceForm.youtube} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, youtube: event.target.value }))} placeholder="https://youtube.com/..." /></label>
-                <label><span>SoundCloud</span><input value={manualArtistPreferenceForm.soundcloud} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, soundcloud: event.target.value }))} placeholder="https://soundcloud.com/..." /></label>
-                <label><span>Website</span><input value={manualArtistPreferenceForm.website} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." /></label>
-                <label><span>Facebook</span><input value={manualArtistPreferenceForm.facebook} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, facebook: event.target.value }))} placeholder="https://facebook.com/..." /></label>
-                <label><span>Instagram</span><input value={manualArtistPreferenceForm.instagram} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, instagram: event.target.value }))} placeholder="https://instagram.com/..." /></label>
-                <label><span>X / Twitter</span><input value={manualArtistPreferenceForm.twitter} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, twitter: event.target.value }))} placeholder="https://x.com/..." /></label>
-              </div>
-              <div className="setup-action-row">
+          {/* Roster Artist — horizontal featured card */}
+          <article className="asset-card scc-featured-card">
+            <div className="scc-featured-meta">
+              <span className="asset-type-pill">Roster Artist</span>
+              <h3>Add Artist to Roster</h3>
+              <p>Create or update an artist profile under your label roster.</p>
+              <div className="scc-featured-actions">
                 <button className="primary-btn" type="button" disabled={!canLoad || preferenceArtistSubmitState.loading} onClick={() => void submitManualArtistPreferences()}>
-                  {preferenceArtistSubmitState.loading ? "Saving Artist..." : "Add / Update Artist"}
+                  {preferenceArtistSubmitState.loading ? "Saving..." : "Add / Update"}
                 </button>
-                <button className="secondary-btn" type="button" disabled={preferenceArtistSubmitState.loading} onClick={() => setManualArtistPreferenceForm(emptyManualArtistPreferenceForm)}>Clear Artist Form</button>
+                <button className="secondary-btn" type="button" disabled={preferenceArtistSubmitState.loading} onClick={() => setManualArtistPreferenceForm(emptyManualArtistPreferenceForm)}>Clear Form</button>
               </div>
-            </article>
-          </div>
+            </div>
+            <div className="scc-featured-body">
+              <div className="scc-field-grid scc-grid-3">
+                <label className="scc-field"><span>Artist name</span><input value={manualArtistPreferenceForm.artistName} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Artist name" /></label>
+                <label className="scc-field"><span>Artist ID</span><input value={manualArtistPreferenceForm.id} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, id: event.target.value.replace(/[^0-9]/g, "") }))} placeholder="123" inputMode="numeric" /></label>
+                <label className="scc-field"><span>Primary genre</span><input value={manualArtistPreferenceForm.primaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, primaryGenre: event.target.value }))} placeholder="Primary genre" /></label>
+                <label className="scc-field"><span>Secondary genre</span><input value={manualArtistPreferenceForm.secondaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, secondaryGenre: event.target.value }))} placeholder="Secondary genre" /></label>
+                <label className="scc-field"><span>Language</span><input value={manualArtistPreferenceForm.language} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, language: event.target.value }))} placeholder="English" /></label>
+                <label className="scc-field"><span>Label</span><input value={manualArtistPreferenceForm.label} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, label: event.target.value }))} placeholder="Label name" /></label>
+                <label className="scc-field"><span>C line</span><input value={manualArtistPreferenceForm.cLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, cLine: event.target.value }))} placeholder="2026 Label Name" /></label>
+                <label className="scc-field"><span>P line</span><input value={manualArtistPreferenceForm.pLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, pLine: event.target.value }))} placeholder="2026 Label Name" /></label>
+                <label className="scc-field"><span>Release time</span><input value={manualArtistPreferenceForm.releaseTime} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, releaseTime: event.target.value }))} placeholder="00:00" /></label>
+                <label className="scc-field"><span>Time zone</span><input value={manualArtistPreferenceForm.timeZone} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, timeZone: event.target.value }))} placeholder="America/New_York" /></label>
+                <label className="scc-field scc-span3"><span>About artist</span><textarea value={manualArtistPreferenceForm.about} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Artist bio / description" /></label>
+                <label className="scc-field"><span>Spotify</span><input value={manualArtistPreferenceForm.spotify} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, spotify: event.target.value }))} placeholder="https://open.spotify.com/artist/..." /></label>
+                <label className="scc-field"><span>Apple Music</span><input value={manualArtistPreferenceForm.appleMusic} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, appleMusic: event.target.value }))} placeholder="https://music.apple.com/..." /></label>
+                <label className="scc-field"><span>YouTube channel</span><input value={manualArtistPreferenceForm.youtube} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, youtube: event.target.value }))} placeholder="https://youtube.com/..." /></label>
+                <label className="scc-field"><span>SoundCloud</span><input value={manualArtistPreferenceForm.soundcloud} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, soundcloud: event.target.value }))} placeholder="https://soundcloud.com/..." /></label>
+                <label className="scc-field"><span>Website</span><input value={manualArtistPreferenceForm.website} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." /></label>
+                <label className="scc-field"><span>Facebook</span><input value={manualArtistPreferenceForm.facebook} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, facebook: event.target.value }))} placeholder="https://facebook.com/..." /></label>
+                <label className="scc-field"><span>Instagram</span><input value={manualArtistPreferenceForm.instagram} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, instagram: event.target.value }))} placeholder="https://instagram.com/..." /></label>
+                <label className="scc-field"><span>X / Twitter</span><input value={manualArtistPreferenceForm.twitter} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, twitter: event.target.value }))} placeholder="https://x.com/..." /></label>
+              </div>
+            </div>
+          </article>
 
-          <div className="setup-main-grid">
-            <article className="asset-card setup-panel setup-roster-panel">
-              <div className="analytics-panel-head">
+          {/* Roster + Platform Match — side by side horizontal cards */}
+          <div className="scc-half-row">
+            <article className="asset-card scc-half-card">
+              <div className="scc-half-head">
                 <div>
                   <span className="asset-type-pill">Artist Roster</span>
-                  <h3>Label Roster</h3>
-                  <p>Artists connected to your label account. Add new artists with the roster form, then sync this list to verify them.</p>
+                  <h3>Label Roster <span className="analytics-count-pill" style={{marginLeft: 8}}>{preferenceArtistRows.length} artists</span></h3>
+                  <p>Artists connected to your label account.</p>
                 </div>
-                <span className="analytics-count-pill">{preferenceArtistRows.length} artists</span>
               </div>
               <InlineError message={preferencesArtists.error || preferenceRosterActionState.error} />
               {!preferenceArtistRows.length ? (
-                <div className="preference-empty-state">
-                  <span>♪</span>
+                <div className="scc-empty">
                   <strong>No roster artists loaded yet</strong>
-                  <p>Sync setup to pull the label roster from Too Lost.</p>
+                  <p>Sync setup to pull the label roster.</p>
                 </div>
               ) : (
                 <div className="setup-roster-list">
@@ -4707,38 +4706,31 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               ) : null}
             </article>
 
-            <article className="asset-card setup-panel setup-platform-panel">
-              <div className="analytics-panel-head">
+            <article className="asset-card scc-half-card">
+              <div className="scc-half-head">
                 <div>
                   <span className="asset-type-pill">Platform Match</span>
-                  <h3>Find Platform Profiles</h3>
-                  <p>Search external platform profiles to copy accurate artist links into the roster form.</p>
+                  <h3>Find Platform Profiles <span className="analytics-count-pill" style={{marginLeft: 8}}>{getPreferenceRows(preferenceSearchState.data).length} results</span></h3>
+                  <p>Search external profiles to copy accurate artist links.</p>
                 </div>
-                <span className="analytics-count-pill">{getPreferenceRows(preferenceSearchState.data).length} results</span>
               </div>
-              <div className="setup-search-grid">
-                <label>
-                  <span>Platform</span>
-                  <select
-                    value={preferenceSearchState.platform}
-                    onChange={(event) => {
-                      const platform = event.target.value as TooLostPreferencePlatform;
-                      setPreferenceSearchState((current) => ({ ...current, platform, data: null, error: "", loadedAt: undefined, resultPlatform: undefined }));
-                      setPreferencePlatformDetailState(defaultEndpointState);
-                    }}
-                  >
-                    <option value="spotify">Spotify</option>
-                    <option value="apple">Apple Music</option>
-                    <option value="youtube">YouTube</option>
-                    <option value="audiomack">Audiomack</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Search</span>
-                  <input value={preferenceSearchState.query} onChange={(event) => setPreferenceSearchState((current) => ({ ...current, query: event.target.value }))} placeholder="Artist name or channel name" />
-                </label>
+              <div className="scc-search-row">
+                <select
+                  value={preferenceSearchState.platform}
+                  onChange={(event) => {
+                    const platform = event.target.value as TooLostPreferencePlatform;
+                    setPreferenceSearchState((current) => ({ ...current, platform, data: null, error: "", loadedAt: undefined, resultPlatform: undefined }));
+                    setPreferencePlatformDetailState(defaultEndpointState);
+                  }}
+                >
+                  <option value="spotify">Spotify</option>
+                  <option value="apple">Apple Music</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="audiomack">Audiomack</option>
+                </select>
+                <input value={preferenceSearchState.query} onChange={(event) => setPreferenceSearchState((current) => ({ ...current, query: event.target.value }))} placeholder="Artist name or channel name" />
                 <button className="primary-btn" type="button" disabled={!canLoad || preferenceSearchState.loading} onClick={() => void handlePreferenceSearch()}>
-                  {preferenceSearchState.loading ? "Searching..." : "Search Profiles"}
+                  {preferenceSearchState.loading ? "Searching..." : "Search"}
                 </button>
               </div>
               <InlineError message={preferenceSearchState.error || preferencePlatformDetailState.error} />
@@ -4753,13 +4745,14 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             </article>
           </div>
 
-          <div className="setup-url-panel asset-card">
-            <div>
+          {/* URL Lookup — slim strip */}
+          <article className="asset-card scc-url-strip">
+            <div className="scc-url-meta">
               <span className="asset-type-pill">URL Lookup</span>
               <h3>Detect Artist From URL</h3>
-              <p>Paste a Spotify, Apple Music, YouTube, or Audiomack URL to identify the artist profile before adding it to your roster.</p>
+              <p>Paste a Spotify, Apple Music, YouTube, or Audiomack URL to identify an artist.</p>
             </div>
-            <div className="setup-url-row">
+            <div className="scc-url-controls">
               <input value={preferenceUrlLookupState.url} onChange={(event) => setPreferenceUrlLookupState((current) => ({ ...current, url: event.target.value }))} placeholder="Paste artist or channel URL" />
               <button className="primary-btn" type="button" disabled={!canLoad || preferenceUrlLookupState.loading} onClick={() => void handlePreferenceUrlLookup()}>
                 {preferenceUrlLookupState.loading ? "Checking..." : "Detect Artist"}
@@ -4773,7 +4766,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <small>{getPreferenceSubtitle(preferenceUrlLookupState.data)}</small>
               </div>
             ) : null}
-          </div>
+          </article>
         </div>
       ) : null}
 
