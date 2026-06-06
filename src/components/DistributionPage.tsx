@@ -15,7 +15,7 @@ import {
   putTooLostReleaseTracks,
   validateTooLostUpc,
   validateTooLostIsrc,
-  getTooLostArtistViaUrl,
+  getTooLostArtistViaLink,
   getTooLostLabelArtist,
   getTooLostPreferencePlatformItem,
   removeTooLostLabelArtist,
@@ -1188,7 +1188,7 @@ function PreferenceResultList({ data, onInspect }: { data: unknown; onInspect?: 
       <div className="preference-empty-state">
         <span>⌕</span>
         <strong>No results loaded yet</strong>
-        <p>Search Spotify, Apple Music, or YouTube to connect the correct artist profile.</p>
+        <p>Search Spotify, Apple Music, YouTube, or Audiomack to connect the correct artist profile.</p>
       </div>
     );
   }
@@ -2088,7 +2088,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     setPreferencePlatformDetailState((current) => ({ ...current, loading: true, error: "" }));
 
     try {
-      const data = await getTooLostPreferencePlatformItem(preferenceSearchState.platform, id);
+      const url = getPreferenceUrl(row);
+      const data = await getTooLostPreferencePlatformItem(preferenceSearchState.platform, id, url && url !== "—" ? url : undefined);
       setPreferencePlatformDetailState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
     } catch (detailError) {
       setPreferencePlatformDetailState((current) => ({
@@ -2103,14 +2104,14 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   async function handlePreferenceUrlLookup() {
     const url = preferenceUrlLookupState.url.trim();
     if (!url) {
-      setPreferenceUrlLookupState((current) => ({ ...current, loading: false, error: "Paste a Spotify, Apple Music, or YouTube artist URL first." }));
+      setPreferenceUrlLookupState((current) => ({ ...current, loading: false, error: "Paste a Spotify, Apple Music, YouTube, or Audiomack artist URL first." }));
       return;
     }
 
     setPreferenceUrlLookupState((current) => ({ ...current, loading: true, error: "" }));
 
     try {
-      const data = await getTooLostArtistViaUrl(url);
+      const data = await getTooLostArtistViaLink(url);
       setPreferenceUrlLookupState((current) => ({ ...current, loading: false, error: "", data, loadedAt: new Date().toISOString() }));
     } catch (lookupError) {
       setPreferenceUrlLookupState((current) => ({
@@ -4394,7 +4395,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <div className="analytics-panel-head">
                 <div>
                   <span className="asset-type-pill">Platform Match</span>
-                  <h3>Search Spotify, Apple Music, or YouTube</h3>
+                  <h3>Search Spotify, Apple Music, YouTube, or Audiomack</h3>
                   <p>Find the official platform profile before connecting it to artist preferences.</p>
                 </div>
                 <span className="analytics-count-pill">{getPreferenceRows(preferenceSearchState.data).length} results</span>
@@ -4406,6 +4407,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                     <option value="spotify">Spotify</option>
                     <option value="apple">Apple Music</option>
                     <option value="youtube">YouTube</option>
+                    <option value="audiomack">Audiomack</option>
                   </select>
                 </label>
                 <label>
@@ -4432,7 +4434,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             <div>
               <span className="asset-type-pill">URL Lookup</span>
               <h3>Detect Artist From Platform URL</h3>
-              <p>Paste a Spotify, Apple Music, or YouTube URL and let Too Lost identify the artist profile.</p>
+              <p>Paste a Spotify, Apple Music, YouTube, or Audiomack URL and let Too Lost identify the artist profile.</p>
             </div>
             <div className="setup-url-row">
               <input value={preferenceUrlLookupState.url} onChange={(event) => setPreferenceUrlLookupState((current) => ({ ...current, url: event.target.value }))} placeholder="Paste artist or channel URL" />

@@ -746,49 +746,113 @@ export async function getTooLostLabelArtist(artistId: string | number) {
   return callTooLostEndpoint(`/preferences/label/artist/${artistId}`);
 }
 
-export type TooLostPreferencePlatform = "spotify" | "apple" | "youtube";
+export type TooLostPreferencePlatform = "spotify" | "apple" | "youtube" | "audiomack";
 
-function getPreferenceSearchPath(platform: TooLostPreferencePlatform) {
-  if (platform === "spotify") return "/preferences/search-spotify";
-  if (platform === "apple") return "/preferences/search-apple";
-  return "/preferences/search-yt-channel";
-}
-
-function getPreferenceGetPath(platform: TooLostPreferencePlatform) {
+function getPreferenceGetPath(platform: Exclude<TooLostPreferencePlatform, "audiomack">) {
   if (platform === "spotify") return "/preferences/get-spotify-artist";
   if (platform === "apple") return "/preferences/get-apple-artist";
   return "/preferences/get-yt-channel";
 }
 
-export async function searchTooLostPreferencePlatform(platform: TooLostPreferencePlatform, search: string) {
-  return callTooLostEndpoint(getPreferenceSearchPath(platform), {
-    query: { search, q: search },
-  });
+function inferTooLostPreferencePlatformFromUrl(url: string): TooLostPreferencePlatform | "" {
+  const normalized = url.toLowerCase();
+  if (normalized.includes("spotify.com")) return "spotify";
+  if (normalized.includes("music.apple.com") || normalized.includes("itunes.apple.com")) return "apple";
+  if (normalized.includes("youtube.com") || normalized.includes("youtu.be")) return "youtube";
+  if (normalized.includes("audiomack.com")) return "audiomack";
+  return "";
 }
 
-export async function getTooLostPreferencePlatformItem(platform: TooLostPreferencePlatform, id: string | number) {
-  return callTooLostEndpoint(getPreferenceGetPath(platform), {
-    query: { id, artistId: id, channelId: id },
-  });
+async function callTooLostWithQueryFallbacks(path: string, queryCandidates: TooLostRequestOptions["query"][]) {
+  let lastError: unknown = null;
+
+  for (const query of queryCandidates) {
+    try {
+      return await callTooLostEndpoint(path, { query });
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+
+  throw new Error(`Too Lost request failed for ${path}.`);
 }
 
-export async function getTooLostArtistViaLink(link: string) {
-  return callTooLostEndpoint("/preferences/artist-via-link", {
-    query: { link, url: link },
-  });
-}
-
-export async function searchTooLostArtistViaPlatform(platform: string, search: string) {
+export async function searchTooLostPreferencePlatform(platform: TooLostPreferencePlatform, search: string, limit = 8) {
   return callTooLostEndpoint("/preferences/search/artist-platform", {
     method: "POST",
-    body: { platform, search, query: search },
+    body: {
+      platform,
+      term: search.trim(),
+      limit,
+    },
   });
 }
 
-export async function getTooLostArtistViaUrl(url: string) {
+export async function getTooLostPreferencePlatformItem(platform: TooLostPreferencePlatform, id: string | number, url?: string) {
+  const lookupUrl = url?.trim();
+  if (lookupUrl) {
+    return getTooLostArtistViaLink(lookupUrl, platform);
+  }
+
+  if (platform === "audiomack") {
+    throw new Error("Audiomack profile inspection requires a profile URL from search results.");
+  }
+
+  const path = getPreferenceGetPath(platform);
+  const lookupId = String(id).trim();
+
+  const candidates: TooLostRequestOptions["query"][] = platform === "youtube"
+    ? [
+        { channelId: lookupId },
+        { id: lookupId },
+        { youtubeChannelId: lookupId },
+      ]
+    : [
+        { artistId: lookupId },
+        { id: lookupId },
+        { platformArtistId: lookupId },
+      ];
+
+  return callTooLostWithQueryFallbacks(path, candidates);
+}
+
+export async function getTooLostArtistViaLink(link: string, platform?: TooLostPreferencePlatform) {
+  const detectedPlatform = platform || inferTooLostPreferencePlatformFromUrl(link);
+  if (!detectedPlatform) {
+    throw new Error("Could not detect the platform from that URL. Choose Spotify, Apple Music, YouTube, or Audiomack.");
+  }
+
+  return callTooLostEndpoint("/preferences/artist-via-link", {
+    query: {
+      link: link.trim(),
+      platform: detectedPlatform,
+    },
+  });
+}
+
+export async function searchTooLostArtistViaPlatform(platform: TooLostPreferencePlatform, term: string, limit = 8) {
+  return callTooLostEndpoint("/preferences/search/artist-platform", {
+    method: "POST",
+    body: {
+      platform,
+      term: term.trim(),
+      limit,
+    },
+  });
+}
+
+export async function getTooLostArtistViaUrl(url: string, name: string, platform: "spotify" | "apple") {
   return callTooLostEndpoint("/preferences/artist/get-artist-via-url", {
     method: "POST",
-    body: { url, link: url },
+    body: {
+      url: url.trim(),
+      name: name.trim(),
+      platform,
+    },
   });
 }
 
