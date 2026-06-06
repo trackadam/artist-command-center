@@ -8887,3 +8887,120 @@ body {
     width: 100%;
   }
 }
+
+/* ── v22.6.10 Catalog matched panels + internal scroll ─────────
+   Keep Catalog List and Details as matched working boxes. As catalog rows/tracks grow,
+   content scrolls inside the card instead of stretching the whole layout. */
+:root {
+  --catalog-work-panel-height: clamp(560px, 58vh, 680px);
+}
+
+.catalog-management-grid {
+  align-items: start !important;
+}
+
+.catalog-list-panel,
+.catalog-detail-panel {
+  height: var(--catalog-work-panel-height) !important;
+  min-height: var(--catalog-work-panel-height) !important;
+  max-height: var(--catalog-work-panel-height) !important;
+  overflow: hidden !important;
+}
+
+.catalog-list-panel {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.catalog-detail-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(117, 154, 255, 0.52) rgba(255,255,255,0.05);
+}
+
+.catalog-detail-panel::-webkit-scrollbar,
+.catalog-table-shell::-webkit-scrollbar,
+.catalog-track-list::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.catalog-detail-panel::-webkit-scrollbar-track,
+.catalog-table-shell::-webkit-scrollbar-track,
+.catalog-track-list::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.045);
+  border-radius: 999px;
+}
+
+.catalog-detail-panel::-webkit-scrollbar-thumb,
+.catalog-table-shell::-webkit-scrollbar-thumb,
+.catalog-track-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(82, 143, 255, 0.72), rgba(216, 170, 69, 0.68));
+  border-radius: 999px;
+}
+
+.catalog-list-panel .catalog-panel-heading,
+.catalog-detail-panel .catalog-panel-heading {
+  flex: 0 0 auto !important;
+}
+
+.catalog-bulk-toolbar {
+  flex: 0 0 auto !important;
+}
+
+.catalog-table-shell {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: auto !important;
+}
+
+.catalog-list-panel > .catalog-empty-state,
+.catalog-detail-panel > .catalog-empty-state {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+
+.catalog-detail-panel .catalog-detail-kpis,
+.catalog-detail-panel .catalog-detail-actions,
+.catalog-detail-panel .catalog-track-list-card {
+  flex: 0 0 auto;
+}
+
+.catalog-detail-panel .catalog-track-list-card {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+.catalog-track-list,
+.catalog-track-list-card .catalog-empty-state-compact {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: auto;
+}
+
+.catalog-track-list-card .catalog-empty-state-compact {
+  display: grid;
+  place-items: center;
+  align-content: center;
+}
+
+@media (max-width: 1360px) {
+  :root {
+    --catalog-work-panel-height: auto;
+  }
+
+  .catalog-list-panel,
+  .catalog-detail-panel {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .catalog-table-shell {
+    max-height: 520px !important;
+  }
+}
