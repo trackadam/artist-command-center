@@ -211,10 +211,47 @@ const beatportLegacyGenres = [
   "UK Garage / Bassline",
 ];
 
-const beatportLegacyGenreKeys = new Set(beatportLegacyGenres.map(normalizeBeatportGenre));
+const beatportLegacyGenreKeys = new Map(beatportLegacyGenres.map((genre) => [normalizeBeatportGenre(genre), genre]));
+const beatportGenreAliases = new Map<string, string>([
+  [normalizeBeatportGenre("Electronic"), "Electronica"],
+  [normalizeBeatportGenre("Electronic/Dance"), "Dance / Pop"],
+  [normalizeBeatportGenre("Dance/Electronic"), "Dance / Pop"],
+  [normalizeBeatportGenre("Electronica/Dance"), "Electronica"],
+  [normalizeBeatportGenre("Dance"), "Dance / Pop"],
+  [normalizeBeatportGenre("EDM"), "Mainstage"],
+  [normalizeBeatportGenre("Techno"), "Techno (Peak Time / Driving)"],
+  [normalizeBeatportGenre("Trance"), "Trance (Main Floor)"],
+]);
 
 function normalizeBeatportGenre(value: string) {
   return value.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "").trim();
+}
+
+function getBeatportMatchedLegacyGenre(value: string) {
+  const normalized = normalizeBeatportGenre(value);
+  if (!normalized) return "";
+
+  const exactMatch = beatportLegacyGenreKeys.get(normalized);
+  if (exactMatch) return exactMatch;
+
+  const aliasMatch = beatportGenreAliases.get(normalized);
+  if (aliasMatch) return aliasMatch;
+
+  // Too Lost may provide broader genre labels like "Electronic" even though
+  // Beatport's accepted legacy label is "Electronica". Keep this aliasing
+  // narrow so plain Pop, Reggae, R&B, and Hip-Hop still stay locked.
+  if (normalized.includes("electronic") || normalized.includes("electronica")) return "Electronica";
+  if (normalized.includes("edm")) return "Mainstage";
+  if (normalized.includes("dancepop") || normalized.includes("popdance")) return "Dance / Pop";
+
+  const slashParts = value.split("/").map((part) => normalizeBeatportGenre(part)).filter(Boolean);
+  for (const part of slashParts) {
+    const partMatch = beatportLegacyGenreKeys.get(part) || beatportGenreAliases.get(part);
+    if (partMatch) return partMatch;
+    if (part.includes("electronic") || part.includes("electronica")) return "Electronica";
+  }
+
+  return "";
 }
 
 function getBeatportEligibility(primaryGenre: string, secondaryGenre: string) {
@@ -225,15 +262,17 @@ function getBeatportEligibility(primaryGenre: string, secondaryGenre: string) {
       eligible: false,
       reason: "Select a Beatport-eligible electronic/dance genre before enabling Beatport.",
       matchedGenre: "",
+      selectedGenreLabel: "No genre selected",
     };
   }
 
-  const matchedGenre = selectedGenres.find((genre) => beatportLegacyGenreKeys.has(normalizeBeatportGenre(genre)));
+  const matchedGenre = selectedGenres.map(getBeatportMatchedLegacyGenre).find(Boolean) || "";
   if (matchedGenre) {
     return {
       eligible: true,
       reason: `Eligible through ${matchedGenre}.`,
       matchedGenre,
+      selectedGenreLabel: selectedGenres.join(" / "),
     };
   }
 
@@ -241,6 +280,7 @@ function getBeatportEligibility(primaryGenre: string, secondaryGenre: string) {
     eligible: false,
     reason: "Not available — Beatport only accepts eligible legacy electronic/dance genres.",
     matchedGenre: "",
+    selectedGenreLabel: selectedGenres.join(" / "),
   };
 }
 
@@ -3179,7 +3219,11 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                           <strong>{option.label}</strong>
                           <small>{option.description}</small>
                           {serviceNote ? <em className={disabled ? "release-delivery-service-warning" : undefined}>{serviceNote}</em> : null}
-                          {isBeatport ? <span className="release-delivery-service-eligibility">Beatport eligible genres only</span> : null}
+                          {isBeatport ? (
+                            <span className={`release-delivery-service-eligibility${beatportEligibility.eligible ? " release-delivery-service-eligibility-active" : ""}`}>
+                              Genre check: {beatportEligibility.selectedGenreLabel}
+                            </span>
+                          ) : null}
                         </span>
                       </label>
                     );

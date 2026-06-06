@@ -9109,3 +9109,9 @@ body {
   font-weight: 850;
   letter-spacing: 0.02em;
 }
+
+.release-delivery-service-eligibility-active {
+  border-color: rgba(51, 214, 159, 0.34) !important;
+  background: rgba(51, 214, 159, 0.1) !important;
+  color: rgba(187, 255, 228, 0.95) !important;
+}
