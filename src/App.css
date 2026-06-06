@@ -9362,3 +9362,202 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* v22.7.2 Submissions UI polish */
+.submissions-command-section {
+  gap: 18px;
+}
+
+.submissions-command-hero {
+  padding: 22px 24px;
+  border-color: rgba(83, 177, 255, 0.24);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(83, 177, 255, 0.18), transparent 34%),
+    radial-gradient(circle at 100% 10%, rgba(245, 197, 81, 0.1), transparent 30%),
+    linear-gradient(145deg, rgba(12, 19, 32, 0.92), rgba(15, 23, 42, 0.68));
+}
+
+.submissions-status-grid {
+  gap: 12px;
+}
+
+.submissions-status-grid article {
+  min-height: 104px;
+  padding: 16px;
+  border-color: rgba(83, 177, 255, 0.18);
+  background:
+    linear-gradient(145deg, rgba(11, 18, 32, 0.88), rgba(16, 28, 48, 0.62)),
+    radial-gradient(circle at 85% 0%, rgba(83, 177, 255, 0.12), transparent 44%);
+}
+
+.submissions-status-grid strong {
+  font-size: 1.65rem;
+}
+
+.submissions-grid {
+  grid-template-columns: minmax(0, 1.42fr) minmax(390px, 0.72fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.submissions-list-panel,
+.submissions-detail-panel {
+  height: clamp(580px, calc(100vh - 330px), 760px);
+  min-height: 580px;
+  border-color: rgba(83, 177, 255, 0.18);
+  background:
+    linear-gradient(145deg, rgba(12, 19, 32, 0.92), rgba(15, 23, 42, 0.68)),
+    radial-gradient(circle at 20% 0%, rgba(83, 177, 255, 0.1), transparent 38%);
+}
+
+.submissions-list-panel {
+  min-width: 0;
+}
+
+.submissions-detail-panel {
+  overflow: hidden auto;
+  min-width: 0;
+  scrollbar-gutter: stable;
+}
+
+.submissions-table-shell {
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.5), rgba(2, 6, 23, 0.2));
+}
+
+.submissions-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.submissions-table th,
+.submissions-table td {
+  padding: 13px 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submissions-table th:nth-child(1),
+.submissions-table td:nth-child(1) { width: 26%; }
+.submissions-table th:nth-child(2),
+.submissions-table td:nth-child(2) { width: 12%; }
+.submissions-table th:nth-child(3),
+.submissions-table td:nth-child(3) { width: 11%; }
+.submissions-table th:nth-child(4),
+.submissions-table td:nth-child(4) { width: 19%; }
+.submissions-table th:nth-child(5),
+.submissions-table td:nth-child(5) { width: 8%; text-align: center; }
+.submissions-table th:nth-child(6),
+.submissions-table td:nth-child(6) { width: 15%; }
+.submissions-table th:nth-child(7),
+.submissions-table td:nth-child(7) { width: 9%; text-align: right; }
+
+.submissions-table .catalog-release-select {
+  min-width: 0;
+  width: 100%;
+}
+
+.submissions-table .catalog-release-select > span:last-child {
+  min-width: 0;
+}
+
+.submissions-table .catalog-release-select strong,
+.submissions-table .catalog-release-select small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submissions-table .mini-action-btn {
+  min-width: 66px;
+  padding-inline: 12px;
+}
+
+.submissions-detail-kpis {
+  gap: 10px;
+}
+
+.submissions-detail-kpis div,
+.submissions-review-card,
+.submissions-service-card,
+.submissions-track-card {
+  border-color: rgba(83, 177, 255, 0.16);
+  background:
+    linear-gradient(145deg, rgba(15, 23, 42, 0.76), rgba(30, 41, 59, 0.42)),
+    radial-gradient(circle at 90% 0%, rgba(83, 177, 255, 0.12), transparent 42%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 14px 30px rgba(2, 6, 23, 0.18);
+}
+
+.submissions-detail-kpis div {
+  min-height: 86px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.submissions-detail-kpis strong {
+  font-size: 0.94rem;
+}
+
+.submissions-review-card,
+.submissions-service-card,
+.submissions-track-card {
+  flex-shrink: 0;
+}
+
+.submissions-track-card {
+  min-height: 0;
+}
+
+.submissions-track-list {
+  max-height: 178px;
+}
+
+.submissions-detail-actions {
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.submissions-detail-panel > .catalog-empty-state {
+  flex: 1;
+  min-height: 0;
+}
+
+.submissions-table-shell .catalog-empty-state {
+  min-height: 100%;
+}
+
+@media (max-width: 1480px) {
+  .submissions-grid {
+    grid-template-columns: minmax(0, 1.28fr) minmax(360px, 0.72fr);
+  }
+
+  .submissions-table th:nth-child(3),
+  .submissions-table td:nth-child(3) {
+    display: none;
+  }
+}
+
+@media (max-width: 1280px) {
+  .submissions-list-panel,
+  .submissions-detail-panel {
+    height: auto;
+    min-height: 0;
+  }
+
+  .submissions-table-shell {
+    max-height: 560px;
+    overflow-x: auto;
+  }
+
+  .submissions-table {
+    min-width: 860px;
+  }
+}
