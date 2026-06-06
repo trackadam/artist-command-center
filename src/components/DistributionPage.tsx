@@ -2393,9 +2393,18 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
 
   async function submitCurrentLabelPreferenceSnapshot() {
-    const payload = getPayloadData(getEndpointState(endpointResults, "preferencesLabel").data);
-    if (!isRecord(payload)) {
-      setPreferenceLabelSubmitState({ loading: false, error: "Load label preferences first. Submit payload schema depends on the current Too Lost label preference record.", data: null });
+    const rawData = getEndpointState(endpointResults, "preferencesLabel").data;
+    if (!rawData) {
+      setPreferenceLabelSubmitState({ loading: false, error: "Load label preferences first via Sync Setup before submitting a snapshot.", data: null });
+      return;
+    }
+
+    let payload: Record<string, unknown>;
+    try {
+      const hydratedForm = hydrateManualLabelPreferenceForm(rawData);
+      payload = buildManualLabelPreferencePayload(hydratedForm);
+    } catch (buildError) {
+      setPreferenceLabelSubmitState({ loading: false, error: buildError instanceof Error ? buildError.message : "Could not build snapshot payload — label name may be missing in the synced data.", data: null });
       return;
     }
 
