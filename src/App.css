@@ -11221,3 +11221,81 @@ body {
     grid-column: span 1 !important;
   }
 }
+
+/* =========================
+   v22.12 Setup — full width, use the canvas
+   ========================= */
+
+/* Kill the centering constraint — let it fill main */
+.setup-command-center {
+  max-width: none !important;
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+/* Featured cards fill full width */
+.scc-featured-card {
+  width: 100% !important;
+  grid-template-columns: 260px minmax(0, 1fr) !important;
+}
+
+/* Wider meta column on large screens */
+@media (min-width: 1400px) {
+  .scc-featured-card {
+    grid-template-columns: 300px minmax(0, 1fr) !important;
+  }
+
+  .scc-url-strip {
+    grid-template-columns: 300px minmax(0, 1fr) !important;
+  }
+}
+
+/* Label Profile — 4-col field grid on wide screens to use the space */
+@media (min-width: 1200px) {
+  .scc-featured-card:first-of-type .scc-field-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  /* Label Name + About stay full width */
+  .scc-featured-card:first-of-type .scc-field-grid .scc-span2 {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+/* Roster Artist — 4-col on wide too */
+@media (min-width: 1200px) {
+  .scc-field-grid.scc-grid-3 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .scc-field-grid.scc-grid-3 .scc-span3 {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+/* Half-row — also full width */
+.scc-half-row {
+  width: 100% !important;
+}
+
+/* URL strip — full width */
+.scc-url-strip {
+  width: 100% !important;
+  grid-template-columns: 260px minmax(0, 1fr) !important;
+}
+
+/* Health grid — always 4-col, fill width */
+.setup-command-center .setup-health-grid {
+  width: 100% !important;
+}
+
+/* Hero card full width */
+.setup-command-center .setup-hero-card {
+  width: 100% !important;
+}
+
+/* Status cards at the top — also full width */
+.distribution-v5-status-row {
+  width: 100% !important;
+  max-width: none !important;
+}
