@@ -781,15 +781,76 @@ async function callTooLostWithQueryFallbacks(path: string, queryCandidates: TooL
   throw new Error(`Too Lost request failed for ${path}.`);
 }
 
+function getPreferenceSearchPath(platform: TooLostPreferencePlatform) {
+  if (platform === "spotify") return "/preferences/search-spotify";
+  if (platform === "apple") return "/preferences/search-apple";
+  if (platform === "youtube") return "/preferences/search-yt-channel";
+  return "";
+}
+
+function getPreferenceSearchQueries(platform: TooLostPreferencePlatform, term: string, limit: number): TooLostRequestOptions["query"][] {
+  if (platform === "spotify") {
+    return [
+      { artist: term, limit },
+    ];
+  }
+
+  // Apple/YouTube docs still need to be confirmed, so keep safe fallbacks for those only.
+  return [
+    { artist: term, limit },
+    { term, limit },
+    { search: term, limit },
+    { q: term, limit },
+    { query: term, limit },
+    { name: term, limit },
+  ];
+}
+
+function formatTooLostSearchError(platform: TooLostPreferencePlatform, errors: unknown[]) {
+  const messages = errors
+    .map((error) => error instanceof Error ? error.message : "")
+    .filter(Boolean);
+
+  const uniqueMessages = Array.from(new Set(messages));
+  const readablePlatform = platform === "apple" ? "Apple Music" : platform === "youtube" ? "YouTube" : platform === "audiomack" ? "Audiomack" : "Spotify";
+  return uniqueMessages.length
+    ? `${readablePlatform} search failed: ${uniqueMessages.join(" | ")}`
+    : `${readablePlatform} search failed. Check the Too Lost preference endpoint, platform, and preference scopes.`;
+}
+
 export async function searchTooLostPreferencePlatform(platform: TooLostPreferencePlatform, search: string, limit = 8) {
-  return callTooLostEndpoint("/preferences/search/artist-platform", {
-    method: "POST",
-    body: {
-      platform,
-      term: search.trim(),
-      limit,
-    },
-  });
+  const term = search.trim();
+  const errors: unknown[] = [];
+
+  // Preferred documented endpoint.
+  try {
+    return await callTooLostEndpoint("/preferences/search/artist-platform", {
+      method: "POST",
+      body: {
+        platform,
+        term,
+        limit,
+      },
+    });
+  } catch (error) {
+    errors.push(error);
+  }
+
+  // Sandbox/partner accounts may expose the legacy platform-specific endpoints instead.
+  const fallbackPath = getPreferenceSearchPath(platform);
+  if (fallbackPath) {
+    const queryCandidates = getPreferenceSearchQueries(platform, term, limit);
+
+    for (const query of queryCandidates) {
+      try {
+        return await callTooLostEndpoint(fallbackPath, { query });
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+  }
+
+  throw new Error(formatTooLostSearchError(platform, errors));
 }
 
 export async function getTooLostPreferencePlatformItem(platform: TooLostPreferencePlatform, id: string | number, url?: string) {
@@ -808,10 +869,12 @@ export async function getTooLostPreferencePlatformItem(platform: TooLostPreferen
   const candidates: TooLostRequestOptions["query"][] = platform === "youtube"
     ? [
         { channelId: lookupId },
+        { link: lookupId },
         { id: lookupId },
         { youtubeChannelId: lookupId },
       ]
     : [
+        { link: lookupId },
         { artistId: lookupId },
         { id: lookupId },
         { platformArtistId: lookupId },
