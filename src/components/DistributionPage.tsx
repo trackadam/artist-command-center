@@ -1325,40 +1325,6 @@ function hydrateManualLabelPreferenceForm(value: unknown): ManualLabelPreference
   };
 }
 
-function hydrateManualArtistPreferenceForm(value: unknown): ManualArtistPreferenceForm {
-  const record = getPreferenceRecord(value);
-  const social = getNestedPreferenceRecord(record, "social");
-  const platforms = getNestedPreferenceRecord(record, "platforms");
-
-  return {
-    id: getPreferenceString(record, ["id", "artistId", "artist_id"]),
-    artistName: getPreferenceString(record, ["artistName", "artist_name", "name"]),
-    primaryGenre: getPreferenceString(record, ["primaryGenre", "primary_genre", "genre"]),
-    secondaryGenre: getPreferenceString(record, ["secondaryGenre", "secondary_genre"]),
-    language: getPreferenceString(record, ["language"]),
-    about: getPreferenceString(record, ["about", "description", "bio"]),
-    image: getPreferenceString(record, ["img", "image", "profileImg", "profile_img"]),
-    label: getPreferenceString(record, ["label"]),
-    cLine: getPreferenceString(record, ["c_line", "cLine"]),
-    pLine: getPreferenceString(record, ["p_line", "pLine"]),
-    releaseTime: getNestedPreferenceString(record, "releaseTime", ["time"]) || getPreferenceString(record, ["releaseTime"]) || "00:00",
-    timeZone: getNestedPreferenceString(record, "releaseTime", ["timeZone", "time_zone"]) || getPreferenceString(record, ["timeZone", "time_zone"]) || "America/New_York",
-    spotify: getPreferenceString(platforms, ["spotify"]),
-    appleMusic: getPreferenceString(platforms, ["appleMusic", "apple", "apple_music"]),
-    youtube: getPreferenceString(platforms, ["youtube"]),
-    soundcloud: getPreferenceString(platforms, ["soundcloud"]),
-    website: getPreferenceString(platforms, ["website"]),
-    facebook: getPreferenceString(social, ["facebook"]),
-    instagram: getPreferenceString(social, ["instagram"]),
-    twitter: getPreferenceString(social, ["twitter", "x"]),
-  };
-}
-
-function nullableTrim(value: string) {
-  const trimmed = value.trim();
-  return trimmed || null;
-}
-
 function buildManualArtistPreferencePayload(form: ManualArtistPreferenceForm) {
   const artistName = form.artistName.trim();
   if (!artistName) throw new Error("Artist name is required before saving artist preferences.");
@@ -1464,7 +1430,7 @@ function PreferenceResultList({ data, onInspect }: { data: unknown; onInspect?: 
       <div className="preference-empty-state">
         <span>⌕</span>
         <strong>No results loaded yet</strong>
-        <p>Search Spotify, Apple Music, YouTube, or Audiomack to connect the correct artist profile.</p>
+        <p>Find Platform Profiles to connect the correct artist profile.</p>
       </div>
     );
   }
@@ -2457,30 +2423,6 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     }
   }
 
-  async function submitCurrentArtistPreferenceSnapshot() {
-    const payload = getPayloadData(getEndpointState(endpointResults, "preferencesArtist").data);
-    if (!isRecord(payload)) {
-      setPreferenceArtistSubmitState({ loading: false, error: "Load artist preferences first. Submit payload schema depends on the current Too Lost artist preference record.", data: null });
-      return;
-    }
-
-    setPreferenceArtistSubmitState((current) => ({ ...current, loading: true, error: "" }));
-    try {
-      const data = await submitTooLostArtistPreferences(payload);
-      setPreferenceArtistSubmitState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
-      setEndpointResults((current) => ({
-        ...current,
-        preferencesArtist: { loading: false, error: "", data, loadedAt: new Date().toISOString() },
-      }));
-    } catch (submitError) {
-      setPreferenceArtistSubmitState((current) => ({
-        loading: false,
-        error: formatPreferenceUiError(submitError, "Could not submit artist preferences."),
-        data: current.data,
-        loadedAt: current.loadedAt,
-      }));
-    }
-  }
 
   async function submitCurrentLabelPreferenceSnapshot() {
     const payload = getPayloadData(getEndpointState(endpointResults, "preferencesLabel").data);
@@ -2570,16 +2512,6 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const preferencesArtist = getEndpointState(endpointResults, "preferencesArtist");
   const preferencesArtists = getEndpointState(endpointResults, "preferencesArtists");
   const preferenceArtistRows = getPreferenceRows(preferencesArtists.data).filter(isRecord);
-
-  useEffect(() => {
-    if (!preferencesArtist.data) return;
-    setManualArtistPreferenceForm((current) => ({
-      ...current,
-      ...Object.fromEntries(
-        Object.entries(hydrateManualArtistPreferenceForm(preferencesArtist.data)).filter(([, value]) => value !== ""),
-      ) as ManualArtistPreferenceForm,
-    }));
-  }, [preferencesArtist.data]);
 
   useEffect(() => {
     if (!preferencesLabel.data) return;
@@ -3469,7 +3401,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   </label>
                   <label>
                     <span>Primary Artist</span>
-                    <input value={releaseDraftForm.artistName} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Natasha Storm" />
+                    <input value={releaseDraftForm.artistName} onChange={(event) => setReleaseDraftForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Artist name" />
                   </label>
                   <label>
                     <span>Distributor Artist ID optional</span>
@@ -4644,7 +4576,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             <div>
               <span className="asset-type-pill">Preferences</span>
               <h2>Distribution Setup</h2>
-              <p>Manage the API-backed label, artist roster, platform profile matching, and setup data that powers new releases.</p>
+              <p>Manage the label profile, artist roster, platform profile matching, and setup data that powers release creation.</p>
             </div>
             <div className="setup-hero-actions">
               <span className={setupDataLoaded ? "status-pill status-pill-green" : "status-pill"}>{setupDataLoaded ? "Lookup data ready" : "Lookup sync needed"}</span>
@@ -4666,9 +4598,9 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <small>{preferencesLabel.loadedAt ? `Synced ${formatDate(preferencesLabel.loadedAt)}` : "GET /preferences/label"}</small>
             </article>
             <article className="setup-health-card">
-              <span>Primary Artist</span>
+              <span>Artist Profile</span>
               <strong>{preferencesArtist.data ? "Loaded" : preferencesArtist.loading ? "Syncing" : "Not loaded"}</strong>
-              <small>{preferencesArtist.loadedAt ? `Synced ${formatDate(preferencesArtist.loadedAt)}` : "GET /preferences/artist"}</small>
+              <small>{preferencesArtist.loadedAt ? `Synced ${formatDate(preferencesArtist.loadedAt)}` : "Optional synced artist preference"}</small>
             </article>
             <article className="setup-health-card">
               <span>Roster</span>
@@ -4684,11 +4616,11 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
           <div className="setup-profile-grid">
             <PreferenceMiniCard data={preferencesLabel.data} title="Label Preference" emptyLabel="No label profile" />
-            <PreferenceMiniCard data={preferencesArtist.data} title="Artist Preference" emptyLabel="No artist profile" />
+            <PreferenceMiniCard data={preferencesArtist.data} title="Artist Preference" emptyLabel="No synced artist profile" />
             <article className="asset-card setup-action-panel">
               <span className="asset-type-pill">Manual Ready</span>
-              <h3>Manual Setup Backup</h3>
-              <p>Sandbox search can fail when external provider lookup is unavailable. You can still type label and artist defaults manually and submit them with the documented preference payloads.</p>
+              <h3>Manual Setup</h3>
+              <p>Sandbox provider search can fail. You can still maintain your label profile and add artists to the label roster manually.</p>
               <div className="setup-error-stack">
                 <InlineError message={preferenceLabelSubmitState.error} />
                 <InlineError message={preferenceArtistSubmitState.error} />
@@ -4701,13 +4633,13 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             <article className="asset-card setup-panel setup-form-card">
               <div className="analytics-panel-head">
                 <div>
-                  <span className="asset-type-pill">Label Defaults</span>
-                  <h3>Manual Label Preferences</h3>
-                  <p>Save your label identity and public links. This uses POST /preferences/label/submit.</p>
+                  <span className="asset-type-pill">Label Profile</span>
+                  <h3>Label Preferences</h3>
+                  <p>Save the label identity and public links used across releases and roster setup.</p>
                 </div>
               </div>
               <div className="setup-form-grid">
-                <label className="setup-form-wide"><span>Label Name</span><input value={manualLabelPreferenceForm.name} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, name: event.target.value }))} placeholder="Shock Wav Union" /></label>
+                <label className="setup-form-wide"><span>Label Name</span><input value={manualLabelPreferenceForm.name} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, name: event.target.value }))} placeholder="Label name" /></label>
                 <label className="setup-form-wide"><span>About Label</span><textarea value={manualLabelPreferenceForm.about} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Independent label description" /></label>
                 <label><span>Website</span><input value={manualLabelPreferenceForm.website} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." /></label>
                 <label><span>Image URL</span><input value={manualLabelPreferenceForm.image} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, image: event.target.value }))} placeholder="https://..." /></label>
@@ -4727,20 +4659,20 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             <article className="asset-card setup-panel setup-form-card">
               <div className="analytics-panel-head">
                 <div>
-                  <span className="asset-type-pill">Artist Defaults</span>
-                  <h3>Manual Artist Preferences</h3>
-                  <p>Save artist defaults, platform profiles, label, genre, language, and copyright lines. This uses POST /preferences/artist/submit.</p>
+                  <span className="asset-type-pill">Roster Artist</span>
+                  <h3>Add Artist to Label Roster</h3>
+                  <p>Create or update an artist profile under your label roster. Leave the form blank until you are adding a specific artist.</p>
                 </div>
               </div>
               <div className="setup-form-grid">
-                <label><span>Artist Name</span><input value={manualArtistPreferenceForm.artistName} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Natasha Storm" /></label>
+                <label><span>Artist Name</span><input value={manualArtistPreferenceForm.artistName} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Artist name" /></label>
                 <label><span>Artist ID optional</span><input value={manualArtistPreferenceForm.id} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, id: event.target.value.replace(/[^0-9]/g, "") }))} placeholder="123" inputMode="numeric" /></label>
-                <label><span>Primary Genre</span><input value={manualArtistPreferenceForm.primaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, primaryGenre: event.target.value }))} placeholder="R&B/Soul" /></label>
-                <label><span>Secondary Genre</span><input value={manualArtistPreferenceForm.secondaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, secondaryGenre: event.target.value }))} placeholder="Alternative R&B" /></label>
+                <label><span>Primary Genre</span><input value={manualArtistPreferenceForm.primaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, primaryGenre: event.target.value }))} placeholder="Primary genre" /></label>
+                <label><span>Secondary Genre</span><input value={manualArtistPreferenceForm.secondaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, secondaryGenre: event.target.value }))} placeholder="Secondary genre" /></label>
                 <label><span>Language</span><input value={manualArtistPreferenceForm.language} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, language: event.target.value }))} placeholder="English" /></label>
-                <label><span>Label</span><input value={manualArtistPreferenceForm.label} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, label: event.target.value }))} placeholder="Shock Wav Union" /></label>
-                <label><span>C Line</span><input value={manualArtistPreferenceForm.cLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, cLine: event.target.value }))} placeholder="2026 Shock Wav Union" /></label>
-                <label><span>P Line</span><input value={manualArtistPreferenceForm.pLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, pLine: event.target.value }))} placeholder="2026 Shock Wav Union" /></label>
+                <label><span>Label</span><input value={manualArtistPreferenceForm.label} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, label: event.target.value }))} placeholder="Label name" /></label>
+                <label><span>C Line</span><input value={manualArtistPreferenceForm.cLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, cLine: event.target.value }))} placeholder="2026 Label Name" /></label>
+                <label><span>P Line</span><input value={manualArtistPreferenceForm.pLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, pLine: event.target.value }))} placeholder="2026 Label Name" /></label>
                 <label><span>Release Time</span><input value={manualArtistPreferenceForm.releaseTime} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, releaseTime: event.target.value }))} placeholder="00:00" /></label>
                 <label><span>Time Zone</span><input value={manualArtistPreferenceForm.timeZone} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, timeZone: event.target.value }))} placeholder="America/New_York" /></label>
                 <label className="setup-form-wide"><span>About Artist</span><textarea value={manualArtistPreferenceForm.about} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Artist bio / description" /></label>
@@ -4755,9 +4687,9 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               </div>
               <div className="setup-action-row">
                 <button className="primary-btn" type="button" disabled={!canLoad || preferenceArtistSubmitState.loading} onClick={() => void submitManualArtistPreferences()}>
-                  {preferenceArtistSubmitState.loading ? "Saving Artist..." : "Save Artist Preferences"}
+                  {preferenceArtistSubmitState.loading ? "Saving Artist..." : "Add / Update Artist"}
                 </button>
-                <button className="secondary-btn" type="button" disabled={!canLoad || preferenceArtistSubmitState.loading || !preferencesArtist.data} onClick={() => void submitCurrentArtistPreferenceSnapshot()}>Submit Synced Snapshot</button>
+                <button className="secondary-btn" type="button" disabled={preferenceArtistSubmitState.loading} onClick={() => setManualArtistPreferenceForm(emptyManualArtistPreferenceForm)}>Clear Artist Form</button>
               </div>
             </article>
           </div>
@@ -4767,8 +4699,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <div className="analytics-panel-head">
                 <div>
                   <span className="asset-type-pill">Artist Roster</span>
-                  <h3>Connected Label Artists</h3>
-                  <p>Artists returned by GET /preferences/artists. Inspect records or remove label artists with confirmation.</p>
+                  <h3>Label Roster</h3>
+                  <p>Artists connected to your label account. Add new artists with the roster form, then sync this list to verify them.</p>
                 </div>
                 <span className="analytics-count-pill">{preferenceArtistRows.length} artists</span>
               </div>
@@ -4776,8 +4708,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               {!preferenceArtistRows.length ? (
                 <div className="preference-empty-state">
                   <span>♪</span>
-                  <strong>No artist roster loaded yet</strong>
-                  <p>Sync setup to pull connected artist preferences from Too Lost.</p>
+                  <strong>No roster artists loaded yet</strong>
+                  <p>Sync setup to pull the label roster from Too Lost.</p>
                 </div>
               ) : (
                 <div className="setup-roster-list">
@@ -4811,8 +4743,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <div className="analytics-panel-head">
                 <div>
                   <span className="asset-type-pill">Platform Match</span>
-                  <h3>Search Spotify, Apple Music, YouTube, or Audiomack</h3>
-                  <p>Find the official platform profile before connecting it to artist preferences.</p>
+                  <h3>Find Platform Profiles</h3>
+                  <p>Search external platform profiles to copy accurate artist links into the roster form.</p>
                 </div>
                 <span className="analytics-count-pill">{getPreferenceRows(preferenceSearchState.data).length} results</span>
               </div>
@@ -4856,8 +4788,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
           <div className="setup-url-panel asset-card">
             <div>
               <span className="asset-type-pill">URL Lookup</span>
-              <h3>Detect Artist From Platform URL</h3>
-              <p>Paste a Spotify, Apple Music, YouTube, or Audiomack URL and let Too Lost identify the artist profile.</p>
+              <h3>Detect Artist From URL</h3>
+              <p>Paste a Spotify, Apple Music, YouTube, or Audiomack URL to identify the artist profile before adding it to your roster.</p>
             </div>
             <div className="setup-url-row">
               <input value={preferenceUrlLookupState.url} onChange={(event) => setPreferenceUrlLookupState((current) => ({ ...current, url: event.target.value }))} placeholder="Paste artist or channel URL" />

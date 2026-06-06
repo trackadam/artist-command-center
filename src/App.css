@@ -9997,3 +9997,147 @@ body {
   background: rgba(22, 146, 91, 0.18) !important;
   color: #adffd8 !important;
 }
+
+/* v22.8.7 Preferences / Label Roster audit */
+.setup-command-center {
+  gap: 18px;
+}
+
+.setup-hero-card {
+  padding: 24px 26px;
+  align-items: flex-start;
+}
+
+.setup-hero-card h2 {
+  font-size: clamp(2rem, 3vw, 3.15rem);
+  letter-spacing: -0.045em;
+}
+
+.setup-health-grid {
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  align-items: stretch;
+}
+
+.setup-health-card {
+  min-height: 104px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.setup-health-card strong {
+  font-size: 1.55rem;
+}
+
+.setup-profile-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(300px, 0.92fr);
+  align-items: stretch;
+}
+
+.preference-mini-card,
+.setup-action-panel {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+}
+
+.preference-mini-kv {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.setup-action-panel .setup-error-stack {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.setup-manual-grid {
+  grid-template-columns: minmax(320px, 0.82fr) minmax(560px, 1.18fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.setup-manual-grid .setup-form-card {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.setup-manual-grid .setup-form-card:nth-child(2) .setup-form-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.setup-manual-grid .setup-form-card:nth-child(2) .setup-form-wide {
+  grid-column: 1 / -1;
+}
+
+.setup-form-grid input,
+.setup-form-grid textarea,
+.setup-search-grid input,
+.setup-search-grid select,
+.setup-url-row input {
+  background: rgba(8, 16, 29, 0.72);
+}
+
+.setup-main-grid {
+  grid-template-columns: minmax(420px, 1fr) minmax(460px, 1fr);
+  align-items: stretch;
+}
+
+.setup-panel {
+  min-height: 480px;
+}
+
+.setup-roster-list,
+.preference-result-list {
+  scrollbar-width: thin;
+}
+
+.setup-roster-row,
+.preference-result-row {
+  min-height: 76px;
+}
+
+.setup-roster-actions,
+.setup-action-row {
+  flex-shrink: 0;
+}
+
+.setup-url-panel {
+  grid-template-columns: minmax(280px, 0.6fr) minmax(0, 1.4fr);
+}
+
+.setup-url-row {
+  align-items: end;
+}
+
+.setup-error-stack .distribution-error-box,
+.setup-platform-panel .distribution-error-box,
+.setup-url-panel .distribution-error-box {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+@media (max-width: 1320px) {
+  .setup-manual-grid,
+  .setup-main-grid,
+  .setup-url-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-manual-grid .setup-form-card:nth-child(2) .setup-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .setup-panel {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 920px) {
+  .setup-health-grid,
+  .setup-profile-grid,
+  .setup-manual-grid .setup-form-card:nth-child(2) .setup-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
