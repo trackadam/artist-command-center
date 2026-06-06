@@ -8150,6 +8150,7 @@ function App() {
           oauthMessage={tooLostOauthMessage}
           activeTab={distributionSubPage}
           onTabChange={setDistributionSubPage}
+          onNotice={showNotice}
         />
       );
     }

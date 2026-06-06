@@ -42,6 +42,7 @@ type DistributionPageProps = {
   oauthMessage?: string;
   activeTab?: "catalog" | "submissions" | "releases" | "analytics" | "sales" | "setup" | "developer";
   onTabChange?: (tab: "catalog" | "submissions" | "releases" | "analytics" | "sales" | "setup" | "developer") => void;
+  onNotice?: (message: string, type?: "success" | "error" | "info") => void;
 };
 
 type DashboardTab = "Overview" | "Catalog" | "Submissions" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
@@ -1473,7 +1474,7 @@ function findEndpoint(key: TooLostEndpointKey) {
   return endpoint;
 }
 
-export default function DistributionPage({ oauthStatus, oauthMessage, activeTab: externalTab, onTabChange }: DistributionPageProps) {
+export default function DistributionPage({ oauthStatus, oauthMessage, activeTab: externalTab, onTabChange, onNotice }: DistributionPageProps) {
 
   const subPageToTab: Record<string, DashboardTab> = {
     overview: "Release Builder",
@@ -2357,12 +2358,19 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   async function submitManualArtistPreferences() {
     setPreferenceArtistSubmitState((current) => ({ ...current, loading: true, error: "" }));
 
+    let savedArtistName = "";
     try {
       const payload = buildManualArtistPreferencePayload(manualArtistPreferenceForm);
+      savedArtistName = manualArtistPreferenceForm.artistName.trim();
       const data = await submitTooLostArtistPreferences(payload);
       setPreferenceArtistSubmitState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      // Clear the form on success
+      setManualArtistPreferenceForm(emptyManualArtistPreferenceForm);
+      // Re-sync both artist endpoints so roster updates
       await loadEndpoint(findEndpoint("preferencesArtist"));
       await loadEndpoint(findEndpoint("preferencesArtists"));
+      // Show toast confirmation
+      onNotice?.(`${savedArtistName} added to your label roster.`, "success");
     } catch (submitError) {
       setPreferenceArtistSubmitState((current) => ({
         loading: false,
