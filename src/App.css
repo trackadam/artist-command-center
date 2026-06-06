@@ -10523,3 +10523,349 @@ body {
     display: grid !important;
   }
 }
+
+/* =========================
+   v22.10 Setup Data — kill all artificial height, tighten everything
+   ========================= */
+
+/* Nuke inherited min-heights that bloat the panels */
+.setup-command-center .setup-panel,
+.setup-command-center .setup-form-card,
+.setup-command-center .setup-roster-panel,
+.setup-command-center .setup-platform-panel {
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+/* Hero — tight pill row, no large card */
+.setup-command-center .setup-hero-card {
+  min-height: 0 !important;
+  padding: 16px 22px !important;
+  border-radius: 20px !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 20px !important;
+}
+
+.setup-command-center .setup-hero-card h2 {
+  font-size: clamp(1.45rem, 2vw, 2rem) !important;
+  letter-spacing: -0.04em !important;
+  margin: 3px 0 5px !important;
+  line-height: 1.05 !important;
+}
+
+.setup-command-center .setup-hero-card p {
+  font-size: 0.82rem !important;
+  margin: 0 !important;
+}
+
+.setup-command-center .setup-hero-actions {
+  flex-shrink: 0 !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+}
+
+/* Status cards — trim to a compact metric bar */
+.setup-command-center .setup-health-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.setup-command-center .setup-health-card {
+  min-height: 0 !important;
+  padding: 12px 14px !important;
+  border-radius: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+.setup-command-center .setup-health-card span {
+  font-size: 0.68rem !important;
+  letter-spacing: 0.1em !important;
+}
+
+.setup-command-center .setup-health-card strong {
+  font-size: 1.05rem !important;
+  margin-top: 0 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.setup-command-center .setup-health-card small {
+  font-size: 0.68rem !important;
+  margin-top: 0 !important;
+  line-height: 1.3 !important;
+  opacity: 0.75;
+}
+
+/* Two form panels — true side by side, no stretch */
+.setup-command-center .setup-manual-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 14px !important;
+  align-items: start !important;
+}
+
+/* Tighter panel padding */
+.setup-command-center .setup-form-card {
+  padding: 18px 20px !important;
+  border-radius: 22px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+}
+
+/* Panel heading row compact */
+.setup-command-center .analytics-panel-head {
+  min-height: 0 !important;
+  padding-bottom: 10px !important;
+  margin-bottom: 10px !important;
+}
+
+.setup-command-center .analytics-panel-head h3 {
+  font-size: 0.95rem !important;
+  margin: 3px 0 3px !important;
+  letter-spacing: -0.02em !important;
+}
+
+.setup-command-center .analytics-panel-head p {
+  font-size: 0.78rem !important;
+  line-height: 1.4 !important;
+}
+
+/* Form grids — dense */
+.setup-command-center .setup-form-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin-top: 0 !important;
+}
+
+/* Roster Artist — 3-col for the short fields */
+.setup-command-center .setup-form-card:nth-child(2) .setup-form-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+/* Full-width items */
+.setup-command-center .setup-form-wide {
+  grid-column: 1 / -1 !important;
+}
+
+/* Input/field height */
+.setup-command-center .setup-form-grid label {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.setup-command-center .setup-form-grid label span {
+  font-size: 0.66rem !important;
+  letter-spacing: 0.07em !important;
+}
+
+.setup-command-center .setup-form-grid input,
+.setup-command-center .setup-form-grid select {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+}
+
+.setup-command-center .setup-form-grid textarea {
+  min-height: 58px !important;
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+}
+
+/* Action buttons */
+.setup-command-center .setup-action-row {
+  margin-top: 12px !important;
+  padding-top: 0 !important;
+  display: flex !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.setup-command-center .setup-action-row .primary-btn,
+.setup-command-center .setup-action-row .secondary-btn {
+  min-height: 38px !important;
+  padding: 0 14px !important;
+  font-size: 0.82rem !important;
+  border-radius: 12px !important;
+}
+
+/* Bottom two panels — Roster + Platform Match side by side */
+.setup-command-center .setup-main-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 14px !important;
+  align-items: start !important;
+}
+
+.setup-command-center .setup-roster-panel,
+.setup-command-center .setup-platform-panel {
+  padding: 18px 20px !important;
+  border-radius: 22px !important;
+}
+
+/* Empty states — compact, no tall void */
+.setup-command-center .preference-empty-state {
+  min-height: 100px !important;
+  padding: 14px !important;
+  gap: 6px !important;
+  border-radius: 14px !important;
+}
+
+.setup-command-center .preference-empty-state span {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 0.9rem !important;
+  border-radius: 10px !important;
+}
+
+.setup-command-center .preference-empty-state strong {
+  font-size: 0.82rem !important;
+}
+
+.setup-command-center .preference-empty-state p {
+  font-size: 0.74rem !important;
+  margin: 0 !important;
+}
+
+/* Platform search row — inline */
+.setup-command-center .setup-search-grid {
+  display: grid !important;
+  grid-template-columns: 120px minmax(0, 1fr) auto !important;
+  gap: 8px !important;
+  margin: 10px 0 !important;
+  align-items: end !important;
+}
+
+.setup-command-center .setup-search-grid label {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.setup-command-center .setup-search-grid label span {
+  font-size: 0.66rem !important;
+  letter-spacing: 0.07em !important;
+}
+
+.setup-command-center .setup-search-grid input,
+.setup-command-center .setup-search-grid select {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  font-size: 0.82rem !important;
+}
+
+.setup-command-center .setup-search-grid .primary-btn {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 14px !important;
+  font-size: 0.82rem !important;
+  border-radius: 10px !important;
+  white-space: nowrap !important;
+}
+
+/* URL Lookup — single horizontal strip */
+.setup-command-center .setup-url-panel {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 16px 20px !important;
+  border-radius: 18px !important;
+}
+
+.setup-command-center .setup-url-panel > div:first-child {
+  flex-shrink: 0 !important;
+  max-width: 260px !important;
+}
+
+.setup-command-center .setup-url-panel > div:first-child h3 {
+  font-size: 0.92rem !important;
+  margin: 3px 0 4px !important;
+}
+
+.setup-command-center .setup-url-panel > div:first-child p {
+  font-size: 0.75rem !important;
+  line-height: 1.35 !important;
+  margin: 0 !important;
+}
+
+.setup-command-center .setup-url-row {
+  flex: 1 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+.setup-command-center .setup-url-row input {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  border-radius: 10px !important;
+  font-size: 0.82rem !important;
+}
+
+.setup-command-center .setup-url-row .primary-btn {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 0.82rem !important;
+  border-radius: 10px !important;
+  white-space: nowrap !important;
+}
+
+/* Roster panel heading compact */
+.setup-command-center .setup-roster-panel .analytics-panel-head,
+.setup-command-center .setup-platform-panel .analytics-panel-head {
+  margin-bottom: 8px !important;
+}
+
+/* Response cards — slim */
+.setup-command-center .setup-response-card {
+  margin-top: 10px !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .setup-command-center .setup-manual-grid,
+  .setup-command-center .setup-main-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .setup-command-center .setup-form-card:nth-child(2) .setup-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .setup-command-center .setup-url-panel {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .setup-command-center .setup-url-panel > div:first-child {
+    max-width: none !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .setup-command-center .setup-health-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .setup-command-center .setup-form-grid,
+  .setup-command-center .setup-form-card:nth-child(2) .setup-form-grid,
+  .setup-command-center .setup-search-grid,
+  .setup-command-center .setup-url-row {
+    grid-template-columns: 1fr !important;
+  }
+}
