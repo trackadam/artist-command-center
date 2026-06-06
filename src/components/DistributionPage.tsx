@@ -32,8 +32,8 @@ import {
 type DistributionPageProps = {
   oauthStatus?: "success" | "error" | null;
   oauthMessage?: string;
-  activeTab?: "overview" | "catalog" | "submissions" | "releases" | "analytics" | "sales" | "setup" | "developer";
-  onTabChange?: (tab: "overview" | "catalog" | "submissions" | "releases" | "analytics" | "sales" | "setup" | "developer") => void;
+  activeTab?: "catalog" | "submissions" | "releases" | "analytics" | "sales" | "setup" | "developer";
+  onTabChange?: (tab: "catalog" | "submissions" | "releases" | "analytics" | "sales" | "setup" | "developer") => void;
 };
 
 type DashboardTab = "Overview" | "Catalog" | "Submissions" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
@@ -942,10 +942,6 @@ function getReleaseDateValue(row: Record<string, unknown>) {
 function getEmbeddedTracks(row: Record<string, unknown>) {
   const tracks = row.tracks;
   return Array.isArray(tracks) ? tracks.filter(isRecord) as Record<string, unknown>[] : [];
-}
-
-function getReleaseTrackCount(row: Record<string, unknown>) {
-  return getEmbeddedTracks(row).length;
 }
 
 function getReleaseReviewRecord(row: Record<string, unknown>) {
@@ -2589,7 +2585,6 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 const deliveryServices = getDeliveryEnabledServices(detailRecord);
                 const reviewNote = getReleaseReviewNote(detailRecord);
                 const detailTracks = selectedCatalogTracks.length ? selectedCatalogTracks : getEmbeddedTracks(detailRecord);
-                const detailIsrcs = getTrackIsrcList(detailTracks);
                 return (
                   <>
                     <div className="submissions-detail-kpis">
