@@ -339,7 +339,7 @@ type AppPage =
   | "Distribution"
   | "Planner";
 
-type DistributionSubPage = "releases" | "catalog" | "analytics" | "sales" | "setup" | "developer";
+type DistributionSubPage = "releases" | "catalog" | "submissions" | "analytics" | "sales" | "setup" | "developer";
 
 type AppNotice = {
   type: "success" | "error" | "info";
@@ -8506,6 +8506,7 @@ function App() {
               const distSubPages: { key: DistributionSubPage; label: string }[] = [
                 { key: "releases", label: "Release Creator" },
                 { key: "catalog", label: "Catalog" },
+                { key: "submissions", label: "Submissions" },
                 { key: "analytics", label: "Analytics" },
                 { key: "sales", label: "Sales" },
                 { key: "setup", label: "Setup" },

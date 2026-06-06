@@ -32,11 +32,11 @@ import {
 type DistributionPageProps = {
   oauthStatus?: "success" | "error" | null;
   oauthMessage?: string;
-  activeTab?: "releases" | "catalog" | "analytics" | "sales" | "setup" | "developer" | "overview";
-  onTabChange?: (tab: "releases" | "catalog" | "analytics" | "sales" | "setup" | "developer") => void;
+  activeTab?: "overview" | "catalog" | "submissions" | "releases" | "analytics" | "sales" | "setup" | "developer";
+  onTabChange?: (tab: "overview" | "catalog" | "submissions" | "releases" | "analytics" | "sales" | "setup" | "developer") => void;
 };
 
-type DashboardTab = "Overview" | "Catalog" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
+type DashboardTab = "Overview" | "Catalog" | "Submissions" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
 type ReleaseBuilderStepKey = "start" | "select" | "artwork" | "info" | "tracks" | "delivery" | "validation" | "review";
 type ReleaseTierStepKey = Extract<ReleaseBuilderStepKey, "start" | "artwork" | "info" | "tracks">;
 type AdditionalDeliveryKey = "youtube" | "facebook" | "soundcloud" | "soundExchange" | "beatPort" | "junoDownloads" | "trackLibs" | "hook" | "lyricfind" | "even";
@@ -923,6 +923,67 @@ function getReleaseTitle(row: Record<string, unknown>) {
   return stringifyCell(getRecordValue(row, ["title", "name", "release_title"]));
 }
 
+function getReleaseType(row: Record<string, unknown>) {
+  return stringifyCell(getRecordValue(row, ["type", "releaseType"]));
+}
+
+function getReleaseUpc(row: Record<string, unknown>) {
+  return stringifyCell(getRecordValue(row, ["upc", "barcode"]));
+}
+
+function getReleaseCatalogNumber(row: Record<string, unknown>) {
+  return stringifyCell(getRecordValue(row, ["catalogNumber", "catalog_number"]));
+}
+
+function getReleaseDateValue(row: Record<string, unknown>) {
+  return stringifyCell(getRecordValue(row, ["releaseDate", "release_date", "originalReleaseDate"]));
+}
+
+function getEmbeddedTracks(row: Record<string, unknown>) {
+  const tracks = row.tracks;
+  return Array.isArray(tracks) ? tracks.filter(isRecord) as Record<string, unknown>[] : [];
+}
+
+function getReleaseTrackCount(row: Record<string, unknown>) {
+  return getEmbeddedTracks(row).length;
+}
+
+function getReleaseReviewRecord(row: Record<string, unknown>) {
+  const review = row.review;
+  return isRecord(review) ? review : null;
+}
+
+function getReleaseReviewNote(row: Record<string, unknown>) {
+  const review = getReleaseReviewRecord(row);
+  return review ? stringifyCell(getRecordValue(review, ["note", "message", "status", "reason"])) : "—";
+}
+
+function getTrackIsrcList(tracks: Record<string, unknown>[]) {
+  return tracks
+    .map((track) => stringifyCell(getRecordValue(track, ["isrc"])))
+    .filter((value) => value && value !== "—");
+}
+
+function getDeliveryEnabledServices(row: Record<string, unknown>) {
+  const delivery = row.delivery;
+  if (!isRecord(delivery)) return [];
+
+  const labels: Record<string, string> = {
+    youtube: "YouTube Content ID",
+    facebook: "Meta Rights Manager",
+    soundcloud: "SoundCloud Monetization",
+    soundExchange: "SoundExchange",
+    beatPort: "Beatport",
+    junoDownloads: "Juno Download",
+    trackLibs: "Tracklib",
+    hook: "Hook",
+    lyricfind: "LyricFind",
+    even: "EVEN",
+  };
+
+  return Object.entries(labels).filter(([key]) => delivery[key] === true).map(([, label]) => label);
+}
+
 function ReleaseTable({
   data,
   selectedReleaseId,
@@ -1093,6 +1154,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const subPageToTab: Record<string, DashboardTab> = {
     overview: "Release Builder",
     catalog: "Catalog",
+    submissions: "Submissions",
     releases: "Release Builder",
     analytics: "Analytics",
     sales: "Sales",
@@ -1103,6 +1165,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const tabToSubPage: Record<DashboardTab, string> = {
     "Overview": "overview",
     "Catalog": "catalog",
+    "Submissions": "submissions",
     "Release Builder": "releases",
     "Analytics": "analytics",
     "Sales": "sales",
@@ -1116,7 +1179,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   function setActiveTab(tab: DashboardTab) {
     setInternalTabState(tab);
     const subPage = tabToSubPage[tab];
-    if (subPage !== "overview") onTabChange?.(subPage as "releases" | "catalog" | "analytics" | "sales" | "setup" | "developer");
+    if (subPage !== "overview") onTabChange?.(subPage as "releases" | "catalog" | "submissions" | "analytics" | "sales" | "setup" | "developer");
   }
   const [connection, setConnection] = useState<TooLostConnection | null>(null);
   const [connectionLoading, setConnectionLoading] = useState(true);
@@ -1960,7 +2023,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const upcValidated = Boolean(upcValidationState.data);
   const deliveryConfirmed = Boolean(deliveryUpdateState.data);
 
-  const tabs: DashboardTab[] = ["Release Builder", "Catalog", "Analytics", "Sales", "Setup", "Developer"];
+  const tabs: DashboardTab[] = ["Release Builder", "Catalog", "Submissions", "Analytics", "Sales", "Setup", "Developer"];
   const releaseWizardSteps: Array<{
     key: ReleaseTierStepKey;
     number: string;
@@ -2068,6 +2131,25 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     }
     return counts;
   }, [catalogRows]);
+  const submissionCounts = useMemo(() => {
+    const counts = { total: catalogRows.length, draft: 0, inReview: 0, live: 0, takedown: 0, withUpc: 0, withIsrc: 0 };
+    for (const row of catalogRows) {
+      const status = getReleaseStatus(row);
+      if (status === "draft") counts.draft += 1;
+      if (status === "in_review") counts.inReview += 1;
+      if (status === "live") counts.live += 1;
+      if (status === "takedown_pending" || status === "takedown_complete") counts.takedown += 1;
+      const upc = getRecordValue(row, ["upc", "barcode"]);
+      if (upc !== null) counts.withUpc += 1;
+      if (getEmbeddedTracks(row).some((track) => getRecordValue(track, ["isrc"]) !== null)) counts.withIsrc += 1;
+    }
+    return counts;
+  }, [catalogRows]);
+
+  const submissionRows = useMemo(() => {
+    const priority: Record<string, number> = { in_review: 0, live: 1, draft: 2, takedown_pending: 3, takedown_complete: 4 };
+    return [...catalogRows].sort((a, b) => (priority[getReleaseStatus(a)] ?? 9) - (priority[getReleaseStatus(b)] ?? 9));
+  }, [catalogRows]);
   const selectedCatalogRow = useMemo(
     () => catalogRows.find((row) => getReleaseId(row) === selectedReleaseId) || null,
     [catalogRows, selectedReleaseId],
@@ -2088,6 +2170,12 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       title: "Catalog",
       description: "Review drafts and submitted releases, open details, and remove draft releases when needed.",
       syncLabel: "Sync Catalog",
+    },
+    Submissions: {
+      eyebrow: "Submission Tracker",
+      title: "Releases / Submissions",
+      description: "Track submitted releases, review status, assigned UPCs, catalog numbers, ISRCs, and delivery readiness after sync.",
+      syncLabel: "Sync Status",
     },
     "Release Builder": {
       eyebrow: "Release Command Center",
@@ -2123,7 +2211,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const activeHeroCopy = distributionHeroCopy[activeTab] ?? distributionHeroCopy["Release Builder"];
 
   function syncActiveDistributionSection() {
-    if (activeTab === "Catalog") return void loadReleasesWithFilters();
+    if (activeTab === "Catalog" || activeTab === "Submissions") return void loadReleasesWithFilters();
     if (activeTab === "Analytics") return void loadMany(["analyticsOverview", "analyticsTracks", "analyticsPlatforms", "lookupPlatforms"]);
     if (activeTab === "Sales") return void loadMany(["salesOverview", "salesTracks", "salesReleases", "salesChannels", "salesTerritories"]);
     if (activeTab === "Setup" || activeTab === "Release Builder") return void loadMany(releaseSetupLookupKeys);
@@ -2360,6 +2448,226 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                   <span>▣</span>
                   <strong>No release selected</strong>
                   <p>Select Details on a release row to view identifiers, tracks, and available draft actions.</p>
+                </div>
+              )}
+            </aside>
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === "Submissions" ? (
+        <div className="distribution-v5-section submissions-command-section">
+          <div className="submissions-command-hero">
+            <div>
+              <span className="asset-type-pill">Status Sync</span>
+              <h3>Releases / Submissions</h3>
+              <p>Track what happens after a release leaves the creator: review status, assigned identifiers, delivery services, and synced track ISRCs.</p>
+            </div>
+            <div className="submissions-hero-actions">
+              <button className="primary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
+                {getEndpointState(endpointResults, "releases").loading ? "Syncing Status..." : "Sync Release Status"}
+              </button>
+              <button className="secondary-btn" type="button" onClick={() => setActiveTab("Release Builder")}>New Release</button>
+            </div>
+          </div>
+
+          <div className="submissions-status-grid">
+            <article><span>Total Synced</span><strong>{submissionCounts.total}</strong><small>Releases returned</small></article>
+            <article><span>Drafts</span><strong>{submissionCounts.draft}</strong><small>Can still be edited</small></article>
+            <article><span>In Review</span><strong>{submissionCounts.inReview}</strong><small>Submitted to distributor</small></article>
+            <article><span>Live</span><strong>{submissionCounts.live}</strong><small>Approved catalog</small></article>
+            <article><span>UPC Assigned</span><strong>{submissionCounts.withUpc}</strong><small>Release identifiers</small></article>
+            <article><span>ISRC Found</span><strong>{submissionCounts.withIsrc}</strong><small>Track identifiers</small></article>
+          </div>
+
+          <div className="catalog-filter-bar submissions-filter-bar">
+            <label>
+              <span>Status</span>
+              <select value={releaseFilters.status} onChange={(event) => setReleaseFilters((current) => ({ ...current, status: event.target.value }))}>
+                <option value="">All statuses</option>
+                {releaseStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Type</span>
+              <select value={releaseFilters.type} onChange={(event) => setReleaseFilters((current) => ({ ...current, type: event.target.value }))}>
+                <option value="">All types</option>
+                {releaseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </label>
+            <label className="catalog-search-field">
+              <span>Search</span>
+              <input value={releaseFilters.search} onChange={(event) => setReleaseFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Title, UPC, catalog number..." />
+            </label>
+            <button className="secondary-btn" type="button" disabled={!canLoad || getEndpointState(endpointResults, "releases").loading} onClick={loadReleasesWithFilters}>
+              Apply Filters
+            </button>
+          </div>
+          <InlineError message={getEndpointState(endpointResults, "releases").error} />
+
+          <div className="submissions-grid">
+            <article className="asset-card distribution-v5-panel submissions-list-panel">
+              <div className="catalog-panel-heading catalog-panel-heading-actions">
+                <div>
+                  <span className="asset-type-pill">Release Status</span>
+                  <h3>Submission Queue</h3>
+                  <p>Use this page after submission to sync statuses, identifiers, and review details from Too Lost.</p>
+                </div>
+                {getEndpointState(endpointResults, "releases").loadedAt ? <span className="status-pill">Synced {formatDate(getEndpointState(endpointResults, "releases").loadedAt)}</span> : <span className="status-pill">Not synced</span>}
+              </div>
+
+              <div className="submissions-table-shell">
+                {submissionRows.length ? (
+                  <table className="distribution-table distribution-v5-table submissions-table">
+                    <thead>
+                      <tr>
+                        <th>Release</th>
+                        <th>Status</th>
+                        <th>UPC</th>
+                        <th>Catalog #</th>
+                        <th>Tracks</th>
+                        <th>ISRCs</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {submissionRows.slice(0, 60).map((row, index) => {
+                        const releaseId = getReleaseId(row);
+                        const status = getReleaseStatus(row);
+                        const embeddedTracks = getEmbeddedTracks(row);
+                        const isrcList = getTrackIsrcList(embeddedTracks);
+                        const active = releaseId && releaseId === selectedReleaseId;
+
+                        return (
+                          <tr key={releaseId || `submission-${index}`} className={active ? "distribution-selected-row catalog-selected-row" : undefined}>
+                            <td>
+                              <button className="catalog-release-select" type="button" disabled={!releaseId} onClick={() => releaseId && void loadReleaseDetails(releaseId)}>
+                                <span className={active ? "catalog-select-dot catalog-select-dot-active" : "catalog-select-dot"} />
+                                <span>
+                                  <strong>{getReleaseTitle(row)}</strong>
+                                  <small>{getReleaseType(row)} • {getReleaseDateValue(row)}</small>
+                                </span>
+                              </button>
+                            </td>
+                            <td><span className={`catalog-status-pill catalog-status-${status.replace(/[^a-z0-9]+/g, "-")}`}>{status || "unknown"}</span></td>
+                            <td>{getReleaseUpc(row)}</td>
+                            <td>{getReleaseCatalogNumber(row)}</td>
+                            <td>{embeddedTracks.length ? embeddedTracks.length : "—"}</td>
+                            <td>{isrcList.length ? isrcList.slice(0, 2).join(", ") : "Pending"}</td>
+                            <td>
+                              <button className="mini-action-btn" type="button" disabled={!releaseId} onClick={() => releaseId && void loadReleaseDetails(releaseId)}>
+                                Open
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="catalog-empty-state">
+                    <span>↻</span>
+                    <strong>No releases synced yet</strong>
+                    <p>Click Sync Release Status to pull the latest draft, review, live, UPC, and ISRC data.</p>
+                  </div>
+                )}
+              </div>
+            </article>
+
+            <aside className="asset-card distribution-v5-panel submissions-detail-panel">
+              <div className="catalog-panel-heading">
+                <div>
+                  <span className="asset-type-pill">Status Detail</span>
+                  <h3>{selectedReleaseReady ? activeReleaseTitle : "Open a Release"}</h3>
+                  <p>{selectedReleaseReady ? "Latest synced identifiers, tracks, services, and review notes." : "Select a release to inspect assigned UPCs, ISRCs, delivery options, and review status."}</p>
+                </div>
+                {selectedReleaseReady ? <span className={`catalog-status-pill catalog-status-${activeReleaseStatus.replace(/[^a-z0-9]+/g, "-")}`}>{activeReleaseStatus}</span> : null}
+              </div>
+
+              {selectedReleaseReady ? (() => {
+                const detailRecord = (getPayloadData(releaseDetailState.data) as Record<string, unknown>) || {};
+                const deliveryServices = getDeliveryEnabledServices(detailRecord);
+                const reviewNote = getReleaseReviewNote(detailRecord);
+                const detailTracks = selectedCatalogTracks.length ? selectedCatalogTracks : getEmbeddedTracks(detailRecord);
+                const detailIsrcs = getTrackIsrcList(detailTracks);
+                return (
+                  <>
+                    <div className="submissions-detail-kpis">
+                      <div><span>Status</span><strong>{activeReleaseStatus}</strong></div>
+                      <div><span>UPC</span><strong>{getReleaseUpc(detailRecord)}</strong></div>
+                      <div><span>Catalog #</span><strong>{getReleaseCatalogNumber(detailRecord)}</strong></div>
+                      <div><span>Release Date</span><strong>{getReleaseDateValue(detailRecord)}</strong></div>
+                    </div>
+
+                    <div className="submissions-review-card">
+                      <span>Review Notes</span>
+                      <strong>{reviewNote}</strong>
+                      <p>{reviewNote === "—" ? "No review note returned yet. Sync again after Too Lost updates the release status." : "Review message returned by the connected distributor."}</p>
+                    </div>
+
+                    <div className="submissions-service-card">
+                      <div className="catalog-panel-heading catalog-panel-heading-compact">
+                        <div>
+                          <h4>Delivery Services</h4>
+                          <p>Enabled optional services returned on the release record.</p>
+                        </div>
+                        <span className="status-pill">{deliveryServices.length} enabled</span>
+                      </div>
+                      {deliveryServices.length ? (
+                        <div className="submissions-chip-list">
+                          {deliveryServices.map((service) => <span key={service}>{service}</span>)}
+                        </div>
+                      ) : (
+                        <p className="distribution-empty">No additional delivery services returned yet.</p>
+                      )}
+                    </div>
+
+                    <div className="submissions-track-card">
+                      <div className="catalog-panel-heading catalog-panel-heading-compact">
+                        <div>
+                          <h4>Track Identifiers</h4>
+                          <p>Assigned ISRCs appear here after the distributor returns them.</p>
+                        </div>
+                        <span className="status-pill">{detailTracks.length} track{detailTracks.length === 1 ? "" : "s"}</span>
+                      </div>
+                      {detailTracks.length ? (
+                        <div className="catalog-track-list submissions-track-list">
+                          {detailTracks.map((track, index) => (
+                            <div className="catalog-track-row" key={`${stringifyCell(track.id)}-${index}`}>
+                              <div>
+                                <strong>{stringifyCell(getRecordValue(track, ["title"]))}</strong>
+                                <small>ISRC {stringifyCell(getRecordValue(track, ["isrc"]))} • Audio {getRecordValue(track, ["audioFileKey"]) ? "attached" : "pending"}</small>
+                              </div>
+                              <span className="catalog-status-pill catalog-status-live">{getRecordValue(track, ["isrc"]) ? "ID assigned" : "Pending"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="catalog-empty-state catalog-empty-state-compact">
+                          <span>♪</span>
+                          <strong>No tracks returned</strong>
+                          <p>Sync tracks after a release has been saved or submitted.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="submissions-detail-actions">
+                      <button className="primary-btn" type="button" disabled={!selectedReleaseId || releaseDetailState.loading} onClick={() => selectedReleaseId && void loadReleaseDetails(selectedReleaseId)}>
+                        {releaseDetailState.loading ? "Refreshing..." : "Refresh This Release"}
+                      </button>
+                      {activeReleaseStatus === "draft" ? (
+                        <button className="secondary-btn" type="button" onClick={() => { setActiveTab("Release Builder"); setActiveReleaseStep("info"); }}>
+                          Continue Draft
+                        </button>
+                      ) : null}
+                    </div>
+                  </>
+                );
+              })() : (
+                <div className="catalog-empty-state">
+                  <span>▣</span>
+                  <strong>No release opened</strong>
+                  <p>Select a release from the queue to see review status, UPC, ISRCs, and delivery details.</p>
                 </div>
               )}
             </aside>
