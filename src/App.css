@@ -11342,3 +11342,50 @@ body {
 .setup-command-center .setup-hero-card {
   border: 1px solid var(--line-strong) !important;
 }
+
+/* =========================
+   v22.14 Roster + Platform Match — fixed equal height with inner scroll
+   ========================= */
+
+.scc-half-card {
+  height: 320px !important;
+  min-height: 320px !important;
+  max-height: 320px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Head stays fixed, content area scrolls */
+.scc-half-card .scc-half-head {
+  flex: 0 0 auto !important;
+}
+
+.scc-half-card .scc-search-row {
+  flex: 0 0 auto !important;
+}
+
+/* Everything below the head scrolls */
+.scc-half-card .setup-roster-list,
+.scc-half-card .scc-empty,
+.scc-half-card .preference-result-list,
+.scc-half-card .preference-empty-state {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(47, 124, 255, 0.5) rgba(255, 255, 255, 0.05) !important;
+}
+
+/* InlineError and response card stay at bottom, don't scroll */
+.scc-half-card .setup-response-card {
+  flex: 0 0 auto !important;
+}
+
+@media (max-width: 1100px) {
+  .scc-half-card {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+}
