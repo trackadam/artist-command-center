@@ -1325,6 +1325,11 @@ function hydrateManualLabelPreferenceForm(value: unknown): ManualLabelPreference
   };
 }
 
+function nullableTrim(value: string) {
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
 function buildManualArtistPreferencePayload(form: ManualArtistPreferenceForm) {
   const artistName = form.artistName.trim();
   if (!artistName) throw new Error("Artist name is required before saving artist preferences.");
