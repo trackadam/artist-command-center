@@ -73,6 +73,40 @@ type PreferenceUrlLookupState = EndpointState & {
   url: string;
 };
 
+type ManualArtistPreferenceForm = {
+  id: string;
+  artistName: string;
+  primaryGenre: string;
+  secondaryGenre: string;
+  language: string;
+  about: string;
+  image: string;
+  label: string;
+  cLine: string;
+  pLine: string;
+  releaseTime: string;
+  timeZone: string;
+  spotify: string;
+  appleMusic: string;
+  youtube: string;
+  soundcloud: string;
+  website: string;
+  facebook: string;
+  instagram: string;
+  twitter: string;
+};
+
+type ManualLabelPreferenceForm = {
+  name: string;
+  about: string;
+  image: string;
+  website: string;
+  facebook: string;
+  instagram: string;
+  twitter: string;
+  youtube: string;
+};
+
 type ReleaseDraftForm = {
   title: string;
   type: string;
@@ -116,6 +150,40 @@ const defaultEndpointState: EndpointState = {
   loading: false,
   error: "",
   data: null,
+};
+
+const emptyManualArtistPreferenceForm: ManualArtistPreferenceForm = {
+  id: "",
+  artistName: "",
+  primaryGenre: "",
+  secondaryGenre: "",
+  language: "",
+  about: "",
+  image: "",
+  label: "",
+  cLine: "",
+  pLine: "",
+  releaseTime: "00:00",
+  timeZone: "America/New_York",
+  spotify: "",
+  appleMusic: "",
+  youtube: "",
+  soundcloud: "",
+  website: "",
+  facebook: "",
+  instagram: "",
+  twitter: "",
+};
+
+const emptyManualLabelPreferenceForm: ManualLabelPreferenceForm = {
+  name: "",
+  about: "",
+  image: "",
+  website: "",
+  facebook: "",
+  instagram: "",
+  twitter: "",
+  youtube: "",
 };
 
 const emptyReleaseDraftForm: ReleaseDraftForm = {
@@ -1214,6 +1282,180 @@ function PreferenceMiniCard({ data, title, emptyLabel }: { data: unknown; title:
   );
 }
 
+
+function getNestedPreferenceRecord(record: Record<string, unknown> | null, key: string) {
+  const value = record?.[key];
+  return isRecord(value) ? value : null;
+}
+
+function getNestedPreferenceString(record: Record<string, unknown> | null, key: string, keys: string[]) {
+  const nested = getNestedPreferenceRecord(record, key);
+  if (!nested) return "";
+  const value = getRecordValue(nested, keys);
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : "";
+}
+
+function getPreferenceString(record: Record<string, unknown> | null, keys: string[]) {
+  if (!record) return "";
+  const value = getRecordValue(record, keys);
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : "";
+}
+
+function getLabelPreferenceRecordFromPayload(value: unknown) {
+  const payload = getPayloadData(value);
+  if (!isRecord(payload)) return null;
+  const label = payload.label;
+  return isRecord(label) ? label : payload;
+}
+
+function hydrateManualLabelPreferenceForm(value: unknown): ManualLabelPreferenceForm {
+  const record = getLabelPreferenceRecordFromPayload(value);
+  const social = getNestedPreferenceRecord(record, "social");
+  const platforms = getNestedPreferenceRecord(record, "platforms");
+
+  return {
+    name: getPreferenceString(record, ["name", "label", "labelName"]),
+    about: getPreferenceString(record, ["about", "description", "bio"]),
+    image: getPreferenceString(record, ["img", "image", "profileImg", "profile_img"]),
+    website: getPreferenceString(platforms, ["website", "url"]),
+    facebook: getPreferenceString(social, ["facebook"]),
+    instagram: getPreferenceString(social, ["instagram"]),
+    twitter: getPreferenceString(social, ["twitter", "x"]),
+    youtube: getPreferenceString(social, ["youtube"]),
+  };
+}
+
+function hydrateManualArtistPreferenceForm(value: unknown): ManualArtistPreferenceForm {
+  const record = getPreferenceRecord(value);
+  const social = getNestedPreferenceRecord(record, "social");
+  const platforms = getNestedPreferenceRecord(record, "platforms");
+
+  return {
+    id: getPreferenceString(record, ["id", "artistId", "artist_id"]),
+    artistName: getPreferenceString(record, ["artistName", "artist_name", "name"]),
+    primaryGenre: getPreferenceString(record, ["primaryGenre", "primary_genre", "genre"]),
+    secondaryGenre: getPreferenceString(record, ["secondaryGenre", "secondary_genre"]),
+    language: getPreferenceString(record, ["language"]),
+    about: getPreferenceString(record, ["about", "description", "bio"]),
+    image: getPreferenceString(record, ["img", "image", "profileImg", "profile_img"]),
+    label: getPreferenceString(record, ["label"]),
+    cLine: getPreferenceString(record, ["c_line", "cLine"]),
+    pLine: getPreferenceString(record, ["p_line", "pLine"]),
+    releaseTime: getNestedPreferenceString(record, "releaseTime", ["time"]) || getPreferenceString(record, ["releaseTime"]) || "00:00",
+    timeZone: getNestedPreferenceString(record, "releaseTime", ["timeZone", "time_zone"]) || getPreferenceString(record, ["timeZone", "time_zone"]) || "America/New_York",
+    spotify: getPreferenceString(platforms, ["spotify"]),
+    appleMusic: getPreferenceString(platforms, ["appleMusic", "apple", "apple_music"]),
+    youtube: getPreferenceString(platforms, ["youtube"]),
+    soundcloud: getPreferenceString(platforms, ["soundcloud"]),
+    website: getPreferenceString(platforms, ["website"]),
+    facebook: getPreferenceString(social, ["facebook"]),
+    instagram: getPreferenceString(social, ["instagram"]),
+    twitter: getPreferenceString(social, ["twitter", "x"]),
+  };
+}
+
+function nullableTrim(value: string) {
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function buildManualArtistPreferencePayload(form: ManualArtistPreferenceForm) {
+  const artistName = form.artistName.trim();
+  if (!artistName) throw new Error("Artist name is required before saving artist preferences.");
+
+  const parsedId = form.id.trim() ? Number(form.id.trim()) : null;
+
+  return {
+    id: parsedId && Number.isFinite(parsedId) ? parsedId : null,
+    artistName,
+    primaryGenre: nullableTrim(form.primaryGenre),
+    secondaryGenre: nullableTrim(form.secondaryGenre),
+    language: nullableTrim(form.language),
+    about: nullableTrim(form.about),
+    img: nullableTrim(form.image),
+    removeImg: false,
+    releaseTime: form.releaseTime.trim() || "00:00",
+    timeZone: form.timeZone.trim() || "America/New_York",
+    label: nullableTrim(form.label),
+    c_line: nullableTrim(form.cLine),
+    p_line: nullableTrim(form.pLine),
+    stores: [],
+    social: {
+      facebook: nullableTrim(form.facebook),
+      instagram: nullableTrim(form.instagram),
+      twitter: nullableTrim(form.twitter),
+      youtube: null,
+    },
+    platforms: {
+      spotify: nullableTrim(form.spotify),
+      soundcloud: nullableTrim(form.soundcloud),
+      appleMusic: nullableTrim(form.appleMusic),
+      youtube: nullableTrim(form.youtube),
+      website: nullableTrim(form.website),
+    },
+    additional: {
+      wikipedia: null,
+      ddex: null,
+      musicbrainz: null,
+      allmusic: null,
+      isni: null,
+    },
+    deliveries: {
+      beatport: false,
+      delivery_beatport_link: null,
+      delivery_youtube: false,
+      delivery_soundcloud: false,
+      delivery_soundexchange: false,
+      delivery_junodownload: false,
+      delivery_tracklib: false,
+      delivery_facebook: false,
+      delivery_hook: false,
+      delivery_lyricfind: false,
+      delivery_even: false,
+    },
+    audiomack: {
+      status: false,
+      link: null,
+    },
+    metadata: {
+      artists: [{ name: artistName, role: "Main Artist" }],
+      writers: [],
+      credits: [],
+    },
+    territories: [],
+    collaborators: [],
+  };
+}
+
+function buildManualLabelPreferencePayload(form: ManualLabelPreferenceForm) {
+  const name = form.name.trim();
+  if (!name) throw new Error("Label name is required before saving label preferences.");
+
+  return {
+    name,
+    about: nullableTrim(form.about),
+    img: nullableTrim(form.image),
+    removeImg: false,
+    social: {
+      facebook: nullableTrim(form.facebook),
+      instagram: nullableTrim(form.instagram),
+      twitter: nullableTrim(form.twitter),
+      youtube: nullableTrim(form.youtube),
+    },
+    platforms: {
+      website: nullableTrim(form.website),
+    },
+  };
+}
+
+function formatPreferenceUiError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : fallback;
+  if (/500|internal server error|something went wrong/i.test(message)) {
+    return "Too Lost sandbox search/provider is unavailable right now. You can still paste a profile link or enter preferences manually.";
+  }
+  return message;
+}
+
 function PreferenceResultList({ data, onInspect }: { data: unknown; onInspect?: (record: Record<string, unknown>) => void }) {
   const rows = getPreferenceRows(data);
 
@@ -1343,6 +1585,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [preferenceArtistSubmitState, setPreferenceArtistSubmitState] = useState<EndpointState>(defaultEndpointState);
   const [preferenceLabelSubmitState, setPreferenceLabelSubmitState] = useState<EndpointState>(defaultEndpointState);
   const [preferenceRosterActionState, setPreferenceRosterActionState] = useState<EndpointState>(defaultEndpointState);
+  const [manualArtistPreferenceForm, setManualArtistPreferenceForm] = useState<ManualArtistPreferenceForm>(emptyManualArtistPreferenceForm);
+  const [manualLabelPreferenceForm, setManualLabelPreferenceForm] = useState<ManualLabelPreferenceForm>(emptyManualLabelPreferenceForm);
   const [releaseFilters, setReleaseFilters] = useState<ReleaseFilterForm>(emptyReleaseFilterForm);
   const [selectedReleaseId, setSelectedReleaseId] = useState(() => readStoredActiveReleaseId());
   const [selectedCatalogDraftIds, setSelectedCatalogDraftIds] = useState<string[]>([]);
@@ -2129,7 +2373,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       setPreferenceSearchState((current) => ({
         ...current,
         loading: false,
-        error: searchError instanceof Error ? searchError.message : "Could not search platform profiles.",
+        error: formatPreferenceUiError(searchError, "Could not search platform profiles."),
       }));
     }
   }
@@ -2148,7 +2392,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     } catch (detailError) {
       setPreferencePlatformDetailState((current) => ({
         loading: false,
-        error: detailError instanceof Error ? detailError.message : "Could not inspect platform profile.",
+        error: formatPreferenceUiError(detailError, "Could not inspect platform profile."),
         data: current.data,
         loadedAt: current.loadedAt,
       }));
@@ -2171,7 +2415,44 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       setPreferenceUrlLookupState((current) => ({
         ...current,
         loading: false,
-        error: lookupError instanceof Error ? lookupError.message : "Could not detect artist from URL.",
+        error: formatPreferenceUiError(lookupError, "Could not detect artist from URL."),
+      }));
+    }
+  }
+
+  async function submitManualArtistPreferences() {
+    setPreferenceArtistSubmitState((current) => ({ ...current, loading: true, error: "" }));
+
+    try {
+      const payload = buildManualArtistPreferencePayload(manualArtistPreferenceForm);
+      const data = await submitTooLostArtistPreferences(payload);
+      setPreferenceArtistSubmitState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      await loadEndpoint(findEndpoint("preferencesArtist"));
+      await loadEndpoint(findEndpoint("preferencesArtists"));
+    } catch (submitError) {
+      setPreferenceArtistSubmitState((current) => ({
+        loading: false,
+        error: formatPreferenceUiError(submitError, "Could not save artist preferences."),
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
+  async function submitManualLabelPreferences() {
+    setPreferenceLabelSubmitState((current) => ({ ...current, loading: true, error: "" }));
+
+    try {
+      const payload = buildManualLabelPreferencePayload(manualLabelPreferenceForm);
+      const data = await submitTooLostLabelPreferences(payload);
+      setPreferenceLabelSubmitState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      await loadEndpoint(findEndpoint("preferencesLabel"));
+    } catch (submitError) {
+      setPreferenceLabelSubmitState((current) => ({
+        loading: false,
+        error: formatPreferenceUiError(submitError, "Could not save label preferences."),
+        data: current.data,
+        loadedAt: current.loadedAt,
       }));
     }
   }
@@ -2194,7 +2475,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     } catch (submitError) {
       setPreferenceArtistSubmitState((current) => ({
         loading: false,
-        error: submitError instanceof Error ? submitError.message : "Could not submit artist preferences.",
+        error: formatPreferenceUiError(submitError, "Could not submit artist preferences."),
         data: current.data,
         loadedAt: current.loadedAt,
       }));
@@ -2219,7 +2500,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     } catch (submitError) {
       setPreferenceLabelSubmitState((current) => ({
         loading: false,
-        error: submitError instanceof Error ? submitError.message : "Could not submit label preferences.",
+        error: formatPreferenceUiError(submitError, "Could not submit label preferences."),
         data: current.data,
         loadedAt: current.loadedAt,
       }));
@@ -2258,7 +2539,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     } catch (removeError) {
       setPreferenceRosterActionState((current) => ({
         loading: false,
-        error: removeError instanceof Error ? removeError.message : "Could not remove artist from label preferences.",
+        error: formatPreferenceUiError(removeError, "Could not remove artist from label preferences."),
         data: current.data,
         loadedAt: current.loadedAt,
       }));
@@ -2289,6 +2570,27 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const preferencesArtist = getEndpointState(endpointResults, "preferencesArtist");
   const preferencesArtists = getEndpointState(endpointResults, "preferencesArtists");
   const preferenceArtistRows = getPreferenceRows(preferencesArtists.data).filter(isRecord);
+
+  useEffect(() => {
+    if (!preferencesArtist.data) return;
+    setManualArtistPreferenceForm((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        Object.entries(hydrateManualArtistPreferenceForm(preferencesArtist.data)).filter(([, value]) => value !== ""),
+      ) as ManualArtistPreferenceForm,
+    }));
+  }, [preferencesArtist.data]);
+
+  useEffect(() => {
+    if (!preferencesLabel.data) return;
+    setManualLabelPreferenceForm((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        Object.entries(hydrateManualLabelPreferenceForm(preferencesLabel.data)).filter(([, value]) => value !== ""),
+      ) as ManualLabelPreferenceForm,
+    }));
+  }, [preferencesLabel.data]);
+
   const salesOverview = getEndpointState(endpointResults, "salesOverview").data;
   const profileRecord = getProfileRecord(profileResult);
   const platformOptions = useMemo(() => {
@@ -4384,19 +4686,79 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             <PreferenceMiniCard data={preferencesLabel.data} title="Label Preference" emptyLabel="No label profile" />
             <PreferenceMiniCard data={preferencesArtist.data} title="Artist Preference" emptyLabel="No artist profile" />
             <article className="asset-card setup-action-panel">
-              <span className="asset-type-pill">Safe Submit</span>
-              <h3>Preference Save Actions</h3>
-              <p>These use the API submit endpoints. Until we have the exact writable schema, Track Adam OS submits the current synced preference payload only.</p>
-              <InlineError message={preferenceLabelSubmitState.error || preferenceArtistSubmitState.error} />
-              <div className="setup-action-row">
-                <button className="secondary-btn" type="button" disabled={!canLoad || preferenceLabelSubmitState.loading} onClick={() => void submitCurrentLabelPreferenceSnapshot()}>
-                  {preferenceLabelSubmitState.loading ? "Saving..." : "Submit Label Snapshot"}
-                </button>
-                <button className="secondary-btn" type="button" disabled={!canLoad || preferenceArtistSubmitState.loading} onClick={() => void submitCurrentArtistPreferenceSnapshot()}>
-                  {preferenceArtistSubmitState.loading ? "Saving..." : "Submit Artist Snapshot"}
-                </button>
+              <span className="asset-type-pill">Manual Ready</span>
+              <h3>Manual Setup Backup</h3>
+              <p>Sandbox search can fail when external provider lookup is unavailable. You can still type label and artist defaults manually and submit them with the documented preference payloads.</p>
+              <div className="setup-error-stack">
+                <InlineError message={preferenceLabelSubmitState.error} />
+                <InlineError message={preferenceArtistSubmitState.error} />
               </div>
               {(preferenceLabelSubmitState.data || preferenceArtistSubmitState.data) ? <span className="status-pill status-pill-green">Preference submit returned successfully</span> : null}
+            </article>
+          </div>
+
+          <div className="setup-manual-grid">
+            <article className="asset-card setup-panel setup-form-card">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Label Defaults</span>
+                  <h3>Manual Label Preferences</h3>
+                  <p>Save your label identity and public links. This uses POST /preferences/label/submit.</p>
+                </div>
+              </div>
+              <div className="setup-form-grid">
+                <label className="setup-form-wide"><span>Label Name</span><input value={manualLabelPreferenceForm.name} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, name: event.target.value }))} placeholder="Shock Wav Union" /></label>
+                <label className="setup-form-wide"><span>About Label</span><textarea value={manualLabelPreferenceForm.about} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Independent label description" /></label>
+                <label><span>Website</span><input value={manualLabelPreferenceForm.website} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." /></label>
+                <label><span>Image URL</span><input value={manualLabelPreferenceForm.image} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, image: event.target.value }))} placeholder="https://..." /></label>
+                <label><span>Facebook</span><input value={manualLabelPreferenceForm.facebook} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, facebook: event.target.value }))} placeholder="https://facebook.com/..." /></label>
+                <label><span>Instagram</span><input value={manualLabelPreferenceForm.instagram} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, instagram: event.target.value }))} placeholder="https://instagram.com/..." /></label>
+                <label><span>X / Twitter</span><input value={manualLabelPreferenceForm.twitter} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, twitter: event.target.value }))} placeholder="https://x.com/..." /></label>
+                <label><span>YouTube</span><input value={manualLabelPreferenceForm.youtube} onChange={(event) => setManualLabelPreferenceForm((current) => ({ ...current, youtube: event.target.value }))} placeholder="https://youtube.com/..." /></label>
+              </div>
+              <div className="setup-action-row">
+                <button className="primary-btn" type="button" disabled={!canLoad || preferenceLabelSubmitState.loading} onClick={() => void submitManualLabelPreferences()}>
+                  {preferenceLabelSubmitState.loading ? "Saving Label..." : "Save Label Preferences"}
+                </button>
+                <button className="secondary-btn" type="button" disabled={!canLoad || preferenceLabelSubmitState.loading || !preferencesLabel.data} onClick={() => void submitCurrentLabelPreferenceSnapshot()}>Submit Synced Snapshot</button>
+              </div>
+            </article>
+
+            <article className="asset-card setup-panel setup-form-card">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Artist Defaults</span>
+                  <h3>Manual Artist Preferences</h3>
+                  <p>Save artist defaults, platform profiles, label, genre, language, and copyright lines. This uses POST /preferences/artist/submit.</p>
+                </div>
+              </div>
+              <div className="setup-form-grid">
+                <label><span>Artist Name</span><input value={manualArtistPreferenceForm.artistName} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Natasha Storm" /></label>
+                <label><span>Artist ID optional</span><input value={manualArtistPreferenceForm.id} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, id: event.target.value.replace(/[^0-9]/g, "") }))} placeholder="123" inputMode="numeric" /></label>
+                <label><span>Primary Genre</span><input value={manualArtistPreferenceForm.primaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, primaryGenre: event.target.value }))} placeholder="R&B/Soul" /></label>
+                <label><span>Secondary Genre</span><input value={manualArtistPreferenceForm.secondaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, secondaryGenre: event.target.value }))} placeholder="Alternative R&B" /></label>
+                <label><span>Language</span><input value={manualArtistPreferenceForm.language} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, language: event.target.value }))} placeholder="English" /></label>
+                <label><span>Label</span><input value={manualArtistPreferenceForm.label} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, label: event.target.value }))} placeholder="Shock Wav Union" /></label>
+                <label><span>C Line</span><input value={manualArtistPreferenceForm.cLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, cLine: event.target.value }))} placeholder="2026 Shock Wav Union" /></label>
+                <label><span>P Line</span><input value={manualArtistPreferenceForm.pLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, pLine: event.target.value }))} placeholder="2026 Shock Wav Union" /></label>
+                <label><span>Release Time</span><input value={manualArtistPreferenceForm.releaseTime} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, releaseTime: event.target.value }))} placeholder="00:00" /></label>
+                <label><span>Time Zone</span><input value={manualArtistPreferenceForm.timeZone} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, timeZone: event.target.value }))} placeholder="America/New_York" /></label>
+                <label className="setup-form-wide"><span>About Artist</span><textarea value={manualArtistPreferenceForm.about} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Artist bio / description" /></label>
+                <label><span>Spotify</span><input value={manualArtistPreferenceForm.spotify} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, spotify: event.target.value }))} placeholder="https://open.spotify.com/artist/..." /></label>
+                <label><span>Apple Music</span><input value={manualArtistPreferenceForm.appleMusic} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, appleMusic: event.target.value }))} placeholder="https://music.apple.com/..." /></label>
+                <label><span>YouTube Channel</span><input value={manualArtistPreferenceForm.youtube} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, youtube: event.target.value }))} placeholder="https://youtube.com/..." /></label>
+                <label><span>SoundCloud</span><input value={manualArtistPreferenceForm.soundcloud} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, soundcloud: event.target.value }))} placeholder="https://soundcloud.com/..." /></label>
+                <label><span>Website</span><input value={manualArtistPreferenceForm.website} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." /></label>
+                <label><span>Facebook</span><input value={manualArtistPreferenceForm.facebook} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, facebook: event.target.value }))} placeholder="https://facebook.com/..." /></label>
+                <label><span>Instagram</span><input value={manualArtistPreferenceForm.instagram} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, instagram: event.target.value }))} placeholder="https://instagram.com/..." /></label>
+                <label><span>X / Twitter</span><input value={manualArtistPreferenceForm.twitter} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, twitter: event.target.value }))} placeholder="https://x.com/..." /></label>
+              </div>
+              <div className="setup-action-row">
+                <button className="primary-btn" type="button" disabled={!canLoad || preferenceArtistSubmitState.loading} onClick={() => void submitManualArtistPreferences()}>
+                  {preferenceArtistSubmitState.loading ? "Saving Artist..." : "Save Artist Preferences"}
+                </button>
+                <button className="secondary-btn" type="button" disabled={!canLoad || preferenceArtistSubmitState.loading || !preferencesArtist.data} onClick={() => void submitCurrentArtistPreferenceSnapshot()}>Submit Synced Snapshot</button>
+              </div>
             </article>
           </div>
 

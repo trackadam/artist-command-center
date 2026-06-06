@@ -813,6 +813,11 @@ function formatTooLostSearchError(platform: TooLostPreferencePlatform, errors: u
 
   const uniqueMessages = Array.from(new Set(messages));
   const readablePlatform = platform === "apple" ? "Apple Music" : platform === "youtube" ? "YouTube" : platform === "audiomack" ? "Audiomack" : "Spotify";
+
+  if (uniqueMessages.some((message) => /500|internal server error|something went wrong/i.test(message))) {
+    return `${readablePlatform} search is unavailable in the Too Lost sandbox right now. Paste a profile link or enter the artist manually instead.`;
+  }
+
   return uniqueMessages.length
     ? `${readablePlatform} search failed: ${uniqueMessages.join(" | ")}`
     : `${readablePlatform} search failed. Check the Too Lost preference endpoint, platform, and preference scopes.`;
