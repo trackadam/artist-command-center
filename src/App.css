@@ -11299,3 +11299,46 @@ body {
   width: 100% !important;
   max-width: none !important;
 }
+
+/* =========================
+   v22.13 Setup — visible card containers
+   ========================= */
+
+.scc-featured-card,
+.scc-half-card,
+.scc-url-strip {
+  border: 1px solid var(--line-strong) !important;
+  background:
+    radial-gradient(circle at top right, rgba(47, 124, 255, 0.08), transparent 40%),
+    rgba(255, 255, 255, 0.04) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22) !important;
+}
+
+/* Meta column gets a slightly stronger accent so it reads as a label */
+.scc-featured-meta,
+.scc-url-meta {
+  background:
+    radial-gradient(circle at top left, rgba(47, 124, 255, 0.2), transparent 55%),
+    rgba(255, 255, 255, 0.045) !important;
+  border-right: 1px solid var(--line-strong) !important;
+}
+
+/* Half cards — matching inner border treatment */
+.scc-half-card {
+  background:
+    radial-gradient(circle at top right, rgba(47, 124, 255, 0.08), transparent 40%),
+    rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Health cards — same treatment */
+.setup-command-center .setup-health-card {
+  border: 1px solid var(--line-strong) !important;
+  background:
+    radial-gradient(circle at top left, rgba(47, 124, 255, 0.1), transparent 50%),
+    rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Hero card and connection status cards already have borders, just make sure they match */
+.setup-command-center .setup-hero-card {
+  border: 1px solid var(--line-strong) !important;
+}
