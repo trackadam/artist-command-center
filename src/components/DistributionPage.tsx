@@ -767,15 +767,15 @@ function getReleaseTitle(row: Record<string, unknown>) {
 function ReleaseTable({
   data,
   selectedReleaseId,
+  selectedDraftIds,
   onSelect,
-  onDeleteDraft,
-  deleteDisabled = false,
+  onToggleDraft,
 }: {
   data: unknown;
   selectedReleaseId: string;
+  selectedDraftIds: string[];
   onSelect: (releaseId: string) => void;
-  onDeleteDraft?: (releaseId: string, title: string) => void;
-  deleteDisabled?: boolean;
+  onToggleDraft: (releaseId: string) => void;
 }) {
   const rows = getRows(data);
 
@@ -794,13 +794,14 @@ function ReleaseTable({
       <table className="distribution-table distribution-v5-table distribution-roadmap-table catalog-release-table">
         <thead>
           <tr>
+            <th className="catalog-check-column">Select</th>
             <th>Release</th>
             <th>Type</th>
             <th>Status</th>
             <th>UPC / Catalog</th>
             <th>Release Date</th>
             <th>Tracks</th>
-            <th>Actions</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -813,9 +814,25 @@ function ReleaseTable({
             const catalogNumber = getRecordValue(row, ["catalogNumber", "catalog_number"]);
             const upc = getRecordValue(row, ["upc", "barcode"]);
             const isDraft = status === "draft";
+            const draftSelected = Boolean(releaseId && selectedDraftIds.includes(releaseId));
 
             return (
               <tr key={releaseId || `release-${rowIndex}`} className={active ? "distribution-selected-row catalog-selected-row" : undefined}>
+                <td className="catalog-check-column">
+                  {isDraft && releaseId ? (
+                    <label className="catalog-draft-check" title="Select draft for bulk action">
+                      <input
+                        type="checkbox"
+                        checked={draftSelected}
+                        onChange={() => onToggleDraft(releaseId)}
+                        aria-label={`Select draft ${title}`}
+                      />
+                      <span />
+                    </label>
+                  ) : (
+                    <span className="catalog-lock-note">—</span>
+                  )}
+                </td>
                 <td>
                   <button className="catalog-release-select" type="button" disabled={!releaseId} onClick={() => releaseId && onSelect(releaseId)}>
                     <span className={active ? "catalog-select-dot catalog-select-dot-active" : "catalog-select-dot"} />
@@ -831,15 +848,10 @@ function ReleaseTable({
                 <td>{stringifyCell(getRecordValue(row, ["releaseDate", "release_date", "originalReleaseDate"]))}</td>
                 <td>{trackCount ? `${trackCount} track${trackCount === 1 ? "" : "s"}` : "—"}</td>
                 <td>
-                  <div className="catalog-row-actions">
+                  <div className="catalog-row-actions catalog-row-actions-solo">
                     <button className="mini-action-btn" type="button" disabled={!releaseId} onClick={() => releaseId && onSelect(releaseId)}>
                       Details
                     </button>
-                    {isDraft && onDeleteDraft ? (
-                      <button className="mini-action-btn catalog-danger-btn" type="button" disabled={!releaseId || deleteDisabled} onClick={() => releaseId && onDeleteDraft(releaseId, title)}>
-                        Delete Draft
-                      </button>
-                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -957,6 +969,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [totalStreamsState, setTotalStreamsState] = useState<EndpointState>(defaultEndpointState);
   const [releaseFilters, setReleaseFilters] = useState<ReleaseFilterForm>(emptyReleaseFilterForm);
   const [selectedReleaseId, setSelectedReleaseId] = useState(() => readStoredActiveReleaseId());
+  const [selectedCatalogDraftIds, setSelectedCatalogDraftIds] = useState<string[]>([]);
   const [releaseDetailState, setReleaseDetailState] = useState<EndpointState>(defaultEndpointState);
   const [releaseTracksState, setReleaseTracksState] = useState<EndpointState>(defaultEndpointState);
   const [releaseDraftForm, setReleaseDraftForm] = useState<ReleaseDraftForm>(emptyReleaseDraftForm);
@@ -1204,6 +1217,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
     try {
       await deleteTooLostRelease(releaseId);
+      setSelectedCatalogDraftIds((current) => current.filter((id) => id !== releaseId));
       if (releaseId === selectedReleaseId) {
         clearActiveReleaseSession();
       }
@@ -1213,6 +1227,44 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     } finally {
       setActionLoading(false);
     }
+  }
+
+  async function deleteSelectedCatalogDrafts() {
+    if (!selectedCatalogDraftIds.length) return;
+
+    const confirmed = window.confirm(`Delete ${selectedCatalogDraftIds.length} selected draft release${selectedCatalogDraftIds.length === 1 ? "" : "s"}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    setActionLoading(true);
+    setError("");
+
+    try {
+      for (const releaseId of selectedCatalogDraftIds) {
+        // eslint-disable-next-line no-await-in-loop
+        await deleteTooLostRelease(releaseId);
+      }
+
+      if (selectedCatalogDraftIds.includes(selectedReleaseId)) {
+        clearActiveReleaseSession();
+      }
+
+      setSelectedCatalogDraftIds([]);
+      await loadReleasesWithFilters();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Could not delete selected draft releases.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  function toggleCatalogDraftSelection(releaseId: string) {
+    setSelectedCatalogDraftIds((current) => (
+      current.includes(releaseId) ? current.filter((id) => id !== releaseId) : [...current, releaseId]
+    ));
+  }
+
+  function setVisibleCatalogDraftSelection(releaseIds: string[]) {
+    setSelectedCatalogDraftIds(releaseIds);
   }
 
   async function removeCatalogTrackFromDraft(trackIndex: number) {
@@ -1816,6 +1868,17 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const activeReleaseTitle = selectedReleaseReady ? getActiveReleaseTitle(releaseDetailState.data) : "No active release";
   const activeReleaseStatus = selectedReleaseReady ? getActiveReleaseStatus(releaseDetailState.data) : "not started";
   const catalogRows = useMemo(() => getRows(releasesResult), [releasesResult]);
+  const visibleCatalogDraftIds = useMemo(
+    () => catalogRows.map((row) => ({ id: getReleaseId(row), status: getReleaseStatus(row) })).filter((item) => item.id && item.status === "draft").map((item) => item.id),
+    [catalogRows],
+  );
+  const selectedVisibleDraftCount = selectedCatalogDraftIds.filter((id) => visibleCatalogDraftIds.includes(id)).length;
+  const allVisibleDraftsSelected = Boolean(visibleCatalogDraftIds.length && selectedVisibleDraftCount === visibleCatalogDraftIds.length);
+
+  useEffect(() => {
+    setSelectedCatalogDraftIds((current) => current.filter((id) => visibleCatalogDraftIds.includes(id)));
+  }, [visibleCatalogDraftIds]);
+
   const catalogCounts = useMemo(() => {
     const counts = { total: catalogRows.length, draft: 0, inReview: 0, live: 0 };
     for (const row of catalogRows) {
@@ -2008,20 +2071,46 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
           <div className="catalog-management-grid">
             <article className="asset-card distribution-v5-panel catalog-list-panel">
-              <div className="catalog-panel-heading">
+              <div className="catalog-panel-heading catalog-panel-heading-actions">
                 <div>
                   <span className="asset-type-pill">Releases</span>
                   <h3>Catalog List</h3>
-                  <p>Select a release to view metadata, tracks, identifiers, and draft management actions.</p>
+                  <p>Select one release for details, or select multiple drafts for bulk cleanup.</p>
                 </div>
                 {selectedReleaseId ? <span className="status-pill">Selected ID {selectedReleaseId}</span> : <span className="status-pill">No selection</span>}
+              </div>
+
+              <div className="catalog-bulk-toolbar">
+                <div>
+                  <span className="catalog-bulk-kicker">Draft Selection</span>
+                  <strong>{selectedVisibleDraftCount} selected</strong>
+                  <small>{visibleCatalogDraftIds.length} visible draft{visibleCatalogDraftIds.length === 1 ? "" : "s"}</small>
+                </div>
+                <div className="catalog-bulk-actions">
+                  <button
+                    className="secondary-btn catalog-small-btn"
+                    type="button"
+                    disabled={!visibleCatalogDraftIds.length}
+                    onClick={() => setVisibleCatalogDraftSelection(allVisibleDraftsSelected ? [] : visibleCatalogDraftIds)}
+                  >
+                    {allVisibleDraftsSelected ? "Clear visible" : "Select visible drafts"}
+                  </button>
+                  <button
+                    className="secondary-btn catalog-small-btn catalog-danger-outline"
+                    type="button"
+                    disabled={!selectedCatalogDraftIds.length || actionLoading}
+                    onClick={() => void deleteSelectedCatalogDrafts()}
+                  >
+                    Delete Selected Drafts
+                  </button>
+                </div>
               </div>
               <ReleaseTable
                 data={releasesResult}
                 selectedReleaseId={selectedReleaseId}
+                selectedDraftIds={selectedCatalogDraftIds}
                 onSelect={(releaseId) => void loadReleaseDetails(releaseId)}
-                onDeleteDraft={deleteCatalogDraft}
-                deleteDisabled={actionLoading}
+                onToggleDraft={toggleCatalogDraftSelection}
               />
             </article>
 
