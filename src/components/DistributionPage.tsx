@@ -2561,10 +2561,6 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                       {licenseTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
                     </select>
                   </label>
-                  <label className="distribution-form-wide">
-                    <span>License Info</span>
-                    <input value={releaseMetadataForm.licenseInfo} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, licenseInfo: event.target.value }))} placeholder="Owned by artist and label." />
-                  </label>
                   <label>
                     <span>C Year</span>
                     <input value={releaseMetadataForm.cYear} onChange={(event) => setReleaseMetadataForm((current) => ({ ...current, cYear: event.target.value }))} placeholder="2026" inputMode="numeric" />
