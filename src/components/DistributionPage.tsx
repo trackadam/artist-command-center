@@ -66,6 +66,7 @@ type MetricCard = {
 type PreferenceSearchState = EndpointState & {
   platform: TooLostPreferencePlatform;
   query: string;
+  resultPlatform?: TooLostPreferencePlatform;
 };
 
 type PreferenceUrlLookupState = EndpointState & {
@@ -1114,6 +1115,22 @@ function RawJson({ data }: { data: unknown }) {
 
 
 function getPreferenceRows(value: unknown) {
+  const payload = getPayloadData(value);
+
+  if (isRecord(payload)) {
+    const resultPlatform = getRecordValue(payload, ["platform", "service"]);
+    const rawRows = Array.isArray(payload.results) ? payload.results : Array.isArray(payload.items) ? payload.items : Array.isArray(payload.data) ? payload.data : null;
+
+    if (rawRows) {
+      return rawRows
+        .filter(isRecord)
+        .map((row) => {
+          if (row.platform || !resultPlatform) return row;
+          return { ...row, platform: resultPlatform };
+        }) as Record<string, unknown>[];
+    }
+  }
+
   return getRows(value);
 }
 
@@ -1140,6 +1157,23 @@ function getPreferenceUrl(value: unknown) {
   const record = isRecord(value) ? value : getPreferenceRecord(value);
   if (!record) return "";
   return stringifyCell(getRecordValue(record, ["url", "link", "artistUrl", "artist_url", "spotifyUrl", "appleUrl", "youtubeUrl", "externalUrl"]));
+}
+
+function getPreferencePlatformFromRecord(value: unknown, fallback: TooLostPreferencePlatform): TooLostPreferencePlatform {
+  const record = isRecord(value) ? value : getPreferenceRecord(value);
+  const raw = record ? String(getRecordValue(record, ["platform", "service", "source"]) || "").toLowerCase() : "";
+  if (raw.includes("spotify")) return "spotify";
+  if (raw.includes("apple")) return "apple";
+  if (raw.includes("youtube") || raw.includes("you tube")) return "youtube";
+  if (raw.includes("audiomack")) return "audiomack";
+
+  const url = getPreferenceUrl(value).toLowerCase();
+  if (url.includes("spotify.com")) return "spotify";
+  if (url.includes("music.apple.com") || url.includes("itunes.apple.com")) return "apple";
+  if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
+  if (url.includes("audiomack.com")) return "audiomack";
+
+  return fallback;
 }
 
 function getPreferenceSubtitle(value: unknown) {
@@ -1559,6 +1593,23 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
         writeStoredActiveReleaseId("");
       }
     }
+  }
+
+  function openSubmissionRelease(row: Record<string, unknown>) {
+    const releaseId = getReleaseId(row);
+    if (!releaseId) return;
+
+    const embeddedTracks = getEmbeddedTracks(row);
+    setActiveReleaseSession(releaseId);
+    setReleaseDetailState({ loading: false, error: "", data: row, loadedAt: new Date().toISOString() });
+    setReleaseTracksState({ loading: false, error: "", data: { data: embeddedTracks }, loadedAt: new Date().toISOString() });
+
+    const metaForm = extractReleaseMetadataForm(row);
+    setReleaseMetadataForm(metaForm);
+    setAdditionalDelivery(extractAdditionalDeliveryState(row));
+    setArtworkPreviewUrl(metaForm.coverUrl || "");
+
+    void loadReleaseDetails(releaseId);
   }
 
   async function deleteCatalogDraft(releaseId: string, title: string) {
@@ -2066,12 +2117,14 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       return;
     }
 
-    setPreferenceSearchState((current) => ({ ...current, loading: true, error: "" }));
+    const platform = preferenceSearchState.platform;
+    setPreferenceSearchState((current) => ({ ...current, loading: true, error: "", resultPlatform: platform }));
     setPreferencePlatformDetailState(defaultEndpointState);
+    setPreferenceUrlLookupState((current) => ({ ...current, data: null, error: "" }));
 
     try {
-      const data = await searchTooLostPreferencePlatform(preferenceSearchState.platform, query);
-      setPreferenceSearchState((current) => ({ ...current, loading: false, error: "", data, loadedAt: new Date().toISOString() }));
+      const data = await searchTooLostPreferencePlatform(platform, query);
+      setPreferenceSearchState((current) => ({ ...current, loading: false, error: "", data, loadedAt: new Date().toISOString(), resultPlatform: platform }));
     } catch (searchError) {
       setPreferenceSearchState((current) => ({
         ...current,
@@ -2089,7 +2142,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
 
     try {
       const url = getPreferenceUrl(row);
-      const data = await getTooLostPreferencePlatformItem(preferenceSearchState.platform, id, url && url !== "—" ? url : undefined);
+      const platform = getPreferencePlatformFromRecord(row, preferenceSearchState.resultPlatform || preferenceSearchState.platform);
+      const data = await getTooLostPreferencePlatformItem(platform, id, url && url !== "—" ? url : undefined);
       setPreferencePlatformDetailState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
     } catch (detailError) {
       setPreferencePlatformDetailState((current) => ({
@@ -2829,7 +2883,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                         return (
                           <tr key={releaseId || `submission-${index}`} className={active ? "distribution-selected-row catalog-selected-row" : undefined}>
                             <td>
-                              <button className="catalog-release-select" type="button" disabled={!releaseId} onClick={() => releaseId && void loadReleaseDetails(releaseId)}>
+                              <button className="catalog-release-select" type="button" disabled={!releaseId} onClick={() => releaseId && openSubmissionRelease(row)}>
                                 <span className={active ? "catalog-select-dot catalog-select-dot-active" : "catalog-select-dot"} />
                                 <span>
                                   <strong>{getReleaseTitle(row)}</strong>
@@ -2843,7 +2897,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                             <td>{embeddedTracks.length ? embeddedTracks.length : "—"}</td>
                             <td>{isrcList.length ? isrcList.slice(0, 2).join(", ") : "Pending"}</td>
                             <td>
-                              <button className="mini-action-btn" type="button" disabled={!releaseId} onClick={() => releaseId && void loadReleaseDetails(releaseId)}>
+                              <button className="mini-action-btn" type="button" disabled={!releaseId} onClick={() => releaseId && openSubmissionRelease(row)}>
                                 Open
                               </button>
                             </td>
@@ -4403,7 +4457,14 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <div className="setup-search-grid">
                 <label>
                   <span>Platform</span>
-                  <select value={preferenceSearchState.platform} onChange={(event) => setPreferenceSearchState((current) => ({ ...current, platform: event.target.value as TooLostPreferencePlatform }))}>
+                  <select
+                    value={preferenceSearchState.platform}
+                    onChange={(event) => {
+                      const platform = event.target.value as TooLostPreferencePlatform;
+                      setPreferenceSearchState((current) => ({ ...current, platform, data: null, error: "", loadedAt: undefined, resultPlatform: undefined }));
+                      setPreferencePlatformDetailState(defaultEndpointState);
+                    }}
+                  >
                     <option value="spotify">Spotify</option>
                     <option value="apple">Apple Music</option>
                     <option value="youtube">YouTube</option>
