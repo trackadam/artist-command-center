@@ -4684,8 +4684,8 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
               <div className="scc-field-grid scc-grid-3">
                 <label className="scc-field"><span>Artist name</span><input value={manualArtistPreferenceForm.artistName} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, artistName: event.target.value }))} placeholder="Artist name" /></label>
                 <label className="scc-field"><span>Artist ID</span><input value={manualArtistPreferenceForm.id} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, id: event.target.value.replace(/[^0-9]/g, "") }))} placeholder="123" inputMode="numeric" /></label>
-                <label className="scc-field"><span>Primary genre</span><input value={manualArtistPreferenceForm.primaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, primaryGenre: event.target.value }))} placeholder="Primary genre" /></label>
-                <label className="scc-field"><span>Secondary genre</span><input value={manualArtistPreferenceForm.secondaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, secondaryGenre: event.target.value }))} placeholder="Secondary genre" /></label>
+                <label className="scc-field"><span>Primary genre</span><select value={manualArtistPreferenceForm.primaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, primaryGenre: event.target.value }))}><option value="">{lookupGenres.loading ? "Loading..." : "Choose genre"}</option>{genreOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label>
+                <label className="scc-field"><span>Secondary genre</span><select value={manualArtistPreferenceForm.secondaryGenre} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, secondaryGenre: event.target.value }))}><option value="">None</option>{genreOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label>
                 <label className="scc-field"><span>Language</span><input value={manualArtistPreferenceForm.language} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, language: event.target.value }))} placeholder="English" /></label>
                 <label className="scc-field"><span>Label</span><input value={manualArtistPreferenceForm.label} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, label: event.target.value }))} placeholder="Label name" /></label>
                 <label className="scc-field"><span>C line</span><input value={manualArtistPreferenceForm.cLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, cLine: event.target.value }))} placeholder="2026 Label Name" /></label>
@@ -4693,6 +4693,30 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <label className="scc-field"><span>Release time</span><input value={manualArtistPreferenceForm.releaseTime} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, releaseTime: event.target.value }))} placeholder="00:00" /></label>
                 <label className="scc-field"><span>Time zone</span><input value={manualArtistPreferenceForm.timeZone} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, timeZone: event.target.value }))} placeholder="America/New_York" /></label>
                 <label className="scc-field scc-span3"><span>About artist</span><textarea value={manualArtistPreferenceForm.about} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Artist bio / description" /></label>
+                <div className="scc-field scc-span3">
+                  <span>Artist photo</span>
+                  <div className="scc-photo-row">
+                    <label className="scc-photo-upload" title="Upload photo">
+                      <input type="file" accept="image/*" style={{display:"none"}} onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                          const result = e.target?.result;
+                          if (typeof result === "string") setManualArtistPreferenceForm((current) => ({ ...current, image: result }));
+                        };
+                        reader.readAsDataURL(file);
+                      }} />
+                      {manualArtistPreferenceForm.image && manualArtistPreferenceForm.image.startsWith("data:") ? (
+                        <img src={manualArtistPreferenceForm.image} alt="Artist preview" className="scc-photo-preview" />
+                      ) : (
+                        <span className="scc-photo-placeholder">📷 Upload</span>
+                      )}
+                    </label>
+                    <input className="scc-photo-url" value={manualArtistPreferenceForm.image.startsWith("data:") ? "" : manualArtistPreferenceForm.image} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, image: event.target.value }))} placeholder="Or paste image URL (https://...)" />
+                    {manualArtistPreferenceForm.image ? <button type="button" className="secondary-btn compact-btn" onClick={() => setManualArtistPreferenceForm((current) => ({ ...current, image: "" }))}>Remove</button> : null}
+                  </div>
+                </div>
                 <label className="scc-field"><span>Spotify</span><input value={manualArtistPreferenceForm.spotify} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, spotify: event.target.value }))} placeholder="https://open.spotify.com/artist/..." /></label>
                 <label className="scc-field"><span>Apple Music</span><input value={manualArtistPreferenceForm.appleMusic} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, appleMusic: event.target.value }))} placeholder="https://music.apple.com/..." /></label>
                 <label className="scc-field"><span>YouTube channel</span><input value={manualArtistPreferenceForm.youtube} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, youtube: event.target.value }))} placeholder="https://youtube.com/..." /></label>
@@ -4732,6 +4756,31 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                           <small>{getPreferenceSubtitle(row)}</small>
                         </div>
                         <div className="setup-roster-actions">
+                          <button className="secondary-btn compact-btn" type="button" onClick={() => {
+                            setManualArtistPreferenceForm({
+                              id: String(row.id || row.artistId || ""),
+                              artistName: String(row.artistName || row.name || ""),
+                              primaryGenre: String(row.primaryGenre || row.primary_genre || ""),
+                              secondaryGenre: String(row.secondaryGenre || row.secondary_genre || ""),
+                              language: String(row.language || ""),
+                              about: String(row.about || row.description || ""),
+                              image: String(row.img || row.image || ""),
+                              label: String(row.label || ""),
+                              cLine: String(row.c_line || row.cLine || ""),
+                              pLine: String(row.p_line || row.pLine || ""),
+                              releaseTime: String(row.releaseTime || row.release_time || "00:00"),
+                              timeZone: String(row.timeZone || row.time_zone || "America/New_York"),
+                              spotify: String((isRecord(row.platforms) && row.platforms.spotify) || row.spotify || ""),
+                              appleMusic: String((isRecord(row.platforms) && row.platforms.appleMusic) || row.appleMusic || ""),
+                              youtube: String((isRecord(row.platforms) && row.platforms.youtube) || row.youtube || ""),
+                              soundcloud: String((isRecord(row.platforms) && row.platforms.soundcloud) || row.soundcloud || ""),
+                              website: String((isRecord(row.platforms) && row.platforms.website) || row.website || ""),
+                              facebook: String((isRecord(row.social) && row.social.facebook) || row.facebook || ""),
+                              instagram: String((isRecord(row.social) && row.social.instagram) || row.instagram || ""),
+                              twitter: String((isRecord(row.social) && row.social.twitter) || row.twitter || ""),
+                            });
+                            document.querySelector(".scc-featured-card:nth-of-type(2)")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }}>Edit</button>
                           {id && id !== "—" ? <button className="secondary-btn compact-btn" type="button" disabled={!canLoad || preferenceRosterActionState.loading} onClick={() => void inspectLabelArtist(row)}>Inspect</button> : null}
                           {id && id !== "—" ? <button className="danger-btn compact-btn" type="button" disabled={!canLoad || preferenceRosterActionState.loading} onClick={() => void removeLabelArtist(row)}>Remove</button> : null}
                         </div>
