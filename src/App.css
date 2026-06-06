@@ -11453,3 +11453,43 @@ body {
   border-color: rgba(47, 124, 255, 0.6) !important;
   box-shadow: 0 0 0 2px rgba(47, 124, 255, 0.14) !important;
 }
+
+/* =========================
+   v22.16 Artist photo — proper portrait size
+   ========================= */
+
+.scc-photo-row {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+}
+
+.scc-photo-upload {
+  width: 160px !important;
+  height: 160px !important;
+  border-radius: 16px !important;
+  border: 2px dashed rgba(255, 255, 255, 0.22) !important;
+}
+
+.scc-photo-upload:hover {
+  border-color: rgba(47, 124, 255, 0.6) !important;
+}
+
+.scc-photo-placeholder {
+  font-size: 0.8rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: var(--muted) !important;
+}
+
+.scc-photo-preview {
+  border-radius: 14px !important;
+}
+
+.scc-photo-url {
+  width: 100% !important;
+  max-width: 480px !important;
+  height: 36px !important;
+}
