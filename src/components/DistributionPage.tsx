@@ -4692,29 +4692,34 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <label className="scc-field"><span>P line</span><input value={manualArtistPreferenceForm.pLine} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, pLine: event.target.value }))} placeholder="2026 Label Name" /></label>
                 <label className="scc-field"><span>Release time</span><input value={manualArtistPreferenceForm.releaseTime} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, releaseTime: event.target.value }))} placeholder="00:00" /></label>
                 <label className="scc-field"><span>Time zone</span><input value={manualArtistPreferenceForm.timeZone} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, timeZone: event.target.value }))} placeholder="America/New_York" /></label>
-                <label className="scc-field scc-span3"><span>About artist</span><textarea value={manualArtistPreferenceForm.about} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Artist bio / description" /></label>
+                {/* Photo + bio side by side */}
                 <div className="scc-field scc-span3">
-                  <span>Artist photo</span>
-                  <div className="scc-photo-row">
-                    <label className="scc-photo-upload" title="Upload photo">
-                      <input type="file" accept="image/*" style={{display:"none"}} onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                          const result = e.target?.result;
-                          if (typeof result === "string") setManualArtistPreferenceForm((current) => ({ ...current, image: result }));
-                        };
-                        reader.readAsDataURL(file);
-                      }} />
-                      {manualArtistPreferenceForm.image && manualArtistPreferenceForm.image.startsWith("data:") ? (
-                        <img src={manualArtistPreferenceForm.image} alt="Artist preview" className="scc-photo-preview" />
-                      ) : (
-                        <span className="scc-photo-placeholder">📷 Upload</span>
-                      )}
-                    </label>
-                    <input className="scc-photo-url" value={manualArtistPreferenceForm.image.startsWith("data:") ? "" : manualArtistPreferenceForm.image} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, image: event.target.value }))} placeholder="Or paste image URL (https://...)" />
-                    {manualArtistPreferenceForm.image ? <button type="button" className="secondary-btn compact-btn" onClick={() => setManualArtistPreferenceForm((current) => ({ ...current, image: "" }))}>Remove</button> : null}
+                  <div className="scc-photo-bio-row">
+                    <div className="scc-photo-col">
+                      <span className="scc-field-label">Artist photo</span>
+                      <label className="scc-photo-upload" title="Upload photo">
+                        <input type="file" accept="image/*" style={{display:"none"}} onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (e) => {
+                            const result = e.target?.result;
+                            if (typeof result === "string") setManualArtistPreferenceForm((current) => ({ ...current, image: result }));
+                          };
+                          reader.readAsDataURL(file);
+                        }} />
+                        {manualArtistPreferenceForm.image ? (
+                          <img src={manualArtistPreferenceForm.image} alt="Artist preview" className="scc-photo-preview" />
+                        ) : (
+                          <span className="scc-photo-placeholder">📷<br/>Upload photo</span>
+                        )}
+                      </label>
+                      <input className="scc-photo-url" value={manualArtistPreferenceForm.image.startsWith("data:") ? "" : manualArtistPreferenceForm.image} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, image: event.target.value }))} placeholder="Or paste URL..." />
+                      {manualArtistPreferenceForm.image ? <button type="button" className="secondary-btn compact-btn" style={{marginTop:4}} onClick={() => setManualArtistPreferenceForm((current) => ({ ...current, image: "" }))}>Remove</button> : null}
+                    </div>
+                    <div className="scc-bio-col">
+                      <label className="scc-field" style={{height:"100%"}}><span>About artist</span><textarea style={{flex:1, minHeight:120}} value={manualArtistPreferenceForm.about} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, about: event.target.value }))} placeholder="Artist bio / description" /></label>
+                    </div>
                   </div>
                 </div>
                 <label className="scc-field"><span>Spotify</span><input value={manualArtistPreferenceForm.spotify} onChange={(event) => setManualArtistPreferenceForm((current) => ({ ...current, spotify: event.target.value }))} placeholder="https://open.spotify.com/artist/..." /></label>

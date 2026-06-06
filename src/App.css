@@ -11493,3 +11493,76 @@ body {
   max-width: 480px !important;
   height: 36px !important;
 }
+
+/* =========================
+   v22.17 Photo + bio side by side
+   ========================= */
+
+.scc-photo-bio-row {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.scc-photo-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scc-field-label {
+  font-size: 0.64rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.09em !important;
+  text-transform: uppercase !important;
+  color: rgba(185, 200, 230, 0.72) !important;
+}
+
+.scc-photo-upload {
+  width: 130px !important;
+  height: 130px !important;
+  border-radius: 14px !important;
+  border: 2px dashed rgba(255, 255, 255, 0.2) !important;
+  flex-shrink: 0 !important;
+}
+
+.scc-photo-url {
+  width: 130px !important;
+  max-width: 130px !important;
+  height: 32px !important;
+  font-size: 0.72rem !important;
+  padding: 0 8px !important;
+}
+
+.scc-bio-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 130px;
+}
+
+.scc-bio-col .scc-field {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+.scc-bio-col textarea {
+  flex: 1 !important;
+  min-height: 130px !important;
+  resize: none !important;
+}
+
+@media (max-width: 760px) {
+  .scc-photo-bio-row {
+    grid-template-columns: 1fr !important;
+  }
+  .scc-photo-upload {
+    width: 100% !important;
+    height: 160px !important;
+  }
+  .scc-photo-url {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
