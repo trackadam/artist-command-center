@@ -11566,3 +11566,86 @@ body {
     max-width: none !important;
   }
 }
+
+/* =========================
+   v22.18 Photo + bio — fixed height, no resize on upload
+   ========================= */
+
+.scc-photo-bio-row {
+  grid-template-columns: 110px minmax(0, 1fr) !important;
+  gap: 12px !important;
+  align-items: start !important;
+}
+
+.scc-photo-col {
+  gap: 5px !important;
+}
+
+/* Fixed square — never grows */
+.scc-photo-upload {
+  width: 110px !important;
+  height: 110px !important;
+  min-width: 110px !important;
+  min-height: 110px !important;
+  max-width: 110px !important;
+  max-height: 110px !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+
+.scc-photo-preview {
+  width: 110px !important;
+  height: 110px !important;
+  object-fit: cover !important;
+  border-radius: 11px !important;
+  display: block !important;
+}
+
+.scc-photo-placeholder {
+  font-size: 0.68rem !important;
+  line-height: 1.4 !important;
+}
+
+.scc-photo-url {
+  width: 110px !important;
+  max-width: 110px !important;
+  font-size: 0.68rem !important;
+  height: 28px !important;
+  padding: 0 7px !important;
+}
+
+/* Bio — fixed height matching photo */
+.scc-bio-col {
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+.scc-bio-col .scc-field {
+  height: auto !important;
+}
+
+.scc-bio-col textarea {
+  min-height: 80px !important;
+  height: 80px !important;
+  max-height: 80px !important;
+  resize: none !important;
+  flex: none !important;
+}
+
+@media (max-width: 760px) {
+  .scc-photo-upload {
+    width: 100% !important;
+    max-width: none !important;
+    height: 120px !important;
+    max-height: 120px !important;
+  }
+  .scc-photo-preview {
+    width: 100% !important;
+    height: 120px !important;
+  }
+  .scc-photo-url {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
