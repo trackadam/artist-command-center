@@ -11,6 +11,7 @@ export const TOOLOST_SCOPES = [
   "read:profile",
   "read:catalog",
   "read:preferences",
+  "write:preferences",
   "read:audience",
   "read:analytics",
   "read:releases",
