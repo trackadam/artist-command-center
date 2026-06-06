@@ -8619,3 +8619,63 @@ body {
     max-height: 360px;
   }
 }
+
+/* ── v22.6.8 Catalog bottom panel equalizer ─────────
+   Make the Catalog List and Details panels share the same row height so the bottom boxes don't look uneven. */
+.catalog-management-grid {
+  align-items: stretch !important;
+  grid-template-columns: minmax(0, 1.42fr) minmax(420px, 0.82fr) !important;
+}
+
+.catalog-list-panel,
+.catalog-detail-panel {
+  display: flex !important;
+  min-height: 500px;
+  flex-direction: column;
+}
+
+.catalog-detail-panel {
+  position: static !important;
+  top: auto !important;
+}
+
+.catalog-list-panel .catalog-panel-heading,
+.catalog-detail-panel .catalog-panel-heading {
+  flex: 0 0 auto;
+  min-height: 104px;
+}
+
+.catalog-table-shell,
+.catalog-list-panel > .catalog-empty-state,
+.catalog-detail-panel > .catalog-empty-state {
+  flex: 1 1 auto;
+}
+
+.catalog-list-panel > .catalog-empty-state,
+.catalog-detail-panel > .catalog-empty-state {
+  min-height: 334px !important;
+}
+
+.catalog-table-shell {
+  min-height: 334px !important;
+}
+
+.catalog-detail-panel .catalog-empty-state-compact {
+  min-height: 334px !important;
+}
+
+@media (max-width: 1280px) {
+  .catalog-management-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .catalog-list-panel,
+  .catalog-detail-panel {
+    min-height: 0;
+  }
+
+  .catalog-list-panel .catalog-panel-heading,
+  .catalog-detail-panel .catalog-panel-heading {
+    min-height: 0;
+  }
+}
