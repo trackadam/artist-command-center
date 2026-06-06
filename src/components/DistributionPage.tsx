@@ -1253,36 +1253,6 @@ function getPreferenceSubtitle(value: unknown) {
   return [platform !== "—" ? platform : "", id && id !== "—" ? `ID ${id}` : "", url && url !== "—" ? url : ""].filter(Boolean).join(" • ") || "Preference profile returned by Too Lost.";
 }
 
-function getPreferenceSnapshotPairs(value: unknown) {
-  const record = getPreferenceRecord(value);
-  if (!record) return [] as Array<[string, string]>;
-  return Object.entries(record)
-    .filter(([, item]) => item !== undefined && item !== null && item !== "" && typeof item !== "object")
-    .slice(0, 8)
-    .map(([key, item]) => [key.replace(/_/g, " "), stringifyCell(item)] as [string, string]);
-}
-
-function PreferenceMiniCard({ data, title, emptyLabel }: { data: unknown; title: string; emptyLabel: string }) {
-  const record = getPreferenceRecord(data);
-  const pairs = getPreferenceSnapshotPairs(data);
-
-  return (
-    <article className="preference-mini-card">
-      <span>{title}</span>
-      <strong>{record ? getPreferenceName(record, title) : emptyLabel}</strong>
-      {record ? <small>{getPreferenceSubtitle(record)}</small> : <small>Sync setup data to load this profile.</small>}
-      {pairs.length ? (
-        <div className="preference-mini-kv">
-          {pairs.slice(0, 4).map(([key, value]) => (
-            <div key={key}><em>{key}</em><b>{value}</b></div>
-          ))}
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-
 function getNestedPreferenceRecord(record: Record<string, unknown> | null, key: string) {
   const value = record?.[key];
   return isRecord(value) ? value : null;
@@ -4612,20 +4582,20 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
             </article>
           </div>
 
-          <div className="setup-profile-grid">
-            <PreferenceMiniCard data={preferencesLabel.data} title="Label Preference" emptyLabel="No label profile" />
-            <PreferenceMiniCard data={preferencesArtist.data} title="Artist Preference" emptyLabel="No synced artist profile" />
-            <article className="asset-card setup-action-panel">
-              <span className="asset-type-pill">Manual Ready</span>
-              <h3>Manual Setup</h3>
-              <p>Sandbox provider search can fail. You can still maintain your label profile and add artists to the label roster manually.</p>
+          {(preferenceLabelSubmitState.error || preferenceArtistSubmitState.error || preferenceLabelSubmitState.data || preferenceArtistSubmitState.data) ? (
+            <div className="setup-alert-row asset-card">
+              <div>
+                <span className="asset-type-pill">Setup Status</span>
+                <h3>Preference Updates</h3>
+                <p>Manual roster and label saves are tracked here so form cards stay clean.</p>
+              </div>
               <div className="setup-error-stack">
                 <InlineError message={preferenceLabelSubmitState.error} />
                 <InlineError message={preferenceArtistSubmitState.error} />
+                {(preferenceLabelSubmitState.data || preferenceArtistSubmitState.data) ? <span className="status-pill status-pill-green">Preference submit returned successfully</span> : null}
               </div>
-              {(preferenceLabelSubmitState.data || preferenceArtistSubmitState.data) ? <span className="status-pill status-pill-green">Preference submit returned successfully</span> : null}
-            </article>
-          </div>
+            </div>
+          ) : null}
 
           <div className="setup-manual-grid">
             <article className="asset-card setup-panel setup-form-card">

@@ -10141,3 +10141,190 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* v22.8.8 Setup top-shelf layout audit */
+.setup-command-center {
+  gap: 20px;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.setup-hero-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  padding: 24px 28px;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(84, 143, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 90% 15%, rgba(216, 181, 86, 0.12), transparent 30%),
+    linear-gradient(145deg, rgba(18, 31, 52, 0.92), rgba(9, 13, 21, 0.92));
+}
+
+.setup-hero-card h2 {
+  font-size: clamp(2rem, 3.2vw, 3.35rem);
+  line-height: 0.95;
+  margin-bottom: 8px;
+}
+
+.setup-hero-card p {
+  max-width: 760px;
+}
+
+.setup-health-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.setup-health-card {
+  min-height: 96px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background:
+    linear-gradient(145deg, rgba(20, 32, 50, 0.92), rgba(8, 12, 20, 0.9));
+}
+
+.setup-health-card strong {
+  font-size: 1.35rem;
+  margin-top: 8px;
+}
+
+.setup-alert-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.45fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(72, 132, 239, 0.15), transparent 30%),
+    linear-gradient(145deg, rgba(20, 31, 49, 0.92), rgba(10, 14, 22, 0.92));
+  border: 1px solid rgba(126, 166, 255, 0.18);
+}
+
+.setup-alert-row h3 {
+  margin: 8px 0 5px;
+}
+
+.setup-alert-row p {
+  margin: 0;
+  color: rgba(220, 230, 255, 0.72);
+}
+
+.setup-error-stack {
+  min-width: 0;
+}
+
+.setup-manual-grid {
+  grid-template-columns: minmax(340px, 0.78fr) minmax(620px, 1.22fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.setup-manual-grid .setup-form-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 24px;
+  border-radius: 26px;
+}
+
+.setup-manual-grid .setup-form-card .analytics-panel-head {
+  min-height: 92px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.setup-form-grid {
+  gap: 12px;
+}
+
+.setup-form-grid input,
+.setup-form-grid textarea,
+.setup-search-grid input,
+.setup-search-grid select,
+.setup-url-row input {
+  min-height: 45px;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(18, 30, 49, 0.85), rgba(7, 13, 23, 0.82));
+  border-color: rgba(132, 169, 230, 0.24);
+}
+
+.setup-form-grid textarea {
+  min-height: 86px;
+}
+
+.setup-action-row {
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.setup-main-grid {
+  grid-template-columns: minmax(430px, 1fr) minmax(430px, 1fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.setup-panel {
+  min-height: 440px;
+  padding: 24px;
+  border-radius: 26px;
+}
+
+.setup-roster-list,
+.preference-result-list {
+  max-height: 300px;
+}
+
+.preference-empty-state {
+  min-height: 245px;
+  flex: 1;
+}
+
+.setup-search-grid {
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+}
+
+.setup-url-panel {
+  grid-template-columns: minmax(260px, 0.52fr) minmax(0, 1.48fr);
+  padding: 24px;
+  border-radius: 26px;
+}
+
+.setup-url-panel h3,
+.setup-panel h3,
+.setup-form-card h3 {
+  margin-top: 8px;
+}
+
+.setup-url-row {
+  align-items: end;
+}
+
+@media (max-width: 1320px) {
+  .setup-command-center {
+    max-width: 100%;
+  }
+
+  .setup-manual-grid,
+  .setup-main-grid,
+  .setup-url-panel,
+  .setup-alert-row {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-manual-grid .setup-form-card:nth-child(2) .setup-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 920px) {
+  .setup-health-grid,
+  .setup-search-grid,
+  .setup-manual-grid .setup-form-card:nth-child(2) .setup-form-grid,
+  .setup-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
