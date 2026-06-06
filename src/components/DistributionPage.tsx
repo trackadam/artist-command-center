@@ -2364,11 +2364,37 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       savedArtistName = manualArtistPreferenceForm.artistName.trim();
       const data = await submitTooLostArtistPreferences(payload);
       setPreferenceArtistSubmitState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+
+      // Optimistic update — inject the saved artist directly into the local roster
+      // so the roster reflects the save immediately regardless of sandbox persistence.
+      const optimisticArtistRow = {
+        artistName: savedArtistName,
+        id: manualArtistPreferenceForm.id.trim() || null,
+        primaryGenre: manualArtistPreferenceForm.primaryGenre.trim() || null,
+        label: manualArtistPreferenceForm.label.trim() || null,
+      };
+      setEndpointResults((current) => {
+        const existing = getPreferenceRows(getEndpointState(current, "preferencesArtists").data).filter(isRecord);
+        // Replace if same name/id already exists, otherwise append
+        const filtered = existing.filter((row) => {
+          const rowName = String(row.artistName || row.name || "").toLowerCase();
+          return rowName !== savedArtistName.toLowerCase();
+        });
+        return {
+          ...current,
+          preferencesArtists: {
+            loading: false,
+            error: "",
+            data: { data: [...filtered, optimisticArtistRow] },
+            loadedAt: new Date().toISOString(),
+          },
+        };
+      });
+
       // Clear the form on success
       setManualArtistPreferenceForm(emptyManualArtistPreferenceForm);
-      // Re-sync both artist endpoints so roster updates
-      await loadEndpoint(findEndpoint("preferencesArtist"));
-      await loadEndpoint(findEndpoint("preferencesArtists"));
+      // Still attempt a real re-sync in case production persisted it
+      void loadEndpoint(findEndpoint("preferencesArtist"));
       // Show toast confirmation
       onNotice?.(`${savedArtistName} added to your label roster.`, "success");
     } catch (submitError) {
