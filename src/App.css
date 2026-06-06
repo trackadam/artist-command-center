@@ -9070,3 +9070,42 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* v22.6.13 Beatport eligibility guard */
+.release-delivery-service-card-disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  border-color: rgba(255, 120, 120, 0.18) !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 99, 99, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.018)) !important;
+}
+
+.release-delivery-service-card-disabled:hover {
+  transform: none;
+  border-color: rgba(255, 120, 120, 0.26) !important;
+}
+
+.release-delivery-service-card-disabled .release-delivery-option-check {
+  color: transparent;
+  background: rgba(0, 0, 0, 0.22);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.release-delivery-service-warning {
+  color: rgba(255, 140, 140, 0.9) !important;
+}
+
+.release-delivery-service-eligibility {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 9px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(215, 177, 74, 0.26);
+  background: rgba(215, 177, 74, 0.08);
+  color: rgba(255, 225, 148, 0.88);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+}

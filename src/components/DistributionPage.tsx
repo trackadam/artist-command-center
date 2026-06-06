@@ -171,6 +171,79 @@ const additionalDeliveryOptions: Array<{ key: AdditionalDeliveryKey; label: stri
   { key: "even", label: "EVEN", description: "Sell music directly to fans through your connected EVEN account." },
 ];
 
+const beatportLegacyGenres = [
+  "140 / Deep Dubstep / Grime",
+  "Afro House",
+  "Amapiano",
+  "Ambient / Experimental",
+  "Bass / Club",
+  "Bass House",
+  "Brazilian Funk",
+  "Breaks / Breakbeat / UK Bass",
+  "Dance / Pop",
+  "Deep House",
+  "DJ Tools",
+  "Downtempo",
+  "Drum & Bass",
+  "Dubstep",
+  "Electro (Classic / Detroit / Modern)",
+  "Electronica",
+  "Funky House",
+  "Hard Dance / Hardcore / Neo Rave",
+  "Hard Techno",
+  "House",
+  "Indie Dance",
+  "Jackin House",
+  "Latin Electronic",
+  "Mainstage",
+  "Melodic House & Techno",
+  "Minimal / Deep Tech",
+  "Nu Disco / Disco",
+  "Organic House",
+  "Progressive House",
+  "Psy-Trance",
+  "Tech House",
+  "Techno (Peak Time / Driving)",
+  "Techno (Raw / Deep / Hypnotic)",
+  "Trance (Main Floor)",
+  "Trance (Raw / Deep / Hypnotic)",
+  "Trap / Future Bass",
+  "UK Garage / Bassline",
+];
+
+const beatportLegacyGenreKeys = new Set(beatportLegacyGenres.map(normalizeBeatportGenre));
+
+function normalizeBeatportGenre(value: string) {
+  return value.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "").trim();
+}
+
+function getBeatportEligibility(primaryGenre: string, secondaryGenre: string) {
+  const selectedGenres = [primaryGenre, secondaryGenre].map((genre) => genre.trim()).filter(Boolean);
+
+  if (!selectedGenres.length) {
+    return {
+      eligible: false,
+      reason: "Select a Beatport-eligible electronic/dance genre before enabling Beatport.",
+      matchedGenre: "",
+    };
+  }
+
+  const matchedGenre = selectedGenres.find((genre) => beatportLegacyGenreKeys.has(normalizeBeatportGenre(genre)));
+  if (matchedGenre) {
+    return {
+      eligible: true,
+      reason: `Eligible through ${matchedGenre}.`,
+      matchedGenre,
+    };
+  }
+
+  return {
+    eligible: false,
+    reason: "Not available — Beatport only accepts eligible legacy electronic/dance genres.",
+    matchedGenre: "",
+  };
+}
+
 const fallbackGenreOptions: SelectOption[] = [
   "R&B/Soul",
   "Hip-Hop/Rap",
@@ -1050,6 +1123,16 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [artworkUploadError, setArtworkUploadError] = useState("");
   const releaseSetupAutoLoadedRef = useRef(false);
   const analyticsPlatformsAutoLoadedRef = useRef(false);
+  const beatportEligibility = useMemo(
+    () => getBeatportEligibility(releaseMetadataForm.primaryGenre, releaseMetadataForm.secondaryGenre),
+    [releaseMetadataForm.primaryGenre, releaseMetadataForm.secondaryGenre],
+  );
+
+  useEffect(() => {
+    if (!beatportEligibility.eligible && additionalDelivery.beatPort) {
+      setAdditionalDelivery((current) => ({ ...current, beatPort: false }));
+    }
+  }, [beatportEligibility.eligible, additionalDelivery.beatPort]);
 
   function setActiveReleaseSession(releaseId: string) {
     setSelectedReleaseId(releaseId);
@@ -1481,10 +1564,19 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       if (selectedDeliveryPlatforms.length === 0) throw new Error("Select at least one platform.");
       if (selectedTerritories.length === 0) throw new Error("Select at least one territory.");
 
+      if (additionalDelivery.beatPort && !beatportEligibility.eligible) {
+        throw new Error(beatportEligibility.reason);
+      }
+
+      const deliveryAdditional = {
+        ...additionalDelivery,
+        beatPort: beatportEligibility.eligible ? additionalDelivery.beatPort : false,
+      };
+
       const data = await updateTooLostReleaseDelivery(selectedReleaseId, {
         platforms: selectedDeliveryPlatforms,
         territories: selectedTerritories,
-        additional: additionalDelivery,
+        additional: deliveryAdditional,
       });
 
       setDeliveryUpdateState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
@@ -3064,18 +3156,30 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 <div className="release-delivery-services-grid">
                   {additionalDeliveryOptions.map((option) => {
                     const checked = additionalDelivery[option.key];
+                    const isBeatport = option.key === "beatPort";
+                    const disabled = isBeatport && !beatportEligibility.eligible;
+                    const serviceNote = disabled ? beatportEligibility.reason : isBeatport && beatportEligibility.matchedGenre ? beatportEligibility.reason : option.note;
+
                     return (
-                      <label key={option.key} className={`release-delivery-toggle-card release-delivery-service-card${checked ? " release-delivery-toggle-card-active" : ""}`}>
+                      <label
+                        key={option.key}
+                        title={disabled ? beatportEligibility.reason : option.label}
+                        className={`release-delivery-toggle-card release-delivery-service-card${checked ? " release-delivery-toggle-card-active" : ""}${disabled ? " release-delivery-service-card-disabled" : ""}`}>
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={(e) => setAdditionalDelivery((prev) => ({ ...prev, [option.key]: e.target.checked }))}
+                          disabled={disabled}
+                          onChange={(e) => {
+                            if (disabled) return;
+                            setAdditionalDelivery((prev) => ({ ...prev, [option.key]: e.target.checked }));
+                          }}
                         />
                         <span className="release-delivery-option-check">✓</span>
                         <span className="release-delivery-service-copy">
                           <strong>{option.label}</strong>
                           <small>{option.description}</small>
-                          {option.note ? <em>{option.note}</em> : null}
+                          {serviceNote ? <em className={disabled ? "release-delivery-service-warning" : undefined}>{serviceNote}</em> : null}
+                          {isBeatport ? <span className="release-delivery-service-eligibility">Beatport eligible genres only</span> : null}
                         </span>
                       </label>
                     );
