@@ -1288,13 +1288,6 @@ function getNestedPreferenceRecord(record: Record<string, unknown> | null, key: 
   return isRecord(value) ? value : null;
 }
 
-function getNestedPreferenceString(record: Record<string, unknown> | null, key: string, keys: string[]) {
-  const nested = getNestedPreferenceRecord(record, key);
-  if (!nested) return "";
-  const value = getRecordValue(nested, keys);
-  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : "";
-}
-
 function getPreferenceString(record: Record<string, unknown> | null, keys: string[]) {
   if (!record) return "";
   const value = getRecordValue(record, keys);
