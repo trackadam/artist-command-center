@@ -555,6 +555,15 @@ export type TooLostDeliveryPayload = {
   territories: string[];
   additional?: {
     youtube?: boolean;
+    facebook?: boolean;
+    soundcloud?: boolean;
+    soundExchange?: boolean;
+    beatPort?: boolean;
+    junoDownloads?: boolean;
+    trackLibs?: boolean;
+    hook?: boolean;
+    lyricfind?: boolean;
+    even?: boolean;
   };
 };
 

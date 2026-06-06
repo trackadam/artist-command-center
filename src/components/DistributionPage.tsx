@@ -39,6 +39,8 @@ type DistributionPageProps = {
 type DashboardTab = "Overview" | "Catalog" | "Release Builder" | "Analytics" | "Sales" | "Setup" | "Developer";
 type ReleaseBuilderStepKey = "start" | "select" | "artwork" | "info" | "tracks" | "delivery" | "validation" | "review";
 type ReleaseTierStepKey = Extract<ReleaseBuilderStepKey, "start" | "artwork" | "info" | "tracks">;
+type AdditionalDeliveryKey = "youtube" | "facebook" | "soundcloud" | "soundExchange" | "beatPort" | "junoDownloads" | "trackLibs" | "hook" | "lyricfind" | "even";
+type AdditionalDeliveryState = Record<AdditionalDeliveryKey, boolean>;
 
 type EndpointState = {
   loading: boolean;
@@ -143,6 +145,32 @@ const licenseTypeOptions = ["Copyright", "Public Domain", "Creative Commons"];
 const releaseSetupLookupKeys: TooLostEndpointKey[] = ["lookupGenres", "lookupLanguages", "lookupPlatforms", "lookupCountries"];
 const activeReleaseStorageKey = "track-adam-os-active-release-id";
 
+const emptyAdditionalDeliveryState: AdditionalDeliveryState = {
+  youtube: false,
+  facebook: false,
+  soundcloud: false,
+  soundExchange: false,
+  beatPort: false,
+  junoDownloads: false,
+  trackLibs: false,
+  hook: false,
+  lyricfind: false,
+  even: false,
+};
+
+const additionalDeliveryOptions: Array<{ key: AdditionalDeliveryKey; label: string; description: string; note?: string }> = [
+  { key: "youtube", label: "YouTube Content ID", description: "Monetize and fingerprint-protect this release on YouTube. Requires 100% exclusive rights." },
+  { key: "facebook", label: "Meta Rights Manager", description: "Fingerprint-based content protection on Facebook and Instagram." },
+  { key: "soundcloud", label: "SoundCloud Monetization", description: "Monetized streaming and copyright protection on SoundCloud." },
+  { key: "soundExchange", label: "SoundExchange", description: "Collect Rights Owner digital performance royalties for sound recordings in the U.S.", note: "Artists should still collect their artist royalties directly through SX Direct." },
+  { key: "beatPort", label: "Beatport", description: "Electronic music store for DJs, full songs, and remix resources." },
+  { key: "junoDownloads", label: "Juno Download", description: "Independent dance music store delivery including Discogs, Pacha Download, and DJ Tunes." },
+  { key: "trackLibs", label: "Tracklib", description: "Let producers sample and clear your original music for official use." },
+  { key: "hook", label: "Hook", description: "Get paid when your music is used in remixes by other creators." },
+  { key: "lyricfind", label: "LyricFind", description: "Lyric licensing and synchronization across major music platforms." },
+  { key: "even", label: "EVEN", description: "Sell music directly to fans through your connected EVEN account." },
+];
+
 const fallbackGenreOptions: SelectOption[] = [
   "R&B/Soul",
   "Hip-Hop/Rap",
@@ -237,6 +265,24 @@ function stringifyCell(value: unknown) {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value);
+}
+
+function getReleaseDeliveryRecord(release: unknown) {
+  const payload = getPayloadData(release);
+  if (!isRecord(payload)) return null;
+
+  const delivery = payload.delivery;
+  return isRecord(delivery) ? delivery : null;
+}
+
+function extractAdditionalDeliveryState(release: unknown): AdditionalDeliveryState {
+  const delivery = getReleaseDeliveryRecord(release);
+  if (!delivery) return { ...emptyAdditionalDeliveryState };
+
+  return additionalDeliveryOptions.reduce<AdditionalDeliveryState>((current, option) => {
+    current[option.key] = delivery[option.key] === true;
+    return current;
+  }, { ...emptyAdditionalDeliveryState });
 }
 
 function getEndpointState(results: Partial<Record<TooLostEndpointKey, EndpointState>>, key: TooLostEndpointKey) {
@@ -982,7 +1028,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [isrcValidationState, setIsrcValidationState] = useState<EndpointState>(defaultEndpointState);
   const [selectedDeliveryPlatforms, setSelectedDeliveryPlatforms] = useState<string[]>([]);
   const [selectedTerritories, setSelectedTerritories] = useState<string[]>([]);
-  const [deliveryYoutube, setDeliveryYoutube] = useState(false);
+  const [additionalDelivery, setAdditionalDelivery] = useState<AdditionalDeliveryState>({ ...emptyAdditionalDeliveryState });
   const [deliveryUpdateState, setDeliveryUpdateState] = useState<EndpointState>(defaultEndpointState);
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -1080,7 +1126,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     setIsrcValidationState(defaultEndpointState);
     setSelectedDeliveryPlatforms([]);
     setSelectedTerritories([]);
-    setDeliveryYoutube(false);
+    setAdditionalDelivery({ ...emptyAdditionalDeliveryState });
     setDeliveryUpdateState(defaultEndpointState);
     setRightsConfirmed(false);
     setAcceptTerms(false);
@@ -1188,6 +1234,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       setReleaseDetailState({ loading: false, error: "", data: release, loadedAt: new Date().toISOString() });
       const metaForm = extractReleaseMetadataForm(release);
       setReleaseMetadataForm(metaForm);
+      setAdditionalDelivery(extractAdditionalDeliveryState(release));
       setArtworkPreviewUrl(metaForm.coverUrl || "");
 
       const loadedTrackForms = extractTrackForms(tracks);
@@ -1437,7 +1484,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       const data = await updateTooLostReleaseDelivery(selectedReleaseId, {
         platforms: selectedDeliveryPlatforms,
         territories: selectedTerritories,
-        additional: { youtube: deliveryYoutube },
+        additional: additionalDelivery,
       });
 
       setDeliveryUpdateState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
@@ -1645,7 +1692,7 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       const data = await submitTooLostRelease(selectedReleaseId, {
         acceptTerms: true,
         confirmRights: true,
-        confirmYoutubeRights: deliveryYoutube ? true : null,
+        confirmYoutubeRights: additionalDelivery.youtube ? true : null,
         idempotencyKey,
       });
 
@@ -3006,30 +3053,41 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
                 </section>
               </div>
 
-              <div className="release-delivery-additional release-delivery-additional-modern">
-                <div>
-                  <h4>Additional Options</h4>
-                  <p>Optional monetization and protection services for this release.</p>
+              <div className="release-delivery-additional release-delivery-additional-modern release-delivery-services-panel">
+                <div className="release-delivery-services-head">
+                  <div>
+                    <h4>Additional Delivery</h4>
+                    <p>Optional API-backed monetization, protection, and specialty delivery services. Only enable services when the release has the required rights or account setup.</p>
+                  </div>
+                  <span className="release-delivery-count-pill">{Object.values(additionalDelivery).filter(Boolean).length}/{additionalDeliveryOptions.length}</span>
                 </div>
-                <label className={`release-delivery-toggle-card${deliveryYoutube ? " release-delivery-toggle-card-active" : ""}`}>
-                  <input
-                    type="checkbox"
-                    checked={deliveryYoutube}
-                    onChange={(e) => setDeliveryYoutube(e.target.checked)}
-                  />
-                  <span className="release-delivery-option-check">✓</span>
-                  <span>
-                    <strong>YouTube Content ID</strong>
-                    <small>Enable monetization and fingerprint protection on YouTube.</small>
-                  </span>
-                </label>
+                <div className="release-delivery-services-grid">
+                  {additionalDeliveryOptions.map((option) => {
+                    const checked = additionalDelivery[option.key];
+                    return (
+                      <label key={option.key} className={`release-delivery-toggle-card release-delivery-service-card${checked ? " release-delivery-toggle-card-active" : ""}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => setAdditionalDelivery((prev) => ({ ...prev, [option.key]: e.target.checked }))}
+                        />
+                        <span className="release-delivery-option-check">✓</span>
+                        <span className="release-delivery-service-copy">
+                          <strong>{option.label}</strong>
+                          <small>{option.description}</small>
+                          {option.note ? <em>{option.note}</em> : null}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               {deliveryUpdateState.data ? (
                 <div className="distribution-v5-kv-list release-delivery-summary">
                   <div><span>Platforms saved</span><strong>{selectedDeliveryPlatforms.length}</strong></div>
                   <div><span>Territories saved</span><strong>{selectedTerritories.length}</strong></div>
-                  <div><span>YouTube</span><strong>{deliveryYoutube ? "Enabled" : "Disabled"}</strong></div>
+                  <div><span>Additional services</span><strong>{Object.values(additionalDelivery).filter(Boolean).length}</strong></div>
                   <div><span>Saved at</span><strong>{deliveryUpdateState.loadedAt ? new Date(deliveryUpdateState.loadedAt).toLocaleTimeString() : "—"}</strong></div>
                 </div>
               ) : null}
