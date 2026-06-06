@@ -60,6 +60,7 @@ export type TooLostEndpointKey =
   | "lookupLanguages"
   | "lookupCountries"
   | "preferencesLabel"
+  | "preferencesArtist"
   | "preferencesArtists";
 
 export type TooLostEndpointDefinition = {
@@ -195,9 +196,17 @@ export const TOOLOST_ENDPOINTS: TooLostEndpointDefinition[] = [
     section: "Preferences",
     description: "Label preference profile data.",
   },
+
+  {
+    key: "preferencesArtist",
+    label: "Artist Profile",
+    path: "/preferences/artist",
+    section: "Preferences",
+    description: "Primary artist preference profile data.",
+  },
   {
     key: "preferencesArtists",
-    label: "Artist Preferences",
+    label: "Artist Roster",
     path: "/preferences/artists",
     section: "Preferences",
     description: "Artist preference profiles connected to the label.",
@@ -695,6 +704,91 @@ export async function putTooLostReleaseTracks(
   return callTooLostEndpoint(`/releases/${releaseId}/tracks`, {
     method: "PUT",
     body: { tracks },
+  });
+}
+
+// ── Preferences / setup pipeline ─────────────────────────────
+
+export async function getTooLostArtistPreferences() {
+  return callTooLostEndpoint("/preferences/artist");
+}
+
+export async function getTooLostLabelPreferences() {
+  return callTooLostEndpoint("/preferences/label");
+}
+
+export async function getTooLostPreferenceArtists() {
+  return callTooLostEndpoint("/preferences/artists");
+}
+
+export async function submitTooLostArtistPreferences(payload: Record<string, unknown>) {
+  return callTooLostEndpoint("/preferences/artist/submit", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function submitTooLostLabelPreferences(payload: Record<string, unknown>) {
+  return callTooLostEndpoint("/preferences/label/submit", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function removeTooLostLabelArtist(artistId: string | number) {
+  return callTooLostEndpoint("/preferences/label/artist/remove", {
+    method: "POST",
+    body: { id: artistId, artistId },
+  });
+}
+
+export async function getTooLostLabelArtist(artistId: string | number) {
+  return callTooLostEndpoint(`/preferences/label/artist/${artistId}`);
+}
+
+export type TooLostPreferencePlatform = "spotify" | "apple" | "youtube";
+
+function getPreferenceSearchPath(platform: TooLostPreferencePlatform) {
+  if (platform === "spotify") return "/preferences/search-spotify";
+  if (platform === "apple") return "/preferences/search-apple";
+  return "/preferences/search-yt-channel";
+}
+
+function getPreferenceGetPath(platform: TooLostPreferencePlatform) {
+  if (platform === "spotify") return "/preferences/get-spotify-artist";
+  if (platform === "apple") return "/preferences/get-apple-artist";
+  return "/preferences/get-yt-channel";
+}
+
+export async function searchTooLostPreferencePlatform(platform: TooLostPreferencePlatform, search: string) {
+  return callTooLostEndpoint(getPreferenceSearchPath(platform), {
+    query: { search, q: search },
+  });
+}
+
+export async function getTooLostPreferencePlatformItem(platform: TooLostPreferencePlatform, id: string | number) {
+  return callTooLostEndpoint(getPreferenceGetPath(platform), {
+    query: { id, artistId: id, channelId: id },
+  });
+}
+
+export async function getTooLostArtistViaLink(link: string) {
+  return callTooLostEndpoint("/preferences/artist-via-link", {
+    query: { link, url: link },
+  });
+}
+
+export async function searchTooLostArtistViaPlatform(platform: string, search: string) {
+  return callTooLostEndpoint("/preferences/search/artist-platform", {
+    method: "POST",
+    body: { platform, search, query: search },
+  });
+}
+
+export async function getTooLostArtistViaUrl(url: string) {
+  return callTooLostEndpoint("/preferences/artist/get-artist-via-url", {
+    method: "POST",
+    body: { url, link: url },
   });
 }
 

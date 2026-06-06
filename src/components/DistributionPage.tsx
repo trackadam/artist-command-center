@@ -15,6 +15,13 @@ import {
   putTooLostReleaseTracks,
   validateTooLostUpc,
   validateTooLostIsrc,
+  getTooLostArtistViaUrl,
+  getTooLostLabelArtist,
+  getTooLostPreferencePlatformItem,
+  removeTooLostLabelArtist,
+  searchTooLostPreferencePlatform,
+  submitTooLostArtistPreferences,
+  submitTooLostLabelPreferences,
   disconnectTooLost,
   fetchTooLostEndpoint,
   getTooLostConfig,
@@ -26,6 +33,7 @@ import {
   type TooLostConnection,
   type TooLostEndpointDefinition,
   type TooLostEndpointKey,
+  type TooLostPreferencePlatform,
   type TooLostTrackPayload,
 } from "../lib/tooLostApi";
 
@@ -53,6 +61,15 @@ type MetricCard = {
   label: string;
   value: string;
   helper?: string;
+};
+
+type PreferenceSearchState = EndpointState & {
+  platform: TooLostPreferencePlatform;
+  query: string;
+};
+
+type PreferenceUrlLookupState = EndpointState & {
+  url: string;
 };
 
 type ReleaseDraftForm = {
@@ -1095,6 +1112,107 @@ function RawJson({ data }: { data: unknown }) {
   );
 }
 
+
+function getPreferenceRows(value: unknown) {
+  return getRows(value);
+}
+
+function getPreferenceRecord(value: unknown) {
+  const payload = getPayloadData(value);
+  if (isRecord(payload)) return payload;
+  const rows = getRows(value);
+  return rows[0] || null;
+}
+
+function getPreferenceName(value: unknown, fallback = "Preference") {
+  const record = isRecord(value) ? value : getPreferenceRecord(value);
+  if (!record) return fallback;
+  return stringifyCell(getRecordValue(record, ["name", "artistName", "artist_name", "label", "title", "displayName", "display_name", "channelTitle"]));
+}
+
+function getPreferenceId(value: unknown) {
+  const record = isRecord(value) ? value : getPreferenceRecord(value);
+  if (!record) return "";
+  return stringifyCell(getRecordValue(record, ["id", "artistId", "artist_id", "channelId", "channel_id", "spotifyId", "appleId", "externalId"]));
+}
+
+function getPreferenceUrl(value: unknown) {
+  const record = isRecord(value) ? value : getPreferenceRecord(value);
+  if (!record) return "";
+  return stringifyCell(getRecordValue(record, ["url", "link", "artistUrl", "artist_url", "spotifyUrl", "appleUrl", "youtubeUrl", "externalUrl"]));
+}
+
+function getPreferenceSubtitle(value: unknown) {
+  const record = isRecord(value) ? value : getPreferenceRecord(value);
+  if (!record) return "No details returned yet.";
+  const platform = stringifyCell(getRecordValue(record, ["platform", "service", "type", "role"]));
+  const id = getPreferenceId(record);
+  const url = getPreferenceUrl(record);
+  return [platform !== "—" ? platform : "", id && id !== "—" ? `ID ${id}` : "", url && url !== "—" ? url : ""].filter(Boolean).join(" • ") || "Preference profile returned by Too Lost.";
+}
+
+function getPreferenceSnapshotPairs(value: unknown) {
+  const record = getPreferenceRecord(value);
+  if (!record) return [] as Array<[string, string]>;
+  return Object.entries(record)
+    .filter(([, item]) => item !== undefined && item !== null && item !== "" && typeof item !== "object")
+    .slice(0, 8)
+    .map(([key, item]) => [key.replace(/_/g, " "), stringifyCell(item)] as [string, string]);
+}
+
+function PreferenceMiniCard({ data, title, emptyLabel }: { data: unknown; title: string; emptyLabel: string }) {
+  const record = getPreferenceRecord(data);
+  const pairs = getPreferenceSnapshotPairs(data);
+
+  return (
+    <article className="preference-mini-card">
+      <span>{title}</span>
+      <strong>{record ? getPreferenceName(record, title) : emptyLabel}</strong>
+      {record ? <small>{getPreferenceSubtitle(record)}</small> : <small>Sync setup data to load this profile.</small>}
+      {pairs.length ? (
+        <div className="preference-mini-kv">
+          {pairs.slice(0, 4).map(([key, value]) => (
+            <div key={key}><em>{key}</em><b>{value}</b></div>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function PreferenceResultList({ data, onInspect }: { data: unknown; onInspect?: (record: Record<string, unknown>) => void }) {
+  const rows = getPreferenceRows(data);
+
+  if (!rows.length) {
+    return (
+      <div className="preference-empty-state">
+        <span>⌕</span>
+        <strong>No results loaded yet</strong>
+        <p>Search Spotify, Apple Music, or YouTube to connect the correct artist profile.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="preference-result-list">
+      {rows.slice(0, 8).map((row, index) => {
+        const id = getPreferenceId(row);
+        return (
+          <div className="preference-result-row" key={`${id || "result"}-${index}`}>
+            <div>
+              <strong>{getPreferenceName(row, `Result ${index + 1}`)}</strong>
+              <small>{getPreferenceSubtitle(row)}</small>
+            </div>
+            {onInspect && id && id !== "—" ? (
+              <button className="secondary-btn compact-btn" type="button" onClick={() => onInspect(row)}>Inspect</button>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function SalesInsightList({ data, emptyLabel, label }: { data: unknown; emptyLabel: string; label: string }) {
   const rows = getRows(data);
 
@@ -1185,6 +1303,12 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const [activeReleaseStep, setActiveReleaseStep] = useState<ReleaseBuilderStepKey>("start");
   const [selectedPlatform, setSelectedPlatform] = useState("");
   const [totalStreamsState, setTotalStreamsState] = useState<EndpointState>(defaultEndpointState);
+  const [preferenceSearchState, setPreferenceSearchState] = useState<PreferenceSearchState>({ ...defaultEndpointState, platform: "spotify", query: "" });
+  const [preferenceUrlLookupState, setPreferenceUrlLookupState] = useState<PreferenceUrlLookupState>({ ...defaultEndpointState, url: "" });
+  const [preferencePlatformDetailState, setPreferencePlatformDetailState] = useState<EndpointState>(defaultEndpointState);
+  const [preferenceArtistSubmitState, setPreferenceArtistSubmitState] = useState<EndpointState>(defaultEndpointState);
+  const [preferenceLabelSubmitState, setPreferenceLabelSubmitState] = useState<EndpointState>(defaultEndpointState);
+  const [preferenceRosterActionState, setPreferenceRosterActionState] = useState<EndpointState>(defaultEndpointState);
   const [releaseFilters, setReleaseFilters] = useState<ReleaseFilterForm>(emptyReleaseFilterForm);
   const [selectedReleaseId, setSelectedReleaseId] = useState(() => readStoredActiveReleaseId());
   const [selectedCatalogDraftIds, setSelectedCatalogDraftIds] = useState<string[]>([]);
@@ -1934,6 +2058,158 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     }
   }
 
+
+  async function handlePreferenceSearch() {
+    const query = preferenceSearchState.query.trim();
+    if (!query) {
+      setPreferenceSearchState((current) => ({ ...current, loading: false, error: "Enter an artist, label, or channel search first." }));
+      return;
+    }
+
+    setPreferenceSearchState((current) => ({ ...current, loading: true, error: "" }));
+    setPreferencePlatformDetailState(defaultEndpointState);
+
+    try {
+      const data = await searchTooLostPreferencePlatform(preferenceSearchState.platform, query);
+      setPreferenceSearchState((current) => ({ ...current, loading: false, error: "", data, loadedAt: new Date().toISOString() }));
+    } catch (searchError) {
+      setPreferenceSearchState((current) => ({
+        ...current,
+        loading: false,
+        error: searchError instanceof Error ? searchError.message : "Could not search platform profiles.",
+      }));
+    }
+  }
+
+  async function inspectPreferencePlatformResult(row: Record<string, unknown>) {
+    const id = getPreferenceId(row);
+    if (!id || id === "—") return;
+
+    setPreferencePlatformDetailState((current) => ({ ...current, loading: true, error: "" }));
+
+    try {
+      const data = await getTooLostPreferencePlatformItem(preferenceSearchState.platform, id);
+      setPreferencePlatformDetailState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+    } catch (detailError) {
+      setPreferencePlatformDetailState((current) => ({
+        loading: false,
+        error: detailError instanceof Error ? detailError.message : "Could not inspect platform profile.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
+  async function handlePreferenceUrlLookup() {
+    const url = preferenceUrlLookupState.url.trim();
+    if (!url) {
+      setPreferenceUrlLookupState((current) => ({ ...current, loading: false, error: "Paste a Spotify, Apple Music, or YouTube artist URL first." }));
+      return;
+    }
+
+    setPreferenceUrlLookupState((current) => ({ ...current, loading: true, error: "" }));
+
+    try {
+      const data = await getTooLostArtistViaUrl(url);
+      setPreferenceUrlLookupState((current) => ({ ...current, loading: false, error: "", data, loadedAt: new Date().toISOString() }));
+    } catch (lookupError) {
+      setPreferenceUrlLookupState((current) => ({
+        ...current,
+        loading: false,
+        error: lookupError instanceof Error ? lookupError.message : "Could not detect artist from URL.",
+      }));
+    }
+  }
+
+  async function submitCurrentArtistPreferenceSnapshot() {
+    const payload = getPayloadData(getEndpointState(endpointResults, "preferencesArtist").data);
+    if (!isRecord(payload)) {
+      setPreferenceArtistSubmitState({ loading: false, error: "Load artist preferences first. Submit payload schema depends on the current Too Lost artist preference record.", data: null });
+      return;
+    }
+
+    setPreferenceArtistSubmitState((current) => ({ ...current, loading: true, error: "" }));
+    try {
+      const data = await submitTooLostArtistPreferences(payload);
+      setPreferenceArtistSubmitState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      setEndpointResults((current) => ({
+        ...current,
+        preferencesArtist: { loading: false, error: "", data, loadedAt: new Date().toISOString() },
+      }));
+    } catch (submitError) {
+      setPreferenceArtistSubmitState((current) => ({
+        loading: false,
+        error: submitError instanceof Error ? submitError.message : "Could not submit artist preferences.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
+  async function submitCurrentLabelPreferenceSnapshot() {
+    const payload = getPayloadData(getEndpointState(endpointResults, "preferencesLabel").data);
+    if (!isRecord(payload)) {
+      setPreferenceLabelSubmitState({ loading: false, error: "Load label preferences first. Submit payload schema depends on the current Too Lost label preference record.", data: null });
+      return;
+    }
+
+    setPreferenceLabelSubmitState((current) => ({ ...current, loading: true, error: "" }));
+    try {
+      const data = await submitTooLostLabelPreferences(payload);
+      setPreferenceLabelSubmitState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      setEndpointResults((current) => ({
+        ...current,
+        preferencesLabel: { loading: false, error: "", data, loadedAt: new Date().toISOString() },
+      }));
+    } catch (submitError) {
+      setPreferenceLabelSubmitState((current) => ({
+        loading: false,
+        error: submitError instanceof Error ? submitError.message : "Could not submit label preferences.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
+  async function inspectLabelArtist(row: Record<string, unknown>) {
+    const id = getPreferenceId(row);
+    if (!id || id === "—") return;
+
+    setPreferenceRosterActionState((current) => ({ ...current, loading: true, error: "" }));
+    try {
+      const data = await getTooLostLabelArtist(id);
+      setPreferenceRosterActionState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+    } catch (artistError) {
+      setPreferenceRosterActionState((current) => ({
+        loading: false,
+        error: artistError instanceof Error ? artistError.message : "Could not load label artist.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
+  async function removeLabelArtist(row: Record<string, unknown>) {
+    const id = getPreferenceId(row);
+    if (!id || id === "—") return;
+    const confirmed = window.confirm(`Remove ${getPreferenceName(row, "this artist")} from label preferences?`);
+    if (!confirmed) return;
+
+    setPreferenceRosterActionState((current) => ({ ...current, loading: true, error: "" }));
+    try {
+      const data = await removeTooLostLabelArtist(id);
+      setPreferenceRosterActionState({ loading: false, error: "", data, loadedAt: new Date().toISOString() });
+      await loadEndpoint(findEndpoint("preferencesArtists"));
+    } catch (removeError) {
+      setPreferenceRosterActionState((current) => ({
+        loading: false,
+        error: removeError instanceof Error ? removeError.message : "Could not remove artist from label preferences.",
+        data: current.data,
+        loadedAt: current.loadedAt,
+      }));
+    }
+  }
+
   let configPreview: ReturnType<typeof getTooLostConfig> | null = null;
   let configError = "";
 
@@ -1954,6 +2230,10 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
   const lookupLanguages = getEndpointState(endpointResults, "lookupLanguages");
   const lookupPlatforms = getEndpointState(endpointResults, "lookupPlatforms");
   const lookupCountries = getEndpointState(endpointResults, "lookupCountries");
+  const preferencesLabel = getEndpointState(endpointResults, "preferencesLabel");
+  const preferencesArtist = getEndpointState(endpointResults, "preferencesArtist");
+  const preferencesArtists = getEndpointState(endpointResults, "preferencesArtists");
+  const preferenceArtistRows = getPreferenceRows(preferencesArtists.data).filter(isRecord);
   const salesOverview = getEndpointState(endpointResults, "salesOverview").data;
   const profileRecord = getProfileRecord(profileResult);
   const platformOptions = useMemo(() => {
@@ -1995,6 +2275,17 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
     releaseSetupAutoLoadedRef.current = true;
     void loadMany(releaseSetupLookupKeys);
   }, [activeTab, canLoad, actionLoading, setupDataNeedsLoad]);
+
+  useEffect(() => {
+    if (activeTab !== "Setup") return;
+    if (!canLoad || actionLoading) return;
+    const setupPreferenceKeys: TooLostEndpointKey[] = ["preferencesLabel", "preferencesArtist", "preferencesArtists", "lookupPlatforms", "lookupGenres", "lookupLanguages", "lookupCountries"];
+    const needsAny = setupPreferenceKeys.some((key) => {
+      const state = getEndpointState(endpointResults, key);
+      return !state.loading && !state.data && !state.error;
+    });
+    if (needsAny) void loadMany(setupPreferenceKeys);
+  }, [activeTab, canLoad, actionLoading]);
 
   useEffect(() => {
     if (activeTab !== "Analytics") return;
@@ -3991,29 +4282,172 @@ export default function DistributionPage({ oauthStatus, oauthMessage, activeTab:
       ) : null}
 
       {activeTab === "Setup" ? (
-        <div className="distribution-v5-section">
-          <div className="distribution-v5-section-head">
+        <div className="setup-command-center">
+          <div className="setup-hero-card">
             <div>
-              <h3>Setup Data</h3>
-              <p>Lookup and preference data used later for release creation forms.</p>
+              <span className="asset-type-pill">Preferences</span>
+              <h2>Distribution Setup</h2>
+              <p>Manage the API-backed label, artist roster, platform profile matching, and setup data that powers new releases.</p>
             </div>
-            <button className="primary-btn" type="button" disabled={!canLoad || actionLoading} onClick={() => void loadMany(["lookupPlatforms", "lookupGenres", "lookupLanguages", "lookupCountries", "preferencesLabel", "preferencesArtists"])}>
-              {actionLoading ? "Loading..." : "Load Setup Data"}
-            </button>
+            <div className="setup-hero-actions">
+              <span className={setupDataLoaded ? "status-pill status-pill-green" : "status-pill"}>{setupDataLoaded ? "Lookup data ready" : "Lookup sync needed"}</span>
+              <button
+                className="primary-btn"
+                type="button"
+                disabled={!canLoad || actionLoading}
+                onClick={() => void loadMany(["preferencesLabel", "preferencesArtist", "preferencesArtists", "lookupPlatforms", "lookupGenres", "lookupLanguages", "lookupCountries"])}
+              >
+                {actionLoading ? "Syncing..." : "Sync Setup"}
+              </button>
+            </div>
           </div>
 
-          <div className="distribution-v5-two-col">
-            {(["lookupPlatforms", "lookupGenres", "lookupLanguages", "lookupCountries", "preferencesLabel", "preferencesArtists"] as TooLostEndpointKey[]).map((key) => {
-              const endpoint = findEndpoint(key);
-              const state = getEndpointState(endpointResults, key);
-              return (
-                <article className="asset-card distribution-v5-panel" key={key}>
-                  <h3>{endpoint.label}</h3>
-                  <InlineError message={state.error} />
-                  <DataTable data={state.data} emptyLabel={`No ${endpoint.label.toLowerCase()} loaded yet.`} />
-                </article>
-              );
-            })}
+          <div className="setup-health-grid">
+            <article className="setup-health-card">
+              <span>Label</span>
+              <strong>{preferencesLabel.data ? "Loaded" : preferencesLabel.loading ? "Syncing" : "Not loaded"}</strong>
+              <small>{preferencesLabel.loadedAt ? `Synced ${formatDate(preferencesLabel.loadedAt)}` : "GET /preferences/label"}</small>
+            </article>
+            <article className="setup-health-card">
+              <span>Primary Artist</span>
+              <strong>{preferencesArtist.data ? "Loaded" : preferencesArtist.loading ? "Syncing" : "Not loaded"}</strong>
+              <small>{preferencesArtist.loadedAt ? `Synced ${formatDate(preferencesArtist.loadedAt)}` : "GET /preferences/artist"}</small>
+            </article>
+            <article className="setup-health-card">
+              <span>Roster</span>
+              <strong>{preferenceArtistRows.length}</strong>
+              <small>Connected artist preference records</small>
+            </article>
+            <article className="setup-health-card">
+              <span>Lookups</span>
+              <strong>{setupDataLoaded ? "Ready" : "Partial"}</strong>
+              <small>Genres, languages, platforms, territories</small>
+            </article>
+          </div>
+
+          <div className="setup-profile-grid">
+            <PreferenceMiniCard data={preferencesLabel.data} title="Label Preference" emptyLabel="No label profile" />
+            <PreferenceMiniCard data={preferencesArtist.data} title="Artist Preference" emptyLabel="No artist profile" />
+            <article className="asset-card setup-action-panel">
+              <span className="asset-type-pill">Safe Submit</span>
+              <h3>Preference Save Actions</h3>
+              <p>These use the API submit endpoints. Until we have the exact writable schema, Track Adam OS submits the current synced preference payload only.</p>
+              <InlineError message={preferenceLabelSubmitState.error || preferenceArtistSubmitState.error} />
+              <div className="setup-action-row">
+                <button className="secondary-btn" type="button" disabled={!canLoad || preferenceLabelSubmitState.loading} onClick={() => void submitCurrentLabelPreferenceSnapshot()}>
+                  {preferenceLabelSubmitState.loading ? "Saving..." : "Submit Label Snapshot"}
+                </button>
+                <button className="secondary-btn" type="button" disabled={!canLoad || preferenceArtistSubmitState.loading} onClick={() => void submitCurrentArtistPreferenceSnapshot()}>
+                  {preferenceArtistSubmitState.loading ? "Saving..." : "Submit Artist Snapshot"}
+                </button>
+              </div>
+              {(preferenceLabelSubmitState.data || preferenceArtistSubmitState.data) ? <span className="status-pill status-pill-green">Preference submit returned successfully</span> : null}
+            </article>
+          </div>
+
+          <div className="setup-main-grid">
+            <article className="asset-card setup-panel setup-roster-panel">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Artist Roster</span>
+                  <h3>Connected Label Artists</h3>
+                  <p>Artists returned by GET /preferences/artists. Inspect records or remove label artists with confirmation.</p>
+                </div>
+                <span className="analytics-count-pill">{preferenceArtistRows.length} artists</span>
+              </div>
+              <InlineError message={preferencesArtists.error || preferenceRosterActionState.error} />
+              {!preferenceArtistRows.length ? (
+                <div className="preference-empty-state">
+                  <span>♪</span>
+                  <strong>No artist roster loaded yet</strong>
+                  <p>Sync setup to pull connected artist preferences from Too Lost.</p>
+                </div>
+              ) : (
+                <div className="setup-roster-list">
+                  {preferenceArtistRows.map((row, index) => {
+                    const id = getPreferenceId(row);
+                    return (
+                      <div className="setup-roster-row" key={`${id || "artist"}-${index}`}>
+                        <div>
+                          <strong>{getPreferenceName(row, `Artist ${index + 1}`)}</strong>
+                          <small>{getPreferenceSubtitle(row)}</small>
+                        </div>
+                        <div className="setup-roster-actions">
+                          {id && id !== "—" ? <button className="secondary-btn compact-btn" type="button" disabled={!canLoad || preferenceRosterActionState.loading} onClick={() => void inspectLabelArtist(row)}>Inspect</button> : null}
+                          {id && id !== "—" ? <button className="danger-btn compact-btn" type="button" disabled={!canLoad || preferenceRosterActionState.loading} onClick={() => void removeLabelArtist(row)}>Remove</button> : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {preferenceRosterActionState.data ? (
+                <div className="setup-response-card">
+                  <span>Latest artist action</span>
+                  <strong>{getPreferenceName(preferenceRosterActionState.data, "Artist detail")}</strong>
+                  <small>{preferenceRosterActionState.loadedAt ? `Updated ${formatDate(preferenceRosterActionState.loadedAt)}` : "Response returned"}</small>
+                </div>
+              ) : null}
+            </article>
+
+            <article className="asset-card setup-panel setup-platform-panel">
+              <div className="analytics-panel-head">
+                <div>
+                  <span className="asset-type-pill">Platform Match</span>
+                  <h3>Search Spotify, Apple Music, or YouTube</h3>
+                  <p>Find the official platform profile before connecting it to artist preferences.</p>
+                </div>
+                <span className="analytics-count-pill">{getPreferenceRows(preferenceSearchState.data).length} results</span>
+              </div>
+              <div className="setup-search-grid">
+                <label>
+                  <span>Platform</span>
+                  <select value={preferenceSearchState.platform} onChange={(event) => setPreferenceSearchState((current) => ({ ...current, platform: event.target.value as TooLostPreferencePlatform }))}>
+                    <option value="spotify">Spotify</option>
+                    <option value="apple">Apple Music</option>
+                    <option value="youtube">YouTube</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Search</span>
+                  <input value={preferenceSearchState.query} onChange={(event) => setPreferenceSearchState((current) => ({ ...current, query: event.target.value }))} placeholder="Artist name or channel name" />
+                </label>
+                <button className="primary-btn" type="button" disabled={!canLoad || preferenceSearchState.loading} onClick={() => void handlePreferenceSearch()}>
+                  {preferenceSearchState.loading ? "Searching..." : "Search Profiles"}
+                </button>
+              </div>
+              <InlineError message={preferenceSearchState.error || preferencePlatformDetailState.error} />
+              <PreferenceResultList data={preferenceSearchState.data} onInspect={(row) => void inspectPreferencePlatformResult(row)} />
+              {preferencePlatformDetailState.data ? (
+                <div className="setup-response-card">
+                  <span>Inspected profile</span>
+                  <strong>{getPreferenceName(preferencePlatformDetailState.data, "Platform profile")}</strong>
+                  <small>{getPreferenceSubtitle(preferencePlatformDetailState.data)}</small>
+                </div>
+              ) : null}
+            </article>
+          </div>
+
+          <div className="setup-url-panel asset-card">
+            <div>
+              <span className="asset-type-pill">URL Lookup</span>
+              <h3>Detect Artist From Platform URL</h3>
+              <p>Paste a Spotify, Apple Music, or YouTube URL and let Too Lost identify the artist profile.</p>
+            </div>
+            <div className="setup-url-row">
+              <input value={preferenceUrlLookupState.url} onChange={(event) => setPreferenceUrlLookupState((current) => ({ ...current, url: event.target.value }))} placeholder="Paste artist or channel URL" />
+              <button className="primary-btn" type="button" disabled={!canLoad || preferenceUrlLookupState.loading} onClick={() => void handlePreferenceUrlLookup()}>
+                {preferenceUrlLookupState.loading ? "Checking..." : "Detect Artist"}
+              </button>
+            </div>
+            <InlineError message={preferenceUrlLookupState.error} />
+            {preferenceUrlLookupState.data ? (
+              <div className="setup-response-card setup-url-result">
+                <span>Detected profile</span>
+                <strong>{getPreferenceName(preferenceUrlLookupState.data, "Detected artist")}</strong>
+                <small>{getPreferenceSubtitle(preferenceUrlLookupState.data)}</small>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
